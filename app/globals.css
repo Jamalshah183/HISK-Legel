@@ -1,0 +1,120 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Plus+Jakarta+Sans:ital,wght@0,600;0,700;0,800;1,700&display=swap');
+@import "tailwindcss";
+
+@layer base {
+  :root {
+    --bg-ivory: #FAFAF7;
+    --emerald-primary: #0F6B4C;
+    --emerald-dark: #0A4B35;
+    --emerald-light: #E8F5F0;
+    --amber-accent: #F5A623;
+    --amber-hover: #E09415;
+    --charcoal-body: #1A1A1A;
+    --gray-secondary: #5A6275;
+    --gray-light: #ECEFEA;
+    --whatsapp-green: #25D366;
+  }
+
+  body {
+    background-color: var(--bg-ivory);
+    color: var(--charcoal-body);
+    font-family: 'Inter', system-ui, -apple-system, sans-serif;
+    -webkit-font-smoothing: antialiased;
+    overflow-x: hidden;
+  }
+
+  h1, h2, h3, h4, h5, h6, .font-heading {
+    font-family: 'Plus Jakarta Sans', 'General Sans', system-ui, sans-serif;
+    letter-spacing: -0.02em;
+  }
+}
+
+/* Custom scrollbars */
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+::-webkit-scrollbar-track {
+  background: #FAFAF7;
+}
+::-webkit-scrollbar-thumb {
+  background: #CBD5E1;
+  border-radius: 4px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #0F6B4C;
+}
+
+/* Infinite Marquee Animations */
+@keyframes marquee-ltr {
+  0% {
+    transform: translateX(-50%);
+  }
+  100% {
+    transform: translateX(0%);
+  }
+}
+
+@keyframes marquee-rtl {
+  0% {
+    transform: translateX(0%);
+  }
+  100% {
+    transform: translateX(-50%);
+  }
+}
+
+.animate-marquee-ltr {
+  display: flex;
+  width: max-content;
+  animation: marquee-ltr 40s linear infinite;
+}
+
+.animate-marquee-rtl {
+  display: flex;
+  width: max-content;
+  animation: marquee-rtl 40s linear infinite;
+}
+
+.animate-marquee-ltr:hover,
+.animate-marquee-rtl:hover {
+  animation-play-state: paused;
+}
+
+.bg-ivory {
+  background-color: #FAFAF7;
+}
+
+.text-emerald-primary {
+  color: #0F6B4C;
+}
+
+.bg-emerald-primary {
+  background-color: #0F6B4C;
+}
+
+.bg-amber-accent {
+  background-color: #F5A623;
+}
+
+.text-amber-accent {
+  color: #F5A623;
+}
+
+@keyframes pulse-subtle {
+  0%, 100% { transform: scale(1); opacity: 1; }
+  50% { transform: scale(1.05); opacity: 0.9; }
+}
+
+.animate-pulse-subtle {
+  animation: pulse-subtle 3s infinite ease-in-out;
+}
+

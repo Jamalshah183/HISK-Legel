@@ -1,0 +1,6 @@
+{
+  "name": "HISK LEGAL",
+  "description": "HISK LEGAL - High Court Tax Advocates & Legal Counsel in Islamabad, Pakistan. FBR Audit Defense, Tax Return Filing, Section 7E Exemption, Corporate SECP Compliance, and direct WhatsApp consultations.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
