@@ -86,7 +86,7 @@ export const INITIAL_CASES: CaseFile[] = [
     clientNtn: '2847593-4',
     caseTitle: 'High Court Writ Petition: Challenge Against Section 7E Deemed Property Tax Demand',
     assignedCounsel: 'Hafiz Irfan Shabber Kayani',
-    assignedCounselTitle: 'Advocate High Court | Founder & CEO',
+    assignedCounselTitle: 'Advocate High Court | CEO & Founder',
     forum: 'Islamabad High Court (IHC)',
     taxYear: 'Tax Year 2024 & 2025',
     status: 'Stay Granted',
@@ -105,7 +105,7 @@ export const INITIAL_CASES: CaseFile[] = [
         title: 'FBR Section 7E Show Cause Received',
         forum: 'FBR RTO Islamabad',
         description: 'FBR issued notice demanding 5% deemed rental income tax on commercial plaza projects.',
-        advocateName: 'Mirza Ahmed Raza',
+        advocateName: 'Hafiz Irfan Shabber Kayani',
         outcome: 'Rebuttal filed contesting valuation & developer exemptions'
       },
       {
@@ -135,8 +135,8 @@ export const INITIAL_CASES: CaseFile[] = [
     clientName: 'Al-Syed Logistics & Transport Pvt Ltd',
     clientNtn: '3948572-9',
     caseTitle: 'Appellate Tribunal Appeal: Disallowance of Fuel & Fleet Operating Expenses u/s 122(5A)',
-    assignedCounsel: 'Muhammad Rizwan Malik',
-    assignedCounselTitle: 'Advocate High Court | Associate Counsel',
+    assignedCounsel: 'Hafiz Irfan Shabber Kayani',
+    assignedCounselTitle: 'Advocate High Court | CEO & Founder',
     forum: 'Appellate Tribunal Inland Revenue (ATIR)',
     taxYear: 'Tax Year 2023',
     status: 'ATIR Tribunal Pending',
@@ -155,7 +155,7 @@ export const INITIAL_CASES: CaseFile[] = [
         title: 'CIR (Appeals) Decision Received',
         forum: 'Commissioner Inland Revenue (Appeals)',
         description: 'Partial relief granted, but major fuel disallowances maintained.',
-        advocateName: 'Muhammad Rizwan Malik',
+        advocateName: 'Hafiz Irfan Shabber Kayani',
         outcome: 'Second Appeal drafted for ATIR'
       },
       {
@@ -164,7 +164,7 @@ export const INITIAL_CASES: CaseFile[] = [
         title: 'ATIR Appeal Docketed & Stay Filed',
         forum: 'Appellate Tribunal Inland Revenue (ATIR)',
         description: 'Appeal registered as No. 41/2026 with urgent stay petition.',
-        advocateName: 'Muhammad Rizwan Malik'
+        advocateName: 'Hafiz Irfan Shabber Kayani'
       }
     ]
   },
@@ -175,8 +175,8 @@ export const INITIAL_CASES: CaseFile[] = [
     clientName: 'Tariq Tech Solutions & Software Ltd',
     clientNtn: '7483920-1',
     caseTitle: 'IT Export Tax Concession Audit u/s 154A & PSEB Exemption Clearance',
-    assignedCounsel: 'Jamshaid Khan',
-    assignedCounselTitle: 'Advocate High Court | Associate Counsel',
+    assignedCounsel: 'Hafiz Irfan Shabber Kayani',
+    assignedCounselTitle: 'Advocate High Court | CEO & Founder',
     forum: 'FBR LTO Rawalpindi',
     taxYear: 'Tax Year 2024',
     status: 'Response Drafted',
@@ -195,7 +195,7 @@ export const INITIAL_CASES: CaseFile[] = [
         title: 'Section 177 Audit Notice Received',
         forum: 'FBR LTO Rawalpindi',
         description: 'Audit officer called for export realization certificates (PRCs) and software export register.',
-        advocateName: 'Jamshaid Khan',
+        advocateName: 'Hafiz Irfan Shabber Kayani',
         outcome: 'Reconciled PRCs with State Bank forex proceeds'
       }
     ]
@@ -207,8 +207,8 @@ export const INITIAL_CASES: CaseFile[] = [
     clientName: 'Dr. Sarah Ahmed (Consolidated Medical)',
     clientNtn: '5928374-6',
     caseTitle: 'Section 111 Unexplained Wealth Reconciliation & High Court Revision',
-    assignedCounsel: 'Mirza Ahmed Raza',
-    assignedCounselTitle: 'Advocate, Islamabad | Associate Counsel',
+    assignedCounsel: 'Hafiz Irfan Shabber Kayani',
+    assignedCounselTitle: 'Advocate High Court | CEO & Founder',
     forum: 'FBR RTO Islamabad',
     taxYear: 'Tax Year 2022',
     status: 'Favorable Order Passed',
@@ -227,7 +227,7 @@ export const INITIAL_CASES: CaseFile[] = [
         title: 'Rebuttal & Remittance Trail Filed',
         forum: 'FBR RTO Islamabad',
         description: 'Submitted foreign remittance encashment certificates u/s 111(4).',
-        advocateName: 'Mirza Ahmed Raza'
+        advocateName: 'Hafiz Irfan Shabber Kayani'
       },
       {
         id: 'tl-402',
@@ -235,7 +235,7 @@ export const INITIAL_CASES: CaseFile[] = [
         title: 'Order Passed in Favor of Client',
         forum: 'FBR RTO Islamabad',
         description: 'FBR Deputy Commissioner dropped all proceedings and accepted wealth statement.',
-        advocateName: 'Mirza Ahmed Raza',
+        advocateName: 'Hafiz Irfan Shabber Kayani',
         outcome: 'Case Closed with Zero Liability'
       }
     ]
@@ -314,7 +314,7 @@ export const INITIAL_DOCUMENTS: DocumentItem[] = [
     title: 'Signed High Court Wakalatnama & Power of Attorney',
     category: 'Wakalatnama / Power of Attorney',
     fileSize: '1.1 MB',
-    uploadedBy: 'Mirza Ahmed Raza',
+    uploadedBy: 'Hafiz Irfan Shabber Kayani',
     uploadedAt: '2026-01-15',
     fileType: 'pdf',
     downloadUrl: '#',
@@ -327,7 +327,7 @@ export const INITIAL_DOCUMENTS: DocumentItem[] = [
     title: 'ATIR Tribunal Memo of Appeal & Stay Petition',
     category: 'Reply & Rebuttal',
     fileSize: '3.8 MB',
-    uploadedBy: 'Muhammad Rizwan Malik',
+    uploadedBy: 'Hafiz Irfan Shabber Kayani',
     uploadedAt: '2026-03-01',
     fileType: 'pdf',
     downloadUrl: '#',
@@ -340,7 +340,7 @@ export const INITIAL_DOCUMENTS: DocumentItem[] = [
     title: 'SBP Foreign Proceeds Encashment Certificates (PRCs)',
     category: 'Tax Return & Wealth Statement',
     fileSize: '4.5 MB',
-    uploadedBy: 'Jamshaid Khan',
+    uploadedBy: 'Hafiz Irfan Shabber Kayani',
     uploadedAt: '2026-03-22',
     fileType: 'pdf',
     downloadUrl: '#',
@@ -353,7 +353,7 @@ export const INITIAL_TASKS: InternalTask[] = [
     id: 'task-601',
     caseId: 'case-2026-001',
     title: 'Prepare Briefing Note for High Court Division Bench Hearing on Aug 12',
-    assignedTo: 'Mirza Ahmed Raza',
+    assignedTo: 'Hafiz Irfan Shabber Kayani',
     dueDate: '2026-08-08',
     priority: 'Urgent',
     isCompleted: false,
@@ -363,7 +363,7 @@ export const INITIAL_TASKS: InternalTask[] = [
     id: 'task-602',
     caseId: 'case-2026-003',
     title: 'Obtain Certified PSEB IT Export Registration Certificate Copy',
-    assignedTo: 'Jamshaid Khan',
+    assignedTo: 'Hafiz Irfan Shabber Kayani',
     dueDate: '2026-07-28',
     priority: 'High',
     isCompleted: true,
@@ -373,7 +373,7 @@ export const INITIAL_TASKS: InternalTask[] = [
     id: 'task-603',
     caseId: 'case-2026-002',
     title: 'Verify Bank Payment Challans for ATIR Court Filing Fee',
-    assignedTo: 'Muhammad Rizwan Malik',
+    assignedTo: 'Hafiz Irfan Shabber Kayani',
     dueDate: '2026-08-01',
     priority: 'Normal',
     isCompleted: false,
@@ -387,13 +387,13 @@ export const INITIAL_NOTES: InternalNote[] = [
     caseId: 'case-2026-001',
     author: 'Hafiz Irfan Shabber Kayani',
     date: '2026-02-18',
-    text: 'Met with Chief Executive of Apex Builders. Instructed team to rely on IHC Division Bench landmark ruling staying Section 7E recovery across all commercial real estate portfolios.',
+    text: 'Met with Chief Executive of Apex Builders. Relying on IHC Division Bench landmark ruling staying Section 7E recovery across all commercial real estate portfolios.',
     isPrivileged: true
   },
   {
     id: 'note-702',
     caseId: 'case-2026-003',
-    author: 'Jamshaid Khan',
+    author: 'Hafiz Irfan Shabber Kayani',
     date: '2026-03-21',
     text: 'Client provided all 12 bank export realization receipts. Reconciled perfectly with FBR portal records. Ready to file formal written reply.',
     isPrivileged: true
@@ -467,7 +467,7 @@ export const INITIAL_HEARINGS: HearingEvent[] = [
     time: '10:30 AM',
     forum: 'FBR LTO Rawalpindi',
     bench: 'Additional Commissioner Audit Bench',
-    counselAssigned: 'Jamshaid Khan',
+    counselAssigned: 'Hafiz Irfan Shabber Kayani',
     purpose: 'Submission of Bank PRC & PSEB Certificates',
     priority: 'High'
   },
@@ -480,7 +480,7 @@ export const INITIAL_HEARINGS: HearingEvent[] = [
     time: '11:15 AM',
     forum: 'Appellate Tribunal Inland Revenue (ATIR)',
     bench: 'Division Bench II, ATIR Islamabad',
-    counselAssigned: 'Muhammad Rizwan Malik',
+    counselAssigned: 'Hafiz Irfan Shabber Kayani',
     purpose: 'Hearing on Stay Application & Main Appeal Grounds',
     priority: 'High'
   },
@@ -520,7 +520,7 @@ export const INITIAL_NOTIFICATIONS: NotificationLog[] = [
     type: 'Email',
     recipientPhoneOrEmail: 'tax@tariqtech.io',
     title: 'FBR Audit Reply Draft Ready for Approval',
-    message: 'Dear Tariq Tech Team, Advocate Jamshaid Khan has finalized the audit reply for FBR Section 154A notice. Please log in to your Client Portal to review and approve.',
+    message: 'Dear Tariq Tech Team, Advocate Hafiz Irfan Shabber Kayani has finalized the audit reply for FBR Section 154A notice. Please log in to your Client Portal to review and approve.',
     sentAt: '2026-07-22 03:40 PM',
     status: 'Read'
   }

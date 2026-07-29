@@ -68,11 +68,7 @@ import { buildGoogleCalendarUrl } from '@/lib/googleCalendar';
 import { buildWhatsAppUrl } from '@/lib/whatsapp';
 
 const ADVOCATES = [
-  'Hafiz Irfan Shabber Kayani',
-  'Muhammad Rizwan Malik',
-  'Jamshaid Khan',
-  'Mirza Ahmed Raza',
-  'Syeda Amina Sajjad'
+  'Hafiz Irfan Shabber Kayani'
 ];
 
 export const AdminPortal: React.FC = () => {
@@ -592,7 +588,7 @@ export const AdminPortal: React.FC = () => {
   // Case Detail Inline Form States
   const [inlineTask, setInlineTask] = useState(() => ({
     title: '',
-    assignedTo: 'Adv. Jamshaid Khan',
+    assignedTo: 'Hafiz Irfan Shabber Kayani',
     dueDate: new Date(Date.now() + 86400000 * 3).toISOString().split('T')[0],
     priority: 'Urgent' as const
   }));
@@ -1554,19 +1550,6 @@ export const AdminPortal: React.FC = () => {
                 </select>
 
                 <select
-                  value={counselFilter}
-                  onChange={(e) => setCounselFilter(e.target.value)}
-                  className="bg-[#FAFAF7] p-2.5 rounded-xl border border-gray-200 font-bold text-xs"
-                >
-                  <option value="All">All Advocates</option>
-                  {caseAdvocates.map((a) => (
-                    <option key={a} value={a}>
-                      {a}
-                    </option>
-                  ))}
-                </select>
-
-                <select
                   value={forumFilter}
                   onChange={(e) => setForumFilter(e.target.value)}
                   className="bg-[#FAFAF7] p-2.5 rounded-xl border border-gray-200 font-bold text-xs"
@@ -2088,23 +2071,7 @@ export const AdminPortal: React.FC = () => {
                       </select>
                     </div>
 
-                    <div className="flex items-center gap-1 bg-white px-2.5 py-1 rounded-xl border border-gray-200">
-                      <span className="font-bold text-[#5A6275] text-[10px]">Assignee:</span>
-                      <select
-                        value={taskAssigneeFilter}
-                        onChange={(e) => setTaskAssigneeFilter(e.target.value)}
-                        className="bg-transparent font-bold text-[#1A1A1A] focus:outline-none text-xs cursor-pointer"
-                      >
-                        <option value="All">All Associates</option>
-                        {taskAssignees.map((a) => (
-                          <option key={a} value={a}>
-                            {a}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
-
-                    {(taskSearchTerm || taskStatusFilter !== 'All' || taskAssigneeFilter !== 'All') && (
+                    {(taskSearchTerm || taskStatusFilter !== 'All') && (
                       <button
                         onClick={() => {
                           setTaskSearchTerm('');
