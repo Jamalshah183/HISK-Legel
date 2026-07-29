@@ -8,9 +8,10 @@ import { buildWhatsAppUrl, DISPLAY_PHONE } from '@/lib/whatsapp';
 interface NavbarProps {
   activeTab: string;
   setActiveTab: (tab: string) => void;
+  onOpenPortal?: (mode?: 'admin' | 'client') => void;
 }
 
-export const Navbar: React.FC<NavbarProps> = ({ activeTab, setActiveTab }) => {
+export const Navbar: React.FC<NavbarProps> = ({ activeTab, setActiveTab, onOpenPortal }) => {
   const [isScrolled, setIsScrolled] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
@@ -123,17 +124,28 @@ export const Navbar: React.FC<NavbarProps> = ({ activeTab, setActiveTab }) => {
           </div>
 
           {/* Action */}
-          <div className="hidden md:flex items-center gap-3">
-            <a
-              href={buildWhatsAppUrl({ topic: 'general' })}
-              target="_blank"
-              rel="noopener noreferrer"
-              id="navbar-whatsapp-cta"
-              className="bg-[#F5A623] hover:bg-[#E09415] text-[#1A1A1A] font-heading font-extrabold px-5 py-2.5 rounded-2xl shadow-sm transition-all flex items-center gap-2 text-sm"
-            >
-              <MessageCircle className="w-4 h-4 fill-[#1A1A1A]" />
-              <span>Talk to an Expert</span>
-            </a>
+          <div className="hidden md:flex items-center gap-2 sm:gap-2.5">
+            {onOpenPortal && (
+              <>
+                <button
+                  onClick={() => onOpenPortal('admin')}
+                  id="navbar-admin-portal-cta"
+                  className="bg-[#0A4B35] hover:bg-[#0F6B4C] text-white font-heading font-extrabold px-3.5 py-2.5 rounded-2xl shadow-sm transition-all flex items-center gap-1.5 text-xs sm:text-sm border border-emerald-500/30 cursor-pointer"
+                >
+                  <Shield className="w-4 h-4 text-[#F5A623]" />
+                  <span>Admin Portal</span>
+                </button>
+
+                <button
+                  onClick={() => onOpenPortal('client')}
+                  id="navbar-client-portal-cta"
+                  className="bg-[#0F6B4C] hover:bg-[#0A4B35] text-white font-heading font-extrabold px-3.5 py-2.5 rounded-2xl shadow-sm transition-all flex items-center gap-1.5 text-xs sm:text-sm border border-emerald-400/20 cursor-pointer"
+                >
+                  <Shield className="w-4 h-4 text-[#F5A623]" />
+                  <span>Client Portal</span>
+                </button>
+              </>
+            )}
           </div>
 
           {/* Mobile Button */}
@@ -169,7 +181,31 @@ export const Navbar: React.FC<NavbarProps> = ({ activeTab, setActiveTab }) => {
                 </button>
               ))}
 
-              <div className="pt-4 border-t border-[#0F6B4C]/10 space-y-3">
+              <div className="pt-4 border-t border-[#0F6B4C]/10 space-y-2">
+                {onOpenPortal && (
+                  <div className="grid grid-cols-2 gap-2">
+                    <button
+                      onClick={() => {
+                        setMobileMenuOpen(false);
+                        onOpenPortal('admin');
+                      }}
+                      className="bg-[#0A4B35] text-white font-extrabold py-3 px-3 rounded-2xl flex items-center justify-center gap-1.5 text-xs shadow-md border border-emerald-500/30"
+                    >
+                      <Shield className="w-4 h-4 text-[#F5A623]" />
+                      <span>Admin Desk</span>
+                    </button>
+                    <button
+                      onClick={() => {
+                        setMobileMenuOpen(false);
+                        onOpenPortal('client');
+                      }}
+                      className="bg-[#0F6B4C] text-white font-extrabold py-3 px-3 rounded-2xl flex items-center justify-center gap-1.5 text-xs shadow-md"
+                    >
+                      <Shield className="w-4 h-4 text-[#F5A623]" />
+                      <span>Client Portal</span>
+                    </button>
+                  </div>
+                )}
                 <a
                   href={buildWhatsAppUrl({ topic: 'general' })}
                   target="_blank"

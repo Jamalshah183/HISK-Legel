@@ -72,64 +72,61 @@ export const ReviewsSection: React.FC = () => {
           </div>
         </motion.div>
 
-        {/* Swipe Indicator for Mobile */}
-        <div className="flex items-center justify-center gap-1.5 text-xs font-bold text-[#0F6B4C] bg-[#0F6B4C]/10 px-3.5 py-1.5 rounded-full w-fit mx-auto mb-5 md:hidden">
-          <span>Swipe right to see more</span>
-          <ChevronRight className="w-3.5 h-3.5 animate-pulse" />
-        </div>
+        {/* Testimonials Infinite Marquee (Moving Right to Left, Pauses on Hover) */}
+        <div className="relative w-full overflow-hidden py-4 mb-16 group">
+          {/* Edge Gradient Fades for smooth entry/exit */}
+          <div className="absolute left-0 top-0 bottom-0 w-8 sm:w-20 bg-gradient-to-r from-[#FAFAF7] to-transparent z-10 pointer-events-none" />
+          <div className="absolute right-0 top-0 bottom-0 w-8 sm:w-20 bg-gradient-to-l from-[#FAFAF7] to-transparent z-10 pointer-events-none" />
 
-        {/* Testimonials Grid */}
-        <div className="-mx-4 px-8 scroll-pl-8 sm:-mx-6 sm:px-6 sm:scroll-pl-6 md:mx-0 md:px-0 md:scroll-pl-0 w-[calc(100%+2rem)] sm:w-[calc(100%+3rem)] md:w-full overflow-x-auto no-scrollbar py-3 touch-auto flex gap-4 sm:gap-6 snap-x snap-mandatory md:grid md:grid-cols-2 md:gap-6 lg:gap-8 md:overflow-visible max-w-5xl mx-auto mb-16">
-          {TESTIMONIALS.map((review, idx) => (
-            <motion.div
-              key={review.id}
-              initial={{ opacity: 0 }}
-              whileInView={{ opacity: 1 }}
-              viewport={{ once: true, amount: 0.1 }}
-              transition={{ duration: 0.5, delay: idx * 0.08 }}
-              className="w-[82vw] max-w-[340px] sm:w-[320px] md:w-auto shrink-0 md:shrink snap-start bg-white rounded-3xl p-5 sm:p-7 lg:p-8 border border-[#0F6B4C]/15 shadow-sm hover:shadow-md transition-shadow duration-300 flex flex-col justify-between relative"
-            >
-              <Quote className="w-10 h-10 text-[#0F6B4C]/10 absolute top-6 right-6" />
+          {/* Marquee Track */}
+          <div className="flex gap-4 sm:gap-6 lg:gap-8 animate-marquee-rtl group-hover:[animation-play-state:paused] w-max">
+            {[...TESTIMONIALS, ...TESTIMONIALS, ...TESTIMONIALS, ...TESTIMONIALS].map((review, idx) => (
+              <div
+                key={`${review.id}-${idx}`}
+                className="w-[85vw] sm:w-[380px] md:w-[420px] lg:w-[460px] shrink-0 bg-white rounded-3xl p-6 sm:p-8 border border-[#0F6B4C]/15 shadow-sm hover:shadow-md transition-all duration-300 flex flex-col justify-between relative group/card"
+              >
+                <Quote className="w-10 h-10 text-[#0F6B4C]/10 absolute top-6 right-6" />
 
-              <div>
-                <div className="flex items-center justify-between mb-4">
-                  <div className="flex gap-1">
-                    {[...Array(review.rating)].map((_, i) => (
-                      <Star key={i} className="w-4 h-4 text-[#F5A623] fill-[#F5A623]" />
-                    ))}
-                  </div>
-                  {review.verifiedBadge && (
-                    <span className="flex items-center gap-1 text-[11px] font-bold text-[#0F6B4C] bg-[#E8F5F0] px-2.5 py-0.5 rounded-full">
-                      <ShieldCheck className="w-3.5 h-3.5 text-[#0F6B4C]" /> Verified Case
-                    </span>
-                  )}
-                </div>
-
-                <div className="bg-[#1A1A1A] text-[#FAFAF7] px-4 py-2 rounded-xl inline-block mb-4">
-                  <span className="text-[10px] text-gray-300 uppercase tracking-wider block font-bold">
-                    Legal Impact
-                  </span>
-                  <span className="font-heading font-extrabold text-lg text-[#F5A623]">
-                    {review.dollarSaved} Saved
-                  </span>
-                </div>
-
-                <p className="text-sm text-[#1A1A1A] leading-relaxed mb-6 font-normal italic">
-                  &quot;{review.reviewText}&quot;
-                </p>
-              </div>
-
-              <div className="pt-4 border-t border-gray-100 flex items-center justify-between text-xs">
                 <div>
-                  <div className="font-extrabold text-[#1A1A1A] text-sm">{review.clientInitials}</div>
-                  <div className="text-[#5A6275]">{review.clientRole} • {review.location}</div>
+                  <div className="flex items-center justify-between mb-4">
+                    <div className="flex gap-1">
+                      {[...Array(review.rating)].map((_, i) => (
+                        <Star key={i} className="w-4 h-4 text-[#F5A623] fill-[#F5A623]" />
+                      ))}
+                    </div>
+                    {review.verifiedBadge && (
+                      <span className="flex items-center gap-1 text-[11px] font-bold text-[#0F6B4C] bg-[#E8F5F0] px-2.5 py-0.5 rounded-full">
+                        <ShieldCheck className="w-3.5 h-3.5 text-[#0F6B4C]" /> Verified Case
+                      </span>
+                    )}
+                  </div>
+
+                  <div className="bg-[#1A1A1A] text-[#FAFAF7] px-4 py-2 rounded-xl inline-block mb-4">
+                    <span className="text-[10px] text-gray-300 uppercase tracking-wider block font-bold">
+                      Legal Impact
+                    </span>
+                    <span className="font-heading font-extrabold text-lg text-[#F5A623]">
+                      {review.dollarSaved} Saved
+                    </span>
+                  </div>
+
+                  <p className="text-sm text-[#1A1A1A] leading-relaxed mb-6 font-normal italic">
+                    &quot;{review.reviewText}&quot;
+                  </p>
                 </div>
-                <div className="text-right text-xs text-[#0F6B4C] font-extrabold">
-                  {review.caseType}
+
+                <div className="pt-4 border-t border-gray-100 flex items-center justify-between text-xs">
+                  <div>
+                    <div className="font-extrabold text-[#1A1A1A] text-sm">{review.clientInitials}</div>
+                    <div className="text-[#5A6275]">{review.clientRole} • {review.location}</div>
+                  </div>
+                  <div className="text-right text-xs text-[#0F6B4C] font-extrabold">
+                    {review.caseType}
+                  </div>
                 </div>
               </div>
-            </motion.div>
-          ))}
+            ))}
+          </div>
         </div>
 
         {/* Single Primary CTA Banner */}

@@ -1,0 +1,44 @@
+{
+  "entities": {
+    "clients": {
+      "title": "Clients",
+      "description": "Taxpayers and corporate clients managed by firm"
+    },
+    "cases": {
+      "title": "Cases",
+      "description": "Legal case files, FBR audits, and litigation"
+    },
+    "notices": {
+      "title": "Notices",
+      "description": "FBR statutory show cause and demand notices"
+    },
+    "documents": {
+      "title": "Documents",
+      "description": "Vault items, replies, powers of attorney"
+    },
+    "tasks": {
+      "title": "Tasks",
+      "description": "Internal legal tasks for counsel"
+    },
+    "notes": {
+      "title": "Notes",
+      "description": "Privileged case notes and internal records"
+    },
+    "invoices": {
+      "title": "Invoices",
+      "description": "Legal fee bills, retainer statements, and receipts"
+    },
+    "hearings": {
+      "title": "Hearings",
+      "description": "Court cause list hearings and tribunal appearances"
+    },
+    "notifications": {
+      "title": "Notifications",
+      "description": "WhatsApp and email notification logs"
+    },
+    "clientCredentials": {
+      "title": "Client Credentials",
+      "description": "Client login accounts created by admin"
+    }
+  }
+}
