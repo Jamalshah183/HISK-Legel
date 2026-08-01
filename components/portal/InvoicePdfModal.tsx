@@ -24,9 +24,21 @@ export const InvoicePdfModal: React.FC<InvoicePdfModalProps> = ({
   const clientPhone = client?.phone || '+92 300 8551928';
   const cleanPhone = clientPhone.replace(/[^0-9]/g, '');
 
-  const handleDownloadPdf = () => {
+  const loadImage = (url: string): Promise<HTMLImageElement | null> => {
+    return new Promise((resolve) => {
+      const img = new Image();
+      img.crossOrigin = 'Anonymous';
+      img.onload = () => resolve(img);
+      img.onerror = () => resolve(null);
+      img.src = url;
+    });
+  };
+
+  const handleDownloadPdf = async () => {
     try {
       setIsGeneratingPdf(true);
+
+      const logoImg = await loadImage('https://i.ibb.co/wh9Gb1br/20260723-032202-0000.png');
 
       const doc = new jsPDF({
         orientation: 'portrait',
@@ -45,35 +57,44 @@ export const InvoicePdfModal: React.FC<InvoicePdfModalProps> = ({
 
       let y = 15;
 
-      // Header Banner / Logo Box
-      doc.setFillColor(primaryGreen[0], primaryGreen[1], primaryGreen[2]);
-      doc.roundedRect(14, y, 16, 16, 3, 3, 'F');
-
-      // Inner Badge
-      doc.setDrawColor(goldAccent[0], goldAccent[1], goldAccent[2]);
-      doc.setLineWidth(0.5);
-      doc.rect(15, y + 1, 14, 14);
-
-      doc.setTextColor(goldAccent[0], goldAccent[1], goldAccent[2]);
-      doc.setFont('helvetica', 'bold');
-      doc.setFontSize(11);
-      doc.text('HK', 22, y + 11, { align: 'center' });
+      // Header Logo / Banner
+      if (logoImg) {
+        try {
+          doc.addImage(logoImg, 'PNG', 14, y + 2, 38, 12);
+        } catch {
+          // Fallback box
+          doc.setDrawColor(0, 0, 0);
+          doc.rect(14, y, 16, 16);
+          doc.setTextColor(0, 0, 0);
+          doc.setFont('helvetica', 'bold');
+          doc.setFontSize(11);
+          doc.text('HK', 22, y + 11, { align: 'center' });
+        }
+      } else {
+        doc.setDrawColor(0, 0, 0);
+        doc.rect(14, y, 16, 16);
+        doc.setTextColor(0, 0, 0);
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(11);
+        doc.text('HK', 22, y + 11, { align: 'center' });
+      }
 
       // Firm Name & Subtitle
+      const textX = logoImg ? 60 : 34;
       doc.setTextColor(primaryGreen[0], primaryGreen[1], primaryGreen[2]);
       doc.setFont('helvetica', 'bold');
-      doc.setFontSize(20);
-      doc.text('HISK LEGAL', 34, y + 8);
+      doc.setFontSize(18);
+      doc.text('HISK LEGAL', textX, y + 7);
 
       doc.setFillColor(goldAccent[0], goldAccent[1], goldAccent[2]);
-      doc.roundedRect(82, y + 3, 22, 5, 1, 1, 'F');
+      doc.roundedRect(textX + 42, y + 2, 22, 5, 1, 1, 'F');
       doc.setTextColor(26, 26, 26);
       doc.setFontSize(7);
-      doc.text('ADVOCATES', 93, y + 6.5, { align: 'center' });
+      doc.text('ADVOCATES', textX + 53, y + 5.5, { align: 'center' });
 
       doc.setTextColor(emeraldGreen[0], emeraldGreen[1], emeraldGreen[2]);
       doc.setFontSize(8);
-      doc.text('HIGH COURT ADVOCATES & TAX CONSULTANTS', 34, y + 13);
+      doc.text('HIGH COURT ADVOCATES & TAX CONSULTANTS', textX, y + 13);
 
       // Invoice Title Right Aligned
       doc.setTextColor(primaryGreen[0], primaryGreen[1], primaryGreen[2]);
@@ -91,11 +112,11 @@ export const InvoicePdfModal: React.FC<InvoicePdfModalProps> = ({
 
       y += 20;
 
-      // Address Line
+      // Address & Phone Line
       doc.setFontSize(8);
       doc.setTextColor(grayText[0], grayText[1], grayText[2]);
-      doc.text('Suites 402-405, Executive Heights, Blue Area, Islamabad, Pakistan', 14, y);
-      doc.text('Ph: +92 51 844 3210 | +92 300 855 1928 | Email: billing@hisklegal.com', 14, y + 4);
+      doc.text('Office No.10, Second Floor, Awan Plaza, G-8 Markaz, Islamabad, Pakistan', 14, y);
+      doc.text('Ph: +92 314 5113670 | Email: adv.kiyani@gmail.com', 14, y + 4);
 
       y += 8;
 
@@ -387,7 +408,7 @@ export const InvoicePdfModal: React.FC<InvoicePdfModalProps> = ({
       doc.setFontSize(7);
       doc.setFont('helvetica', 'normal');
       doc.setTextColor(grayText[0], grayText[1], grayText[2]);
-      doc.text('Managing Partner & Advocate High Court', 196, y + 12, { align: 'right' });
+      doc.text('CEO & Founder (Advocate High Court)', 196, y + 12, { align: 'right' });
 
       // Save PDF
       const cleanNum = invoice.invoiceNumber.replace(/[^a-zA-Z0-9_-]/g, '_');
@@ -402,7 +423,8 @@ export const InvoicePdfModal: React.FC<InvoicePdfModalProps> = ({
 
   const handleSendWhatsApp = () => {
     const message = `*HISK LEGAL ADVOCATES & CONSULTANTS*
-📍 Suites 402-405, Executive Heights, Blue Area, Islamabad
+📍 Office No.10, Second Floor, Awan Plaza, G-8 Markaz, Islamabad
+📞 Phone: +92 314 5113670 | ✉️ Email: adv.kiyani@gmail.com
 
 *OFFICIAL LEGAL FEE INVOICE: ${invoice.invoiceNumber}*
 
@@ -528,9 +550,12 @@ Thank you for choosing HISK LEGAL!`;
           <div className="flex flex-col sm:flex-row justify-between items-start pb-6 border-b-2 border-[#0A4B35] gap-4">
             <div>
               <div className="flex items-center gap-3 mb-2">
-                <div className="w-12 h-12 bg-[#0A4B35] rounded-xl flex items-center justify-center font-extrabold text-[#F5A623] text-sm border-2 border-[#F5A623] shadow-md shrink-0 relative">
-                  <span>HK</span>
-                  <Award className="w-3 h-3 text-[#F5A623] absolute -top-1 -right-1" />
+                <div className="relative h-12 w-36 shrink-0 bg-transparent flex items-center justify-center overflow-hidden">
+                  <img
+                    src="https://i.ibb.co/wh9Gb1br/20260723-032202-0000.png"
+                    alt="HISK LEGAL Official Logo"
+                    className="max-h-full max-w-full object-contain filter brightness-0"
+                  />
                 </div>
                 <div>
                   <div className="flex items-center gap-2">
@@ -546,10 +571,10 @@ Thank you for choosing HISK LEGAL!`;
                   </p>
                 </div>
               </div>
-              <p className="text-xs text-gray-600 mt-2 max-w-sm leading-relaxed">
-                Suites 402-405, Executive Heights, Blue Area, Islamabad, Pakistan
+              <p className="text-xs text-gray-700 mt-2 max-w-md leading-relaxed font-medium">
+                Office No.10, Second Floor, Awan Plaza, G-8 Markaz, Islamabad, Pakistan
                 <br />
-                Ph: +92 51 844 3210 | +92 300 855 1928 | Email: billing@hisklegal.com
+                Ph: <strong className="text-[#0A4B35]">+92 314 5113670</strong> | Email: <strong className="text-[#0A4B35]">adv.kiyani@gmail.com</strong>
               </p>
             </div>
 
@@ -790,8 +815,8 @@ Thank you for choosing HISK LEGAL!`;
               <div className="text-[11px] font-bold text-gray-800">
                 Adv. Hafiz Irfan Shabber Kayani
               </div>
-              <div className="text-[10px] text-gray-500 font-semibold">
-                Managing Partner & Advocate High Court
+              <div className="text-[10px] text-[#0A4B35] font-extrabold">
+                CEO & Founder — Advocate High Court
               </div>
             </div>
           </div>
@@ -804,14 +829,6 @@ Thank you for choosing HISK LEGAL!`;
           </div>
 
           <div className="flex items-center gap-2">
-            <button
-              onClick={handleSendWhatsApp}
-              className="bg-[#25D366] hover:bg-emerald-600 text-white font-extrabold px-4 py-2.5 rounded-xl text-xs flex items-center gap-1.5 shadow-sm cursor-pointer"
-            >
-              <Send className="w-4 h-4" />
-              <span>Send Invoice via WhatsApp</span>
-            </button>
-
             <button
               onClick={handleDownloadPdf}
               disabled={isGeneratingPdf}

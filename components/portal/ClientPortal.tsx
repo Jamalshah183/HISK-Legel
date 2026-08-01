@@ -30,6 +30,8 @@ import { usePortalStore } from '@/lib/portalStore';
 import { Client, CaseFile, Invoice } from '@/types/portal';
 import { buildWhatsAppUrl } from '@/lib/whatsapp';
 import { InvoicePdfModal } from '@/components/portal/InvoicePdfModal';
+import { checkRateLimit, recordAttempt, resetRateLimit } from '@/lib/rateLimiter';
+import { useInactivityTimeout } from '@/lib/useInactivityTimeout';
 
 interface ClientPortalProps {
   selectedClientId: string;
@@ -72,6 +74,14 @@ export const ClientPortal: React.FC<ClientPortalProps> = ({
     e.preventDefault();
     setAuthError(null);
 
+    // Rate limit check
+    const rateCheck = checkRateLimit('client_login');
+    if (!rateCheck.allowed) {
+      setAuthError(rateCheck.message || 'Too many attempts. Please try again later.');
+      return;
+    }
+    recordAttempt('client_login');
+
     const cleanEmail = clientEmail.trim().toLowerCase();
 
     // 1. Check in clientCredentials
@@ -80,6 +90,7 @@ export const ClientPortal: React.FC<ClientPortalProps> = ({
     );
 
     if (matchedCred) {
+      resetRateLimit('client_login');
       setAuthenticatedClientId(matchedCred.clientId);
       setSelectedClientId(matchedCred.clientId);
       if (typeof window !== 'undefined') {
@@ -94,6 +105,7 @@ export const ClientPortal: React.FC<ClientPortalProps> = ({
     );
 
     if (matchedClient) {
+      resetRateLimit('client_login');
       setAuthenticatedClientId(matchedClient.id);
       setSelectedClientId(matchedClient.id);
       if (typeof window !== 'undefined') {
@@ -111,6 +123,16 @@ export const ClientPortal: React.FC<ClientPortalProps> = ({
       localStorage.removeItem('hisk_client_session_id');
     }
   };
+
+  // Auto-logout after 2 minutes (120,000 ms) of inactivity
+  useInactivityTimeout(
+    !!authenticatedClientId,
+    () => {
+      handleClientSignOut();
+      setAuthError('You have been automatically logged out due to 2 minutes of inactivity.');
+    },
+    120000
+  );
 
   // Get active selected client or fallback
   const currentClient =

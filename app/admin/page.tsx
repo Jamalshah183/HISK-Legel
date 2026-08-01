@@ -8,6 +8,10 @@ import Link from 'next/link';
 import { ArrowLeft, ShieldCheck, Lock, Mail, KeyRound, LogOut, CheckCircle2, User } from 'lucide-react';
 import { auth, googleProvider } from '@/lib/firebase';
 import { signInWithPopup, signInWithEmailAndPassword, signOut, onAuthStateChanged, User as FirebaseUser } from 'firebase/auth';
+import { checkRateLimit, recordAttempt, resetRateLimit } from '@/lib/rateLimiter';
+import { useInactivityTimeout } from '@/lib/useInactivityTimeout';
+
+const ALLOWED_ADMIN_EMAILS = ['jamalshah183@gmail.com', 'adv.kiyani@gmail.com'];
 
 export default function AdminPortalPage() {
   const [portalMode, setPortalMode] = useState<'admin' | 'client'>('admin');
@@ -20,7 +24,8 @@ export default function AdminPortalPage() {
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (user) => {
-      if (user && user.email?.toLowerCase() === 'jamalshah183@gmail.com') {
+      const email = user?.email?.toLowerCase();
+      if (user && email && ALLOWED_ADMIN_EMAILS.includes(email)) {
         setCurrentUser(user);
         setIsAdminLoggedIn(true);
       } else {
@@ -35,11 +40,21 @@ export default function AdminPortalPage() {
 
   const handleGoogleSignIn = async () => {
     setAuthError(null);
+
+    // Rate limit check
+    const rateCheck = checkRateLimit('admin_login');
+    if (!rateCheck.allowed) {
+      setAuthError(rateCheck.message || 'Rate limit exceeded. Please try again later.');
+      return;
+    }
+    recordAttempt('admin_login');
+
     setAuthLoading(true);
     try {
       const result = await signInWithPopup(auth, googleProvider);
       const email = result.user.email?.toLowerCase();
-      if (email === 'jamalshah183@gmail.com') {
+      if (email && ALLOWED_ADMIN_EMAILS.includes(email)) {
+        resetRateLimit('admin_login');
         setCurrentUser(result.user);
         setIsAdminLoggedIn(true);
       } else {
@@ -47,7 +62,7 @@ export default function AdminPortalPage() {
         setIsAdminLoggedIn(false);
         setCurrentUser(null);
         setAuthError(
-          `Access Denied: Admin Portal is strictly restricted to jamalshah183@gmail.com. You signed in as: ${result.user.email || 'another account'}.`
+          `Access Denied: Admin Portal is restricted to authorized admin emails (${ALLOWED_ADMIN_EMAILS.join(', ')}). You signed in as: ${result.user.email || 'another account'}.`
         );
       }
     } catch (err: any) {
@@ -68,6 +83,16 @@ export default function AdminPortalPage() {
     setIsAdminLoggedIn(false);
     setCurrentUser(null);
   };
+
+  // Auto-logout after 2 minutes (120,000 ms) of inactivity
+  useInactivityTimeout(
+    isAdminLoggedIn,
+    () => {
+      handleSignOut();
+      setAuthError('Logged out automatically due to 2 minutes of inactivity.');
+    },
+    120000
+  );
 
   return (
     <div className="min-h-screen bg-[#FAFAF7] text-[#1A1A1A] font-sans flex flex-col selection:bg-[#F5A623] selection:text-[#1A1A1A]">
@@ -157,13 +182,20 @@ export default function AdminPortalPage() {
                     d="M12 4.75c1.77 0 3.35.61 4.6 1.8l3.42-3.42C17.95 1.19 15.24 0 12 0 7.31 0 3.25 2.72 1.27 6.58l4.01 3.15c.95-2.83 3.6-4.98 6.72-4.98z"
                   />
                 </svg>
-                <span className="text-white text-xs sm:text-sm">Sign in with Google (jamalshah183@gmail.com)</span>
+                <span className="text-white text-xs sm:text-sm">Sign in with Authorized Google Account</span>
               </button>
 
               <div className="bg-[#FAFAF7] p-3.5 rounded-2xl border border-gray-200 text-[11px] text-gray-600 space-y-1">
-                <span className="font-extrabold text-[#0A4B35] block">Authorized Admin Account:</span>
-                <div className="font-mono bg-emerald-50 text-[#0A4B35] px-2.5 py-1 rounded font-bold border border-emerald-200 text-xs">
-                  jamalshah183@gmail.com
+                <span className="font-extrabold text-[#0A4B35] block">Authorized Admin Portal Accounts:</span>
+                <div className="font-mono bg-emerald-50 text-[#0A4B35] p-2 rounded font-bold border border-emerald-200 text-xs space-y-1">
+                  <div className="flex items-center justify-between">
+                    <span>jamalshah183@gmail.com</span>
+                    <span className="text-[10px] text-emerald-800 bg-emerald-100 px-1.5 py-0.5 rounded font-sans">Admin</span>
+                  </div>
+                  <div className="flex items-center justify-between border-t border-emerald-200/60 pt-1">
+                    <span>adv.kiyani@gmail.com</span>
+                    <span className="text-[10px] text-amber-800 bg-amber-100 px-1.5 py-0.5 rounded font-sans font-extrabold">CEO Account</span>
+                  </div>
                 </div>
                 <div className="text-[10px] text-gray-500 pt-1">
                   Connected to Firebase Project <span className="font-mono text-[#0A4B35] font-bold">hisk-46a92</span>.

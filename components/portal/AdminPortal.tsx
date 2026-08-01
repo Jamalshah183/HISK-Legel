@@ -4,6 +4,8 @@ import React, { useState, useEffect } from 'react';
 import Image from 'next/image';
 import { auth, googleProvider } from '@/lib/firebase';
 import { signInWithPopup, signOut, onAuthStateChanged, User as FirebaseUser } from 'firebase/auth';
+import { checkRateLimit, recordAttempt, resetRateLimit } from '@/lib/rateLimiter';
+import { useInactivityTimeout } from '@/lib/useInactivityTimeout';
 import {
   LayoutDashboard,
   Briefcase,
@@ -92,11 +94,21 @@ export const AdminPortal: React.FC = () => {
 
   const handleAdminGoogleSignIn = async () => {
     setAdminAuthError(null);
+
+    // Rate limit check
+    const rateCheck = checkRateLimit('admin_login');
+    if (!rateCheck.allowed) {
+      setAdminAuthError(rateCheck.message || 'Rate limit exceeded. Please try again later.');
+      return;
+    }
+    recordAttempt('admin_login');
+
     setAdminAuthLoading(true);
     try {
       const result = await signInWithPopup(auth, googleProvider);
       const email = result.user.email?.toLowerCase();
       if (email === 'jamalshah183@gmail.com') {
+        resetRateLimit('admin_login');
         setAdminUser(result.user);
       } else {
         await signOut(auth);
@@ -121,6 +133,16 @@ export const AdminPortal: React.FC = () => {
     }
     setAdminUser(null);
   };
+
+  // Auto-logout after 2 minutes (120,000 ms) of inactivity
+  useInactivityTimeout(
+    !!adminUser,
+    () => {
+      handleAdminSignOut();
+      setAdminAuthError('Logged out automatically due to 2 minutes of inactivity.');
+    },
+    120000
+  );
 
   const {
     clients,
