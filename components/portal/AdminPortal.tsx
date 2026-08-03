@@ -73,6 +73,8 @@ const ADVOCATES = [
   'Hafiz Irfan Shabber Kayani'
 ];
 
+const ALLOWED_ADMIN_EMAILS = ['jamalshah183@gmail.com', 'adv.kiyani@gmail.com'];
+
 export const AdminPortal: React.FC = () => {
   // Admin authentication state
   const [adminUser, setAdminUser] = useState<FirebaseUser | null>(null);
@@ -81,7 +83,8 @@ export const AdminPortal: React.FC = () => {
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (user) => {
-      if (user && user.email?.toLowerCase() === 'jamalshah183@gmail.com') {
+      const email = user?.email?.toLowerCase();
+      if (user && email && ALLOWED_ADMIN_EMAILS.includes(email)) {
         setAdminUser(user);
       } else {
         setAdminUser(null);
@@ -107,7 +110,7 @@ export const AdminPortal: React.FC = () => {
     try {
       const result = await signInWithPopup(auth, googleProvider);
       const email = result.user.email?.toLowerCase();
-      if (email === 'jamalshah183@gmail.com') {
+      if (email && ALLOWED_ADMIN_EMAILS.includes(email)) {
         resetRateLimit('admin_login');
         setAdminUser(result.user);
       } else {
