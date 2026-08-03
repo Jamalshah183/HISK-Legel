@@ -11,7 +11,7 @@ import { signInWithPopup, signInWithEmailAndPassword, signOut, onAuthStateChange
 import { checkRateLimit, recordAttempt, resetRateLimit } from '@/lib/rateLimiter';
 import { useInactivityTimeout } from '@/lib/useInactivityTimeout';
 
-const ALLOWED_ADMIN_EMAILS = ['jamalshah183@gmail.com', 'adv.kiyani@gmail.com'];
+const ALLOWED_ADMIN_EMAILS = ['jamalshah183@gmail.com', 'adv.kayani@gmail.com', 'adv.kiyani@gmail.com'];
 
 export default function AdminPortalPage() {
   const [portalMode, setPortalMode] = useState<'admin' | 'client'>('admin');

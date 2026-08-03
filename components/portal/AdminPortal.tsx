@@ -73,7 +73,7 @@ const ADVOCATES = [
   'Hafiz Irfan Shabber Kayani'
 ];
 
-const ALLOWED_ADMIN_EMAILS = ['jamalshah183@gmail.com', 'adv.kiyani@gmail.com'];
+const ALLOWED_ADMIN_EMAILS = ['jamalshah183@gmail.com', 'adv.kayani@gmail.com', 'adv.kiyani@gmail.com'];
 
 export const AdminPortal: React.FC = () => {
   // Admin authentication state
