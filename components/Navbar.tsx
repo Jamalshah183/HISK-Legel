@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import Image from 'next/image';
-import { Shield, MessageCircle, Menu, X, Phone, ChevronRight } from 'lucide-react';
+import { Shield, MessageCircle, Menu, X, Phone, ChevronRight, AlertTriangle, Scale, HelpCircle } from 'lucide-react';
 import { buildWhatsAppUrl, DISPLAY_PHONE } from '@/lib/whatsapp';
 
 interface NavbarProps {
@@ -44,16 +44,16 @@ export const Navbar: React.FC<NavbarProps> = ({ activeTab, setActiveTab, onOpenP
   return (
     <header className="sticky top-0 z-50 w-full transition-all duration-300">
       {/* Top Banner (Hidden on mobile) */}
-      <div className="hidden sm:block bg-[#0A4B35] text-white text-xs py-2.5 px-4">
-        <div className="max-w-7xl mx-auto flex flex-col sm:flex-row justify-between items-center gap-2">
-          <div className="flex items-center gap-2 font-medium">
+      <div className="hidden sm:block bg-[#0A4B35] text-white text-[11px] py-2 px-4">
+        <div className="max-w-7xl mx-auto flex flex-col lg:flex-row justify-between items-center gap-2">
+          <div className="flex items-center gap-2 font-medium shrink-0">
             <span className="relative flex h-2 w-2">
               <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[#25D366] opacity-75"></span>
               <span className="relative inline-flex rounded-full h-2 w-2 bg-[#25D366]"></span>
             </span>
-            <span>WhatsApp High Court Advocate Desk Active</span>
+            <span className="font-bold">Emergency Legal Help - Active Now</span>
           </div>
-          <div className="flex items-center gap-4 text-xs">
+          <div className="flex flex-wrap items-center justify-center lg:justify-end gap-x-3 gap-y-1 text-[11px]">
             <a
               href={buildWhatsAppUrl({ topic: 'fbr_audit' })}
               target="_blank"
@@ -62,12 +62,39 @@ export const Navbar: React.FC<NavbarProps> = ({ activeTab, setActiveTab, onOpenP
             >
               <Shield className="w-3.5 h-3.5" /> FBR Notice Received? Chat Now
             </a>
-            <span className="hidden sm:inline text-emerald-300/40">|</span>
+            <span className="text-emerald-300/40">|</span>
+            <a
+              href={buildWhatsAppUrl({ customMessage: 'Assalamu Alaikum HISK LEGAL, an FIR has been registered and I need urgent criminal law & bail legal assistance.' })}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-[#F5A623] hover:underline font-bold flex items-center gap-1"
+            >
+              <AlertTriangle className="w-3.5 h-3.5" /> FIR Registered? Chat Now
+            </a>
+            <span className="text-emerald-300/40">|</span>
+            <a
+              href={buildWhatsAppUrl({ customMessage: 'Assalamu Alaikum HISK LEGAL, a civil case has been filed and I need advocate representation.' })}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-[#F5A623] hover:underline font-bold flex items-center gap-1"
+            >
+              <Scale className="w-3.5 h-3.5" /> Civil Case Filed? Chat Now
+            </a>
+            <span className="text-emerald-300/40">|</span>
+            <a
+              href={buildWhatsAppUrl({ topic: 'general', customMessage: 'Assalamu Alaikum HISK LEGAL, I require a legal consultation for my legal matter.' })}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-[#25D366] hover:underline font-bold flex items-center gap-1"
+            >
+              <HelpCircle className="w-3.5 h-3.5" /> Legal Consultation Required? Chat Now
+            </a>
+            <span className="text-emerald-300/40">|</span>
             <a
               href={buildWhatsAppUrl({ topic: 'general' })}
               target="_blank"
               rel="noopener noreferrer"
-              className="hidden sm:flex items-center gap-1 hover:text-emerald-200 transition-colors"
+              className="flex items-center gap-1 hover:text-emerald-200 transition-colors"
             >
               <Phone className="w-3.5 h-3.5" /> {DISPLAY_PHONE}
             </a>
@@ -90,13 +117,13 @@ export const Navbar: React.FC<NavbarProps> = ({ activeTab, setActiveTab, onOpenP
             className="flex items-center text-left focus:outline-none"
             id="nav-logo-btn"
           >
-            <div className="relative w-24 h-10 sm:w-36 sm:h-14 shrink-0">
+            <div className="relative w-36 h-14 sm:w-48 sm:h-20 shrink-0">
               <Image
-                src="https://i.ibb.co/wh9Gb1br/20260723-032202-0000.png"
+                src="https://i.ibb.co/V02sjKtY/file-00000000549882089b03c95577e607a2.png"
                 alt="HISK LEGAL Logo"
                 fill
                 unoptimized
-                className="object-contain object-left brightness-0"
+                className="object-contain object-left"
                 referrerPolicy="no-referrer"
               />
             </div>

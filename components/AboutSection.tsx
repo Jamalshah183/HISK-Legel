@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import Image from 'next/image';
 import { motion, AnimatePresence } from 'motion/react';
 import {
@@ -9,6 +9,9 @@ import {
   GraduationCap,
   MessageCircle,
   ChevronRight,
+  ChevronLeft,
+  Play,
+  Pause,
   X,
   Award,
   CheckCircle2,
@@ -23,6 +26,24 @@ export const AboutSection: React.FC = () => {
   const [imgSrc, setImgSrc] = useState('https://i.ibb.co/V02sjKtY/file-00000000549882089b03c95577e607a2.png');
   const [selectedAttorney, setSelectedAttorney] = useState<Attorney | null>(null);
   const [attorneyImages, setAttorneyImages] = useState<Record<string, string>>({});
+  const [activeSlide, setActiveSlide] = useState(0);
+  const [isAutoplay, setIsAutoplay] = useState(true);
+
+  useEffect(() => {
+    if (!isAutoplay) return;
+    const interval = setInterval(() => {
+      setActiveSlide((prev) => (prev + 1) % ATTORNEYS.length);
+    }, 5000);
+    return () => clearInterval(interval);
+  }, [isAutoplay]);
+
+  const handlePrevSlide = () => {
+    setActiveSlide((prev) => (prev === 0 ? ATTORNEYS.length - 1 : prev - 1));
+  };
+
+  const handleNextSlide = () => {
+    setActiveSlide((prev) => (prev + 1) % ATTORNEYS.length);
+  };
 
   const handleImageError = (attorneyId: string, currentSrc: string) => {
     if (attorneyId === 'hafiz-irfan-shabber-kayani') {
@@ -172,14 +193,14 @@ export const AboutSection: React.FC = () => {
           </motion.div>
         </div>
 
-        {/* Senior Attorney Roster */}
-        <div>
+        {/* Senior Attorney Roster Slideshow */}
+        <div className="max-w-5xl mx-auto">
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: false, amount: 0.2 }}
             transition={{ duration: 0.6 }}
-            className="text-center max-w-2xl mx-auto mb-16"
+            className="text-center max-w-2xl mx-auto mb-10"
           >
             <div className="inline-flex items-center gap-1.5 bg-[#F5A623]/15 text-[#B87B00] px-3.5 py-1 rounded-full text-xs font-extrabold mb-3">
               <UserCheck className="w-4 h-4 text-[#F5A623]" />
@@ -189,105 +210,225 @@ export const AboutSection: React.FC = () => {
               Our Senior Legal Advocates
             </h3>
             <p className="text-base text-[#5A6275] mt-2">
-              Meet our founder and legal team dedicated to technical excellence and client success.
+              Meet our founder and senior legal advocates dedicated to technical excellence and client success.
             </p>
           </motion.div>
 
-          {/* Swipe Indicator for Mobile */}
-          <div className="flex items-center justify-center gap-1.5 text-xs font-bold text-[#0F6B4C] bg-[#0F6B4C]/10 px-3.5 py-1.5 rounded-full w-fit mx-auto mb-5 md:hidden">
-            <span>Swipe right to see more</span>
-            <ChevronRight className="w-3.5 h-3.5 animate-pulse" />
-          </div>
+          {/* Main Featured Slide Container */}
+          <div className="relative bg-white rounded-3xl border border-[#0F6B4C]/20 shadow-lg overflow-hidden transition-all duration-300">
+            <AnimatePresence mode="wait">
+              {(() => {
+                const currentAttorney = ATTORNEYS[activeSlide];
+                const imageSrc = attorneyImages[currentAttorney.id] || currentAttorney.image;
+                const isCeo = currentAttorney.isCeo;
 
-          <div className="-mx-4 px-8 scroll-pl-8 sm:-mx-6 sm:px-6 sm:scroll-pl-6 md:mx-0 md:px-0 md:scroll-pl-0 w-[calc(100%+2rem)] sm:w-[calc(100%+3rem)] md:w-full overflow-x-auto no-scrollbar py-3 touch-auto flex gap-4 sm:gap-6 snap-x snap-mandatory md:grid md:grid-cols-2 lg:grid-cols-4 md:gap-6 lg:gap-8 md:overflow-visible">
-            {ATTORNEYS.map((attorney, idx) => {
-              const imageSrc = attorneyImages[attorney.id] || attorney.image;
-              const isCeo = attorney.isCeo;
-
-              return (
-                <motion.div
-                  key={attorney.id}
-                  initial={{ opacity: 0 }}
-                  whileInView={{ opacity: 1 }}
-                  viewport={{ once: true, amount: 0.1 }}
-                  transition={{ duration: 0.5, delay: idx * 0.08 }}
-                  className={`w-[82vw] max-w-[340px] sm:w-[320px] md:w-auto shrink-0 md:shrink snap-start rounded-3xl overflow-hidden border shadow-sm hover:shadow-md transition-all duration-300 flex flex-col justify-between ${
-                    isCeo
-                      ? 'bg-gradient-to-b from-[#F2F9F5] via-white to-white border-[#0F6B4C]/35 ring-1 ring-[#0F6B4C]/20'
-                      : 'bg-white border-[#0F6B4C]/15'
-                  }`}
-                >
-                  <div>
-                    {/* Header Image */}
-                    <div className="relative h-60 sm:h-64 md:h-60 lg:h-64 w-full bg-[#0F6B4C]/5 overflow-hidden">
+                return (
+                  <motion.div
+                    key={currentAttorney.id}
+                    initial={{ opacity: 0, x: 20 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    exit={{ opacity: 0, x: -20 }}
+                    transition={{ duration: 0.45, ease: 'easeInOut' }}
+                    className="grid lg:grid-cols-12 items-center"
+                  >
+                    {/* Left Column: Attorney Image & Badge */}
+                    <div className="lg:col-span-5 relative h-72 sm:h-96 lg:h-[420px] bg-gradient-to-b from-[#E8F5F0] to-[#0A4B35]/10 overflow-hidden group">
                       {isCeo && (
-                        <div className="absolute top-3 left-3 z-10 bg-[#0F6B4C] text-[#F5A623] text-[11px] font-extrabold px-3 py-1 rounded-full shadow-md flex items-center gap-1">
-                          <Award className="w-3.5 h-3.5 text-[#F5A623]" />
+                        <div className="absolute top-4 left-4 z-20 bg-[#0F6B4C] text-[#F5A623] text-xs font-extrabold px-3.5 py-1.5 rounded-full shadow-md flex items-center gap-1.5 border border-[#F5A623]/30">
+                          <Award className="w-4 h-4 text-[#F5A623]" />
                           <span>FOUNDER &amp; CEO</span>
                         </div>
                       )}
                       <Image
                         src={imageSrc}
-                        alt={attorney.name}
+                        alt={currentAttorney.name}
                         fill
                         unoptimized
-                        className="object-cover object-top hover:scale-105 transition-transform duration-500"
+                        className="object-cover object-top transition-transform duration-700 group-hover:scale-105"
                         referrerPolicy="no-referrer"
-                        onError={() => handleImageError(attorney.id, imageSrc)}
+                        onError={() => handleImageError(currentAttorney.id, imageSrc)}
                       />
+                      <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent lg:hidden" />
+                      <div className="absolute bottom-3 left-4 right-4 text-white lg:hidden">
+                        <div className="text-xs font-bold text-[#F5A623]">{currentAttorney.title}</div>
+                        <div className="font-heading font-extrabold text-lg">{currentAttorney.name}</div>
+                      </div>
                     </div>
 
-                    <div className="p-6 space-y-3">
-                      <div className="flex flex-wrap gap-1.5 mb-1">
-                        {attorney.credentials.map((cred, cIdx) => (
-                          <span
-                            key={cIdx}
-                            className={`text-[11px] font-extrabold px-2.5 py-1 rounded-md ${
-                              isCeo
-                                ? 'bg-[#0F6B4C] text-white'
-                                : 'bg-[#E8F5F0] text-[#0F6B4C]'
-                            }`}
-                          >
-                            {cred}
+                    {/* Right Column: Details & Practice */}
+                    <div className="lg:col-span-7 p-6 sm:p-8 lg:p-10 flex flex-col justify-between space-y-5">
+                      <div className="space-y-4">
+                        <div className="flex flex-wrap items-center gap-2">
+                          {currentAttorney.credentials.map((cred, cIdx) => (
+                            <span
+                              key={cIdx}
+                              className={`text-xs font-extrabold px-3 py-1 rounded-full ${
+                                isCeo
+                                  ? 'bg-[#0F6B4C] text-white'
+                                  : 'bg-[#E8F5F0] text-[#0F6B4C] border border-[#0F6B4C]/20'
+                              }`}
+                            >
+                              {cred}
+                            </span>
+                          ))}
+                          <span className="text-xs text-[#5A6275] font-semibold bg-gray-100 px-3 py-1 rounded-full">
+                            {currentAttorney.experienceYears}+ Years Experience
                           </span>
-                        ))}
+                        </div>
+
+                        <div>
+                          <h4 className="font-heading font-extrabold text-2xl sm:text-3xl text-[#1A1A1A] leading-tight">
+                            {currentAttorney.name}
+                          </h4>
+                          <div className="text-sm text-[#0F6B4C] font-bold mt-1">
+                            {currentAttorney.title}
+                          </div>
+                        </div>
+
+                        <p className="text-sm text-[#5A6275] leading-relaxed font-normal">
+                          {currentAttorney.bio}
+                        </p>
+
+                        <div className="bg-[#E8F5F0]/60 border border-[#0F6B4C]/15 p-3.5 rounded-2xl space-y-1">
+                          <div className="text-xs font-extrabold text-[#0F6B4C] uppercase tracking-wider">
+                            Specialty &amp; Practice Focus:
+                          </div>
+                          <div className="text-xs font-semibold text-[#1A1A1A]">
+                            {currentAttorney.specialty}
+                          </div>
+                        </div>
                       </div>
 
-                      <h4 className="font-heading font-extrabold text-lg sm:text-xl text-[#1A1A1A] leading-snug">
-                        {attorney.name}
-                      </h4>
-                      <div className="text-xs text-[#0F6B4C] font-bold leading-tight">{attorney.title}</div>
+                      <div className="flex flex-col sm:flex-row gap-3 pt-2">
+                        {currentAttorney.fullBio && (
+                          <button
+                            onClick={() => setSelectedAttorney(currentAttorney)}
+                            className="flex-1 bg-[#E8F5F0] hover:bg-[#0F6B4C]/15 text-[#0F6B4C] font-heading font-bold text-xs py-3 px-4 rounded-xl transition-all flex items-center justify-center gap-2 border border-[#0F6B4C]/25"
+                          >
+                            <Briefcase className="w-4 h-4" />
+                            <span>Read Full Profile</span>
+                          </button>
+                        )}
 
-                      <p className="text-xs text-[#5A6275] leading-relaxed font-normal line-clamp-3">
-                        {attorney.bio}
-                      </p>
+                        <a
+                          href={buildWhatsAppUrl({
+                            customMessage: `Assalamu Alaikum Advocate ${currentAttorney.name}, I would like to consult with you directly regarding a legal matter for HISK LEGAL.`
+                          })}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="flex-1 bg-[#0F6B4C] hover:bg-[#0A4B35] text-white font-heading font-bold text-xs py-3 px-4 rounded-xl transition-all flex items-center justify-center gap-2 shadow-md"
+                        >
+                          <MessageCircle className="w-4 h-4 text-[#F5A623]" />
+                          <span>Direct Consultation</span>
+                        </a>
+                      </div>
+                    </div>
+                  </motion.div>
+                );
+              })()}
+            </AnimatePresence>
+          </div>
+
+          {/* Slideshow Control Bar */}
+          <div className="mt-6 flex flex-col sm:flex-row items-center justify-between gap-4 bg-white border border-[#0F6B4C]/15 p-4 rounded-2xl shadow-sm">
+            {/* Left: Counter & Autoplay Toggle */}
+            <div className="flex items-center gap-3">
+              <span className="text-xs font-extrabold text-[#0F6B4C] bg-[#E8F5F0] px-3 py-1.5 rounded-full border border-[#0F6B4C]/20">
+                {String(activeSlide + 1).padStart(2, '0')} / {String(ATTORNEYS.length).padStart(2, '0')}
+              </span>
+              <button
+                onClick={() => setIsAutoplay((prev) => !prev)}
+                className={`flex items-center gap-1.5 text-xs font-bold px-3 py-1.5 rounded-full transition-all border ${
+                  isAutoplay
+                    ? 'bg-[#0F6B4C] text-white border-[#0F6B4C]'
+                    : 'bg-gray-100 text-[#5A6275] border-gray-200 hover:bg-gray-200'
+                }`}
+                title={isAutoplay ? 'Pause Slideshow' : 'Start Slideshow'}
+              >
+                {isAutoplay ? (
+                  <>
+                    <Pause className="w-3.5 h-3.5" />
+                    <span>Auto-Playing</span>
+                  </>
+                ) : (
+                  <>
+                    <Play className="w-3.5 h-3.5" />
+                    <span>Play Slideshow</span>
+                  </>
+                )}
+              </button>
+            </div>
+
+            {/* Center: Slide Indicators */}
+            <div className="flex items-center gap-2">
+              {ATTORNEYS.map((att, idx) => (
+                <button
+                  key={att.id}
+                  onClick={() => setActiveSlide(idx)}
+                  className={`h-2.5 transition-all duration-300 rounded-full ${
+                    activeSlide === idx
+                      ? 'w-8 bg-[#0F6B4C]'
+                      : 'w-2.5 bg-gray-300 hover:bg-gray-400'
+                  }`}
+                  aria-label={`Go to slide ${idx + 1}`}
+                />
+              ))}
+            </div>
+
+            {/* Right: Next / Prev Arrows */}
+            <div className="flex items-center gap-2">
+              <button
+                onClick={handlePrevSlide}
+                className="w-10 h-10 rounded-xl bg-gray-100 hover:bg-[#0F6B4C] text-[#1A1A1A] hover:text-white transition-all flex items-center justify-center border border-gray-200 hover:border-[#0F6B4C] shadow-xs"
+                aria-label="Previous Partner"
+              >
+                <ChevronLeft className="w-5 h-5" />
+              </button>
+              <button
+                onClick={handleNextSlide}
+                className="w-10 h-10 rounded-xl bg-[#0F6B4C] hover:bg-[#0A4B35] text-white transition-all flex items-center justify-center border border-[#0F6B4C] shadow-xs"
+                aria-label="Next Partner"
+              >
+                <ChevronRight className="w-5 h-5" />
+              </button>
+            </div>
+          </div>
+
+          {/* Partner Thumbnail Selector Carousel Tabs */}
+          <div className="mt-6 grid grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4">
+            {ATTORNEYS.map((attorney, idx) => {
+              const imageSrc = attorneyImages[attorney.id] || attorney.image;
+              const isActive = activeSlide === idx;
+
+              return (
+                <button
+                  key={attorney.id}
+                  onClick={() => setActiveSlide(idx)}
+                  className={`p-3 rounded-2xl border transition-all text-left flex items-center gap-3 ${
+                    isActive
+                      ? 'bg-[#E8F5F0] border-[#0F6B4C] ring-2 ring-[#0F6B4C]/20 shadow-md transform -translate-y-0.5'
+                      : 'bg-white border-[#0F6B4C]/15 hover:border-[#0F6B4C]/40 hover:bg-gray-50'
+                  }`}
+                >
+                  <div className="relative w-12 h-12 rounded-xl overflow-hidden shrink-0 border border-[#0F6B4C]/20 bg-gray-100">
+                    <Image
+                      src={imageSrc}
+                      alt={attorney.name}
+                      fill
+                      unoptimized
+                      className="object-cover object-top"
+                      referrerPolicy="no-referrer"
+                    />
+                  </div>
+                  <div className="overflow-hidden">
+                    <div className={`text-xs font-extrabold truncate ${isActive ? 'text-[#0F6B4C]' : 'text-[#1A1A1A]'}`}>
+                      {attorney.name}
+                    </div>
+                    <div className="text-[10px] text-[#5A6275] truncate">
+                      {attorney.isCeo ? 'Founder & CEO' : 'Associate Counsel'}
                     </div>
                   </div>
-
-                  <div className="p-6 pt-0 space-y-2.5">
-                    {attorney.fullBio && (
-                      <button
-                        onClick={() => setSelectedAttorney(attorney)}
-                        className="w-full bg-[#E8F5F0] hover:bg-[#0F6B4C]/15 text-[#0F6B4C] font-heading font-bold text-xs py-2.5 px-3 rounded-xl transition-all flex items-center justify-center gap-1.5 border border-[#0F6B4C]/20"
-                      >
-                        <Briefcase className="w-3.5 h-3.5" />
-                        <span>Read Full Profile &amp; Practice</span>
-                      </button>
-                    )}
-
-                    <a
-                      href={buildWhatsAppUrl({
-                        customMessage: `Assalamu Alaikum Advocate ${attorney.name}, I would like to consult with you directly regarding a legal matter for HISK LEGAL.`
-                      })}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="w-full bg-[#0F6B4C] hover:bg-[#0A4B35] text-white font-heading font-bold text-xs py-3 px-4 rounded-xl transition-all flex items-center justify-center gap-2 shadow-xs"
-                    >
-                      <MessageCircle className="w-4 h-4 text-[#F5A623]" />
-                      <span>WhatsApp Consultation</span>
-                    </a>
-                  </div>
-                </motion.div>
+                </button>
               );
             })}
           </div>

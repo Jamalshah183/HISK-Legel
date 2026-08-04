@@ -427,7 +427,9 @@ export const FAQS: FAQItem[] = [
 ];
 
 export const FIRM_METRICS = {
-  totalTaxSaved: 'Rs. 50 Crore+',
+  totalTaxSaved: 'Rs. 50 Million+',
+  successfulCases: '2,500+',
+  clientsServed: '6,000+',
   casesHandled: '2,500+',
   auditReliefRate: '99.4%',
   yearsInPractice: '20+'

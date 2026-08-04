@@ -26,13 +26,13 @@ export const Footer: React.FC<FooterProps> = ({ setActiveTab }) => {
           {/* Brand */}
           <div className="lg:col-span-2 space-y-4">
             <div className="flex items-center">
-              <div className="relative w-32 h-12 sm:w-40 sm:h-16 shrink-0">
+              <div className="relative w-44 h-18 sm:w-56 sm:h-24 shrink-0">
                 <Image
-                  src="https://i.ibb.co/wh9Gb1br/20260723-032202-0000.png"
+                  src="https://i.ibb.co/V02sjKtY/file-00000000549882089b03c95577e607a2.png"
                   alt="HISK LEGAL Logo"
                   fill
                   unoptimized
-                  className="object-contain object-left brightness-0 invert"
+                  className="object-contain object-left"
                   referrerPolicy="no-referrer"
                 />
               </div>

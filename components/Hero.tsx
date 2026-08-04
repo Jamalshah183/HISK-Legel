@@ -34,7 +34,7 @@ export const Hero: React.FC<HeroProps> = () => {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10 w-full">
         <div className="grid lg:grid-cols-12 gap-6 sm:gap-12 lg:gap-8 items-center">
           {/* Left Column (Main Content) */}
-          <div className="lg:col-span-7 flex flex-col space-y-4 sm:space-y-6 lg:space-y-8 text-center lg:text-left items-center lg:items-start">
+          <div className="lg:col-span-7 flex flex-col space-y-4 sm:space-y-5 lg:space-y-6 text-center lg:text-left items-center lg:items-start">
             {/* Minimal Badge */}
             <motion.div
               initial={{ opacity: 0, scale: 0.85, y: -10 }}
@@ -43,9 +43,9 @@ export const Hero: React.FC<HeroProps> = () => {
               transition={{ duration: 0.5, delay: 0.1 }}
               className="flex justify-center lg:justify-start w-full"
             >
-              <div className="inline-flex items-center gap-1.5 sm:gap-2 bg-[#E8F5F0] border border-[#0F6B4C]/20 px-3 py-1.5 sm:px-3.5 sm:py-1.5 rounded-full text-xs font-semibold text-[#0F6B4C] shadow-xs">
+              <div className="inline-flex items-center gap-1.5 sm:gap-2 bg-[#E8F5F0] border border-[#0F6B4C]/20 px-3.5 py-1.5 rounded-full text-xs font-semibold text-[#0F6B4C] shadow-xs">
                 <ShieldCheck className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-[#0F6B4C]" />
-                <span>High Court Tax Advocates &amp; FBR Legal Counsel</span>
+                <span>Trusted Advocacy Solutions Beyond Expectations</span>
               </div>
             </motion.div>
 
@@ -55,12 +55,11 @@ export const Hero: React.FC<HeroProps> = () => {
               whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: false, amount: 0.3 }}
               transition={{ duration: 0.6, delay: 0.15 }}
-              className="font-heading font-extrabold text-2xl sm:text-5xl lg:text-6xl text-[#1A1A1A] leading-[1.18] sm:leading-[1.12] tracking-tight text-center lg:text-left"
+              className="font-heading font-extrabold text-2xl sm:text-3xl lg:text-[2.5rem] text-[#1A1A1A] leading-snug sm:leading-tight lg:leading-[1.2] tracking-tight text-center lg:text-left"
             >
-              Protect Your Wealth &amp;{' '}
-              <span className="text-[#0F6B4C]">
-                Resolve FBR Audits Fast
-              </span>
+              <span className="text-[#0F6B4C]">Strategic Legal Representation</span>{' '}
+              For Individuals, Businesses &amp; Corporate Clients{' '}
+              <span className="text-[#0F6B4C]">Across Pakistan &amp; Beyond</span>
             </motion.h1>
 
             {/* Subheadline */}
@@ -69,9 +68,9 @@ export const Hero: React.FC<HeroProps> = () => {
               whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: false, amount: 0.3 }}
               transition={{ duration: 0.6, delay: 0.25 }}
-              className="text-sm sm:text-base lg:text-lg text-[#5A6275] font-normal leading-relaxed max-w-2xl text-center lg:text-left mx-auto lg:mx-0"
+              className="text-xs sm:text-sm lg:text-base text-[#5A6275] font-normal leading-relaxed max-w-2xl text-center lg:text-left mx-auto lg:mx-0"
             >
-              20+ years of High Court legal defense protecting 2,500+ Pakistani businesses and high earners.
+              <strong className="font-semibold text-[#1A1A1A]">20+ Years of Legal Excellence</strong> — Trusted advocates with over two decades of experience in civil, criminal, family, rent, corporate and tax litigation, successfully safeguarding the interests of 5,000+ businesses and high-net-worth clients under one roof.
             </motion.p>
 
             {/* Mobile-Only Floating Image (Placed in the middle, between text & CTA) */}
@@ -134,21 +133,21 @@ export const Hero: React.FC<HeroProps> = () => {
               className="pt-3 sm:pt-6 border-t border-[#0F6B4C]/15 flex flex-wrap items-center justify-center lg:justify-start gap-3 sm:gap-6 text-xs text-[#5A6275] font-medium w-full"
             >
               <div className="flex items-center gap-1.5 sm:gap-2">
-                <Award className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-[#0F6B4C]" />
+                <CheckCircle2 className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-[#0F6B4C]" />
                 <span>
-                  <strong className="text-[#1A1A1A] font-extrabold">{FIRM_METRICS.yearsInPractice}</strong> High Court Bar
+                  <strong className="text-[#1A1A1A] font-extrabold">{FIRM_METRICS.successfulCases}</strong> Successful Cases
                 </span>
               </div>
 
               <div className="flex items-center gap-1.5 sm:gap-2">
                 <Users className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-[#0F6B4C]" />
                 <span>
-                  <strong className="text-[#1A1A1A] font-extrabold">{FIRM_METRICS.casesHandled}</strong> Clients Served
+                  <strong className="text-[#1A1A1A] font-extrabold">{FIRM_METRICS.clientsServed}</strong> Clients Served
                 </span>
               </div>
 
               <div className="flex items-center gap-1.5 sm:gap-2">
-                <CheckCircle2 className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-[#0F6B4C]" />
+                <Award className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-[#0F6B4C]" />
                 <span>
                   <strong className="text-[#1A1A1A] font-extrabold">{FIRM_METRICS.totalTaxSaved}</strong> Tax Saved
                 </span>
