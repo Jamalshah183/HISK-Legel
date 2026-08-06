@@ -246,7 +246,7 @@ export const TaxCalculator: React.FC = () => {
       viewport={{ once: false, amount: 0.08 }}
       transition={{ duration: 0.7, ease: [0.22, 1, 0.36, 1] }}
       id="calculator"
-      className="py-20 sm:py-28 lg:py-36 bg-[#FAFAF7] border-b border-gray-200/80 relative"
+      className="scroll-mt-20 sm:scroll-mt-24 py-10 sm:py-14 lg:py-16 bg-[#FAFAF7] border-b border-gray-200/80 relative"
     >
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         {/* Header */}
@@ -255,7 +255,7 @@ export const TaxCalculator: React.FC = () => {
           whileInView={{ opacity: 1, scale: 1, y: 0 }}
           viewport={{ once: false, amount: 0.2 }}
           transition={{ duration: 0.6 }}
-          className="text-center max-w-3xl mx-auto mb-12 sm:mb-16"
+          className="text-center max-w-3xl mx-auto mb-6 sm:mb-8"
         >
           <div className="inline-flex items-center gap-2 bg-[#E8F5F0] border border-[#0F6B4C]/20 px-4 py-1.5 rounded-full text-xs font-extrabold text-[#0F6B4C] mb-4 shadow-xs">
             <Sparkles className="w-3.5 h-3.5 text-[#0F6B4C]" />

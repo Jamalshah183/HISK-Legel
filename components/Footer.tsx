@@ -7,15 +7,33 @@ import { buildWhatsAppUrl, DISPLAY_PHONE, LAWFIRM_EMAIL, LAWFIRM_ADDRESS, SOCIAL
 import { SERVICES_DATA } from '@/components/ServicesSection';
 
 interface FooterProps {
-  setActiveTab: (tab: string) => void;
+  setActiveTab?: (tab: string) => void;
 }
 
 export const Footer: React.FC<FooterProps> = ({ setActiveTab }) => {
   const handleNavClick = (id: string) => {
-    setActiveTab(id);
+    if (setActiveTab) {
+      setActiveTab(id);
+    }
+    if (id === 'home') {
+      if (window.location.pathname !== '/') {
+        window.location.href = '/';
+      } else {
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+      }
+      return;
+    }
     const element = document.getElementById(id);
     if (element) {
-      element.scrollIntoView({ behavior: 'smooth' });
+      const headerOffset = 80;
+      const elementPosition = element.getBoundingClientRect().top + window.pageYOffset;
+      const offsetPosition = elementPosition - headerOffset;
+      window.scrollTo({
+        top: Math.max(0, offsetPosition),
+        behavior: 'smooth'
+      });
+    } else {
+      window.location.href = `/#${id}`;
     }
   };
 
@@ -86,10 +104,10 @@ export const Footer: React.FC<FooterProps> = ({ setActiveTab }) => {
               {[
                 { id: 'home', label: 'Home' },
                 { id: 'services', label: 'Services' },
-                { id: 'calculator', label: 'FBR Tax Calculator' },
                 { id: 'about', label: 'About HISK LEGAL' },
-                { id: 'insights', label: 'Tax Briefings' },
+                { id: 'insights', label: 'Legal Insights & Blog' },
                 { id: 'reviews', label: 'Client Reviews' },
+                { id: 'calculator', label: 'FBR Tax Calculator' },
               ].map((item) => (
                 <li key={item.id}>
                   <button
@@ -166,14 +184,14 @@ export const Footer: React.FC<FooterProps> = ({ setActiveTab }) => {
           </div>
         </div>
 
-        {/* Legal Disclaimer */}
-        <div className="pt-8 text-[11px] text-emerald-200/60 leading-relaxed flex flex-col md:flex-row justify-between gap-4">
-          <p className="max-w-4xl">
-            <strong>Advocate Advertising Disclaimer:</strong> Information on this website is for general guidance on Pakistani tax law. Communication through WhatsApp does not form a legal practitioner-client relationship until a formal Vakalatnama or retainer is signed.
-          </p>
-          <p className="shrink-0 text-emerald-100 font-semibold">
+        {/* Copyright Footer */}
+        <div className="pt-8 text-[11px] text-emerald-200/60 leading-relaxed flex flex-col md:flex-row justify-between items-center gap-4 border-t border-emerald-800/60 mt-4">
+          <p className="text-emerald-100 font-semibold text-xs">
             &copy; {new Date().getFullYear()} HISK LEGAL. All rights reserved.
           </p>
+          <div className="text-emerald-200/80 text-[11px]">
+            High Court Advocates &amp; Tax Practitioners • Islamabad, Pakistan
+          </div>
         </div>
       </div>
     </footer>

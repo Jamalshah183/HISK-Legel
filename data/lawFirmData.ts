@@ -15,7 +15,7 @@ export interface BlogPost {
   id: string;
   title: string;
   slug: string;
-  category: 'FBR Updates' | 'Corporate Tax' | 'Property & 7E' | 'IT & Freelancer' | 'Tax Returns';
+  category: string;
   date: string;
   readTime: string;
   excerpt: string;
@@ -327,7 +327,7 @@ export const BLOG_POSTS: BlogPost[] = [
     category: 'IT & Freelancer',
     date: 'January 14, 2026',
     readTime: '5 min read',
-    featured: false,
+    featured: true,
     excerpt: 'Pakistani software houses, IT exporters, and tech freelancers can pay a final concessionary tax rate of 0.25% on foreign export proceeds if PSEB registration conditions are met.',
     author: {
       name: 'Muhammad Rizwan Malik',
@@ -343,6 +343,170 @@ export const BLOG_POSTS: BlogPost[] = [
       'Section 154A of the Income Tax Ordinance provides a reduced 0.25% final tax rate on foreign proceeds derived from export of computer software, IT services, or IT-enabled services (ITeS).',
       'If mandatory PSEB registration or annual return filing is missed, FBR reclassifies IT exporters under normal corporate tax (29%) or individual business tax (up to 45%).',
       'We guide IT companies through PSEB enrollment, State Bank R-Form reconciliation, and FBR return filing to ensure 100% tax credit protection.'
+    ]
+  },
+  {
+    id: 'sec-111-4-foreign-remittance-protection',
+    title: 'Section 111(4) Foreign Remittance Protection: Defending Against FBR Audit Notices',
+    slug: 'sec-111-4-foreign-remittance-protection',
+    category: 'FBR Audits',
+    date: 'February 02, 2026',
+    readTime: '6 min read',
+    featured: true,
+    excerpt: 'Statutory protection granted to foreign banking remittances under Section 111(4) against FBR unexplained income queries for Overseas Pakistanis.',
+    author: {
+      name: 'Hafiz Irfan Shabber Kayani',
+      role: 'Advocate High Court | Founder & CEO',
+      avatar: 'https://i.postimg.cc/VvWYYzzW/CEO.jpg'
+    },
+    keyTakeaways: [
+      'Banking remittances received through formal channels are protected from FBR tax queries under Sec 111(4).',
+      'Encashment certificates (PRCs) from commercial banks serve as mandatory legal proof.',
+      'FBR notices seeking source explanation can be legally contested and quashed.'
+    ],
+    content: [
+      'Under Section 111(4) of the Income Tax Ordinance 2001, foreign currency encashment certificates issued by scheduled banks protect foreign remittances received in Pakistan from being treated as unexplained income or assets.',
+      'FBR field officers frequently issue automated audit notices asking taxpayers to justify foreign inflows. Our senior advocates submit formal legal replies backed by Bank Encashment Certificates (PRCs) to immediately close audit proceedings.'
+    ]
+  },
+  {
+    id: 'high-court-writ-stay-orders-fbr',
+    title: 'Securing High Court Writs & Stay Orders Against Unlawful FBR Bank Attachments',
+    slug: 'high-court-writ-stay-orders-fbr',
+    category: 'Court Litigation',
+    date: 'January 20, 2026',
+    readTime: '8 min read',
+    featured: true,
+    excerpt: 'How High Court constitutional writs under Article 199 grant immediate stay orders against forced bank account recoveries by FBR field officers.',
+    author: {
+      name: 'Jamshaid Khan',
+      role: 'Advocate High Court | Associate Counsel',
+      avatar: 'https://i.postimg.cc/qRCSrr8s/associate-3.jpg'
+    },
+    keyTakeaways: [
+      'High Courts hold constitutional authority under Article 199 to restrain illegal administrative actions.',
+      'Stay orders suspend coercive recovery prior to the final decision of the Appellate Tribunal (ATIR).',
+      'Protects business cash flows and prevents unauthorized bank account freezing.'
+    ],
+    content: [
+      'When FBR issues ex-parte tax assessments or attempts forced bank attachments under Section 140 before statutory appeal periods expire, taxpayers can invoke the extraordinary constitutional jurisdiction of the High Court.',
+      'Our litigation team prepares urgent Writ Petitions before the Islamabad, Lahore, or Sindh High Courts to obtain immediate stay orders, preserving business operations while appeals are adjudicated.'
+    ]
+  },
+  {
+    id: 'secp-company-incorporation-compliance',
+    title: 'SECP Corporate Compliance & Foreign Direct Investment Structures in Pakistan',
+    slug: 'secp-company-incorporation-compliance',
+    category: 'Corporate & SECP',
+    date: 'December 18, 2025',
+    readTime: '6 min read',
+    featured: true,
+    excerpt: 'Step-by-step roadmap for single-member companies (SMC-PVT), private limited entities, SECP digital portal filings, and Board of Investment FDI registration.',
+    author: {
+      name: 'Muhammad Rizwan Malik',
+      role: 'Advocate High Court',
+      avatar: 'https://i.postimg.cc/Qtsx9f0Q/advocate-high-court.jpg'
+    },
+    keyTakeaways: [
+      'SECP digital portal allows fast-track company incorporation within 24 to 48 hours.',
+      'SMC-PVT structures offer full limited liability for solo entrepreneurs and tech founders.',
+      'Annual SECP Form A / Form 29 filings prevent compliance default penalties.'
+    ],
+    content: [
+      'Establishing a corporate footprint in Pakistan requires registration with the Securities and Exchange Commission of Pakistan (SECP). Our corporate team handles name reservation, memorandum & articles drafting, digital signature issuance, and company incorporation.',
+      'We also assist foreign investors and multinational entities in obtaining Board of Investment (BOI) approval, State Bank capital transfer permissions, and joint venture corporate structuring.'
+    ]
+  },
+  {
+    id: 'sales-tax-pra-fbr-input-credit-audit',
+    title: 'Sales Tax Audit Defense & Disallowed Input Tax Credits under FBR & PRA',
+    slug: 'sales-tax-pra-fbr-input-credit-audit',
+    category: 'Sales Tax & PRA',
+    date: 'January 05, 2026',
+    readTime: '7 min read',
+    featured: true,
+    excerpt: 'Navigating input sales tax disallowances, Section 8B 90% input cap restrictions, and provincial revenue authority (PRA/SRB/BRA/KPRA) dual-jurisdiction conflicts.',
+    author: {
+      name: 'Mirza Ahmed Raza',
+      role: 'Advocate, Islamabad',
+      avatar: 'https://i.postimg.cc/yY6Km4V5/Associate-1.jpg'
+    },
+    keyTakeaways: [
+      'Input tax claimed on purchases from inactive/blacklisted suppliers can trigger FBR show cause notices.',
+      'Section 8B limits monthly input tax adjustments to 90% of output tax payable.',
+      'Appellate appeals before Commissioner Appeals & ATIR resolve unjust tax demands.'
+    ],
+    content: [
+      'Federal and provincial sales tax audits regularly target registered businesses for input tax credit disallowance based on supplier non-compliance. Our advocates represent manufacturers, distributors, and service providers in defending sales tax returns, proving legitimate purchase invoices, and securing full input tax adjustments.'
+    ]
+  },
+  {
+    id: 'overseas-pakistani-property-rights-law',
+    title: 'Protecting Overseas Pakistani Immovable Property & Inheritance Rights',
+    slug: 'overseas-pakistani-property-rights-law',
+    category: 'Civil & Property',
+    date: 'December 10, 2025',
+    readTime: '8 min read',
+    featured: true,
+    excerpt: 'Legal safeguards for non-resident Pakistanis against illegal property encroachments, power of attorney misuses, and Succession Certificate acquisitions.',
+    author: {
+      name: 'Jamshaid Khan',
+      role: 'Advocate High Court | Associate Counsel',
+      avatar: 'https://i.postimg.cc/qRCSrr8s/associate-3.jpg'
+    },
+    keyTakeaways: [
+      'Special Overseas Courts provide expedited trial timelines for land and property disputes.',
+      'NADRA digital succession certificates simplify inheritance distribution without lengthy court trials.',
+      'Special Power of Attorney (POA) attestation from foreign embassies ensures legal validity.'
+    ],
+    content: [
+      'Overseas Pakistanis often face challenges regarding property possession, fraudulent land transfers, and delayed inheritance settlements. HISK LEGAL provides comprehensive legal representation, conducting title searches, securing injunctive stay orders, and litigating in specialized tribunals to safeguard overseas investments.'
+    ]
+  },
+  {
+    id: 'sec-140-fbr-recovery-notice-defense',
+    title: 'Defending Section 140 Recovery Notices & Bank Account Unfreezing Protocols',
+    slug: 'sec-140-fbr-recovery-notice-defense',
+    category: 'FBR Audits',
+    date: 'November 25, 2025',
+    readTime: '5 min read',
+    featured: true,
+    excerpt: 'Urgent legal remedies available when FBR issues Section 140 notices to commercial banks for attachment of company accounts without notice.',
+    author: {
+      name: 'Hafiz Irfan Shabber Kayani',
+      role: 'Advocate High Court | Founder & CEO',
+      avatar: 'https://i.postimg.cc/VvWYYzzW/CEO.jpg'
+    },
+    keyTakeaways: [
+      'Section 140 empowers FBR to attach bank accounts, but strict statutory pre-conditions must be satisfied.',
+      'Immediate appeal filing with stay application before Commissioner Appeals suspends recovery.',
+      'Emergency High Court writ petitions ensure bank account unfreezing within 24 hours.'
+    ],
+    content: [
+      'Arbitrary bank account attachment severely disrupts corporate operations and payroll. Our senior tax advocates file emergency High Court petitions and administrative stay applications to obtain immediate unfreezing directives against illegal Section 140 recovery demands.'
+    ]
+  },
+  {
+    id: 'banking-court-recovery-suits-defense',
+    title: 'Banking Court Recovery Suits & Financial Dispute Resolution under FIO 2001',
+    slug: 'banking-court-recovery-suits-defense',
+    category: 'Banking & Finance',
+    date: 'November 12, 2025',
+    readTime: '7 min read',
+    featured: true,
+    excerpt: 'Defending corporate borrowers and commercial clients in Banking Court suits filed under Financial Institutions (Recovery of Finances) Ordinance 2001.',
+    author: {
+      name: 'Jamshaid Khan',
+      role: 'Advocate High Court | Associate Counsel',
+      avatar: 'https://i.postimg.cc/qRCSrr8s/associate-3.jpg'
+    },
+    keyTakeaways: [
+      'Leave to Defend applications under Section 10 must be filed within 30 days of court notice.',
+      'Inaccurate markup/interest calculations by banks serve as primary grounds for defense.',
+      'Out-of-court restructuring agreements and consent decrees protect corporate assets.'
+    ],
+    content: [
+      'Commercial banking litigation requires meticulous examination of loan agreements, collateral documents, and statement of accounts. Our litigation team represents borrowers in Banking Courts, securing leave to defend and negotiating favorable debt settlement agreements.'
     ]
   }
 ];

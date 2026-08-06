@@ -20,7 +20,7 @@ export const ReviewsSection: React.FC = () => {
       viewport={{ once: false, amount: 0.08 }}
       transition={{ duration: 0.7, ease: [0.22, 1, 0.36, 1] }}
       id="reviews"
-      className="py-24 sm:py-32 lg:py-40 bg-[#FAFAF7] relative"
+      className="scroll-mt-20 sm:scroll-mt-24 py-10 sm:py-14 lg:py-16 bg-[#FAFAF7] relative"
     >
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         {/* Header */}
@@ -29,7 +29,7 @@ export const ReviewsSection: React.FC = () => {
           whileInView={{ opacity: 1, scale: 1, y: 0 }}
           viewport={{ once: false, amount: 0.2 }}
           transition={{ duration: 0.6 }}
-          className="text-center max-w-3xl mx-auto mb-16"
+          className="text-center max-w-3xl mx-auto mb-6 sm:mb-8"
         >
           <div className="inline-flex items-center gap-2 bg-[#E8F5F0] border border-[#0F6B4C]/20 px-4 py-1.5 rounded-full text-xs font-bold text-[#0F6B4C] mb-4">
             <Star className="w-4 h-4 text-[#F5A623] fill-[#F5A623]" />

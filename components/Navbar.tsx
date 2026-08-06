@@ -26,18 +26,28 @@ export const Navbar: React.FC<NavbarProps> = ({ activeTab, setActiveTab, onOpenP
   const navItems = [
     { id: 'home', label: 'Home' },
     { id: 'services', label: 'Services' },
-    { id: 'calculator', label: 'Tax Calculator' },
     { id: 'about', label: 'About Firm' },
-    { id: 'insights', label: 'Tax Insights' },
+    { id: 'insights', label: 'Legal Insights' },
     { id: 'reviews', label: 'Reviews' },
+    { id: 'calculator', label: 'Tax Calculator' },
   ];
 
   const handleNavClick = (id: string) => {
     setActiveTab(id);
     setMobileMenuOpen(false);
+    if (id === 'home') {
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+      return;
+    }
     const element = document.getElementById(id);
     if (element) {
-      element.scrollIntoView({ behavior: 'smooth' });
+      const headerOffset = 80;
+      const elementPosition = element.getBoundingClientRect().top + window.pageYOffset;
+      const offsetPosition = elementPosition - headerOffset;
+      window.scrollTo({
+        top: Math.max(0, offsetPosition),
+        behavior: 'smooth'
+      });
     }
   };
 

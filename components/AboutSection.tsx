@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import Image from 'next/image';
 import { motion, AnimatePresence } from 'motion/react';
 import {
@@ -9,41 +9,25 @@ import {
   GraduationCap,
   MessageCircle,
   ChevronRight,
-  ChevronLeft,
-  Play,
-  Pause,
   X,
   Award,
   CheckCircle2,
   UserCheck,
-  Briefcase
+  Briefcase,
+  Eye,
+  Scale,
+  FileCheck,
+  Building2,
+  Gavel,
+  TrendingUp
 } from 'lucide-react';
 import { ATTORNEYS, FIRM_METRICS, Attorney } from '@/data/lawFirmData';
 import { buildWhatsAppUrl } from '@/lib/whatsapp';
 import ceoPortrait from '@/src/assets/images/ceo_kayani_portrait_1784780278642.jpg';
 
 export const AboutSection: React.FC = () => {
-  const [imgSrc, setImgSrc] = useState('https://i.ibb.co/V02sjKtY/file-00000000549882089b03c95577e607a2.png');
   const [selectedAttorney, setSelectedAttorney] = useState<Attorney | null>(null);
   const [attorneyImages, setAttorneyImages] = useState<Record<string, string>>({});
-  const [activeSlide, setActiveSlide] = useState(0);
-  const [isAutoplay, setIsAutoplay] = useState(true);
-
-  useEffect(() => {
-    if (!isAutoplay) return;
-    const interval = setInterval(() => {
-      setActiveSlide((prev) => (prev + 1) % ATTORNEYS.length);
-    }, 5000);
-    return () => clearInterval(interval);
-  }, [isAutoplay]);
-
-  const handlePrevSlide = () => {
-    setActiveSlide((prev) => (prev === 0 ? ATTORNEYS.length - 1 : prev - 1));
-  };
-
-  const handleNextSlide = () => {
-    setActiveSlide((prev) => (prev + 1) % ATTORNEYS.length);
-  };
 
   const handleImageError = (attorneyId: string, currentSrc: string) => {
     if (attorneyId === 'hafiz-irfan-shabber-kayani') {
@@ -60,7 +44,7 @@ export const AboutSection: React.FC = () => {
       viewport={{ once: false, amount: 0.08 }}
       transition={{ duration: 0.7, ease: [0.22, 1, 0.36, 1] }}
       id="about"
-      className="py-24 sm:py-32 lg:py-40 bg-[#FAFAF7] relative"
+      className="scroll-mt-20 sm:scroll-mt-24 py-10 sm:py-14 lg:py-16 bg-[#FAFAF7] relative"
     >
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         {/* Section Header */}
@@ -69,7 +53,7 @@ export const AboutSection: React.FC = () => {
           whileInView={{ opacity: 1, x: 0, filter: 'blur(0px)' }}
           viewport={{ once: false, amount: 0.2 }}
           transition={{ duration: 0.6 }}
-          className="max-w-3xl mx-auto text-center mb-12 sm:mb-16"
+          className="max-w-3xl mx-auto text-center mb-8 sm:mb-12"
         >
           <div className="inline-flex items-center gap-2 bg-[#E8F5F0] border border-[#0F6B4C]/20 px-4 py-1.5 rounded-full text-xs font-bold text-[#0F6B4C] mb-4">
             <Shield className="w-4 h-4 text-[#F5A623]" />
@@ -79,122 +63,247 @@ export const AboutSection: React.FC = () => {
             About HISK LEGAL
           </h2>
           <p className="text-base sm:text-lg text-[#5A6275] leading-relaxed font-normal">
-            Premier full-service law firm in Pakistan led by Founder &amp; CEO Hafiz Irfan Shabber Kayani, Advocate High Court. Dedicated to providing strategic, commercially focused, and results-oriented legal services.
+            Premier full-service law firm in Pakistan led by Founder &amp; CEO Hafiz Irfan Shabber Kayani, Advocate High Court. Dedicated to providing strategic, commercially focused, and results-oriented legal defense.
           </p>
         </motion.div>
 
-        {/* Large Floating Image directly above Why Choose Us */}
-        <div className="relative mb-14 sm:mb-20 flex justify-center items-center w-full">
-          <div className="absolute w-80 h-80 sm:w-[500px] sm:h-[500px] rounded-full bg-gradient-to-tr from-[#0F6B4C]/20 to-[#F5A623]/25 blur-3xl -z-10 pointer-events-none" />
+        {/* Core Practice Foundations Grid (No Logo) */}
+        <div className="grid md:grid-cols-3 gap-6 mb-12 sm:mb-16">
           <motion.div
-            animate={{ y: [0, -18, 0] }}
-            transition={{
-              duration: 5,
-              repeat: Infinity,
-              ease: 'easeInOut',
-            }}
-            className="relative w-full max-w-md sm:max-w-xl lg:max-w-2xl h-72 sm:h-96 lg:h-[420px] flex items-center justify-center"
+            initial={{ opacity: 0, y: 20 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: false, amount: 0.2 }}
+            transition={{ duration: 0.5, delay: 0.1 }}
+            className="bg-white p-6 sm:p-8 rounded-3xl border border-[#0F6B4C]/15 shadow-xs hover:shadow-md transition-shadow flex flex-col justify-between"
           >
-            <Image
-              src={imgSrc}
-              alt="HISK LEGAL Practice"
-              fill
-              unoptimized
-              className="object-contain object-center drop-shadow-2xl"
-              referrerPolicy="no-referrer"
-              onError={() => {
-                if (!imgSrc.includes('file-00000000549882089b03c95577e607a2')) {
-                  setImgSrc('https://i.ibb.co/V02sjKtY/file-00000000549882089b03c95577e607a2.png');
-                }
-              }}
-            />
+            <div>
+              <div className="w-12 h-12 rounded-2xl bg-[#E8F5F0] text-[#0F6B4C] flex items-center justify-center mb-5">
+                <Scale className="w-6 h-6 text-[#0F6B4C]" />
+              </div>
+              <h3 className="font-heading font-extrabold text-xl text-[#1A1A1A] mb-2">
+                High Court &amp; Appellate Litigation
+              </h3>
+              <p className="text-sm text-[#5A6275] leading-relaxed font-normal">
+                Extensive litigation practice before Islamabad High Court, Lahore High Court, Appellate Tribunals, and administrative forums with a proven record of stay orders and writ petitions.
+              </p>
+            </div>
+            <div className="mt-6 pt-4 border-t border-gray-100 flex items-center text-xs font-bold text-[#0F6B4C]">
+              <span>Islamabad &amp; Regional High Courts</span>
+            </div>
+          </motion.div>
+
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: false, amount: 0.2 }}
+            transition={{ duration: 0.5, delay: 0.2 }}
+            className="bg-white p-6 sm:p-8 rounded-3xl border border-[#0F6B4C]/15 shadow-xs hover:shadow-md transition-shadow flex flex-col justify-between"
+          >
+            <div>
+              <div className="w-12 h-12 rounded-2xl bg-[#E8F5F0] text-[#0F6B4C] flex items-center justify-center mb-5">
+                <FileCheck className="w-6 h-6 text-[#0F6B4C]" />
+              </div>
+              <h3 className="font-heading font-extrabold text-xl text-[#1A1A1A] mb-2">
+                FBR Tax &amp; Regulatory Defense
+              </h3>
+              <p className="text-sm text-[#5A6275] leading-relaxed font-normal">
+                Specialized advocacy against high-value FBR audit demands, Section 122 reassessments, Section 140 bank attachments, and complex corporate tax compliance.
+              </p>
+            </div>
+            <div className="mt-6 pt-4 border-t border-gray-100 flex items-center text-xs font-bold text-[#0F6B4C]">
+              <span>Federal Board of Revenue (FBR)</span>
+            </div>
+          </motion.div>
+
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: false, amount: 0.2 }}
+            transition={{ duration: 0.5, delay: 0.3 }}
+            className="bg-white p-6 sm:p-8 rounded-3xl border border-[#0F6B4C]/15 shadow-xs hover:shadow-md transition-shadow flex flex-col justify-between"
+          >
+            <div>
+              <div className="w-12 h-12 rounded-2xl bg-[#E8F5F0] text-[#0F6B4C] flex items-center justify-center mb-5">
+                <Lock className="w-6 h-6 text-[#0F6B4C]" />
+              </div>
+              <h3 className="font-heading font-extrabold text-xl text-[#1A1A1A] mb-2">
+                100% Statutory Confidentiality
+              </h3>
+              <p className="text-sm text-[#5A6275] leading-relaxed font-normal">
+                Protected by statutory attorney-client privilege, ensuring your financial records, litigation strategy, and corporate discussions remain strictly confidential.
+              </p>
+            </div>
+            <div className="mt-6 pt-4 border-t border-gray-100 flex items-center text-xs font-bold text-[#0F6B4C]">
+              <span>Legal Privilege Guaranteed</span>
+            </div>
           </motion.div>
         </div>
 
-        {/* Story & Metrics Grid */}
-        <div className="grid lg:grid-cols-12 gap-8 lg:gap-12 mb-20 items-stretch">
-          {/* Column 1: Why Choose Us */}
+        {/* Quantifiable Relief & Firm Metrics Banner */}
+        <motion.div
+          initial={{ opacity: 0, scale: 0.98 }}
+          whileInView={{ opacity: 1, scale: 1 }}
+          viewport={{ once: false, amount: 0.15 }}
+          transition={{ duration: 0.6 }}
+          className="bg-[#0F6B4C] text-white rounded-3xl p-6 sm:p-8 lg:p-10 shadow-xl mb-12 sm:mb-16 relative overflow-hidden border border-[#0F6B4C]/30"
+        >
+          {/* Subtle Decorative Pattern */}
+          <div className="absolute top-0 right-0 w-96 h-96 bg-emerald-400/10 rounded-full blur-3xl pointer-events-none" />
+          <div className="absolute bottom-0 left-0 w-80 h-80 bg-[#F5A623]/10 rounded-full blur-3xl pointer-events-none" />
+
+          <div className="relative z-10 grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-10 items-center">
+            {/* Left Info Column */}
+            <div className="lg:col-span-5 text-center lg:text-left space-y-3">
+              <div className="inline-flex items-center gap-2 bg-[#0A4B35] text-[#F5A623] text-xs font-extrabold px-3.5 py-1.5 rounded-full border border-[#F5A623]/30 shadow-xs">
+                <Award className="w-3.5 h-3.5 text-[#F5A623]" />
+                <span className="uppercase tracking-wider">Track Record of Success</span>
+              </div>
+
+              <h3 className="font-heading font-extrabold text-2xl sm:text-3xl text-white leading-tight">
+                Quantifiable Legal Relief &amp; Representation
+              </h3>
+
+              <p className="text-xs sm:text-sm text-emerald-100/90 leading-relaxed font-normal">
+                Protecting business assets, resolving high-stakes disputes, and securing tax relief before judicial and administrative authorities.
+              </p>
+            </div>
+
+            {/* Right Metric Cards Column */}
+            <div className="lg:col-span-7 grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4 lg:gap-5 w-full">
+              <div className="bg-[#0A4B35]/90 hover:bg-[#0A4B35] p-4 sm:p-5 rounded-2xl border border-emerald-400/20 text-center flex flex-col justify-center items-center shadow-sm transition-all duration-300 min-h-[110px] sm:min-h-[120px]">
+                <div className="font-heading font-extrabold text-2xl sm:text-3xl text-[#F5A623] tracking-tight">
+                  {FIRM_METRICS.totalTaxSaved}
+                </div>
+                <div className="text-[11px] sm:text-xs text-emerald-100 font-medium mt-1.5 leading-tight">
+                  Tax Saved &amp; Protected
+                </div>
+              </div>
+
+              <div className="bg-[#0A4B35]/90 hover:bg-[#0A4B35] p-4 sm:p-5 rounded-2xl border border-emerald-400/20 text-center flex flex-col justify-center items-center shadow-sm transition-all duration-300 min-h-[110px] sm:min-h-[120px]">
+                <div className="font-heading font-extrabold text-2xl sm:text-3xl text-white tracking-tight">
+                  {FIRM_METRICS.auditReliefRate}
+                </div>
+                <div className="text-[11px] sm:text-xs text-emerald-100 font-medium mt-1.5 leading-tight">
+                  Litigation Success Rate
+                </div>
+              </div>
+
+              <div className="bg-[#0A4B35]/90 hover:bg-[#0A4B35] p-4 sm:p-5 rounded-2xl border border-emerald-400/20 text-center flex flex-col justify-center items-center shadow-sm transition-all duration-300 min-h-[110px] sm:min-h-[120px]">
+                <div className="font-heading font-extrabold text-2xl sm:text-3xl text-[#F5A623] tracking-tight">
+                  {FIRM_METRICS.casesHandled}
+                </div>
+                <div className="text-[11px] sm:text-xs text-emerald-100 font-medium mt-1.5 leading-tight">
+                  Cases &amp; Writs Handled
+                </div>
+              </div>
+
+              <div className="bg-[#0A4B35]/90 hover:bg-[#0A4B35] p-4 sm:p-5 rounded-2xl border border-emerald-400/20 text-center flex flex-col justify-center items-center shadow-sm transition-all duration-300 min-h-[110px] sm:min-h-[120px]">
+                <div className="font-heading font-extrabold text-2xl sm:text-3xl text-white tracking-tight">
+                  {FIRM_METRICS.yearsInPractice}
+                </div>
+                <div className="text-[11px] sm:text-xs text-emerald-100 font-medium mt-1.5 leading-tight">
+                  Years Legal Experience
+                </div>
+              </div>
+            </div>
+          </div>
+        </motion.div>
+
+        {/* Why Clients Trust Us - Two Column Feature Layout */}
+        <div className="grid lg:grid-cols-12 gap-8 lg:gap-12 mb-20 items-center">
           <motion.div
-            initial={{ opacity: 0, x: -40 }}
+            initial={{ opacity: 0, x: -30 }}
             whileInView={{ opacity: 1, x: 0 }}
             viewport={{ once: false, amount: 0.15 }}
-            transition={{ duration: 0.7 }}
-            className="lg:col-span-7 space-y-6 flex flex-col justify-between"
+            transition={{ duration: 0.6 }}
+            className="lg:col-span-6 space-y-5"
           >
-            <div className="space-y-4">
-              <h3 className="font-heading font-extrabold text-2xl sm:text-3xl text-[#0F6B4C]">
-                Why Clients &amp; Businesses Trust HISK LEGAL
-              </h3>
-              <p className="text-base text-[#1A1A1A] leading-relaxed font-normal">
-                Under the leadership of Advocate Hafiz Irfan Shabber Kayani, HISK LEGAL delivers technical legal excellence across Civil, Criminal, Corporate, Banking, Property, Taxation, and International matters.
-              </p>
-              <p className="text-[#5A6275] text-sm sm:text-base leading-relaxed font-normal">
-                Our advocates regularly represent individuals, financial institutions, and corporate entities before High Courts, tribunals, and administrative bodies throughout Pakistan, ensuring meticulous legal drafting and strategic advocacy.
-              </p>
+            <div className="inline-flex items-center gap-1.5 bg-[#0F6B4C]/10 text-[#0F6B4C] px-3.5 py-1 rounded-full text-xs font-bold">
+              <Building2 className="w-4 h-4 text-[#0F6B4C]" />
+              <span>Commercial &amp; High Court Expertise</span>
             </div>
 
-            <div className="space-y-3.5 pt-2">
-              <div className="flex items-start gap-3.5 bg-white p-4.5 rounded-2xl border border-[#0F6B4C]/15 shadow-xs">
-                <Lock className="w-5 h-5 text-[#0F6B4C] shrink-0 mt-0.5" />
-                <div>
-                  <div className="font-extrabold text-sm sm:text-base text-[#1A1A1A]">100% Attorney-Client Confidentiality</div>
-                  <div className="text-xs sm:text-sm text-[#5A6275]">Uncompromising ethics, confidentiality, and professional standards.</div>
-                </div>
-              </div>
+            <h3 className="font-heading font-extrabold text-2xl sm:text-3xl lg:text-4xl text-[#1A1A1A] leading-tight">
+              Why Corporate Clients &amp; Individuals Trust HISK LEGAL
+            </h3>
 
-              <div className="flex items-start gap-3.5 bg-white p-4.5 rounded-2xl border border-[#0F6B4C]/15 shadow-xs">
-                <GraduationCap className="w-5 h-5 text-[#0F6B4C] shrink-0 mt-0.5" />
-                <div>
-                  <div className="font-extrabold text-sm sm:text-base text-[#1A1A1A]">High Court Practice &amp; Strategic Advocacy</div>
-                  <div className="text-xs sm:text-sm text-[#5A6275]">Tailored legal strategies for contentious litigation and regulatory compliance.</div>
-                </div>
-              </div>
+            <p className="text-sm sm:text-base text-[#5A6275] leading-relaxed font-normal">
+              Under the leadership of Advocate Hafiz Irfan Shabber Kayani, HISK LEGAL combines rigorous statutory analysis with proactive courtroom advocacy. Our practice encompasses Civil, Criminal, Corporate, Banking, Property, and Tax law.
+            </p>
+
+            <p className="text-sm sm:text-base text-[#5A6275] leading-relaxed font-normal">
+              We understand the urgency of legal proceedings. From filing emergency stay petitions against administrative actions to drafting complex corporate agreements, our advocates ensure clear communication and relentless representation.
+            </p>
+
+            <div className="pt-2">
+              <a
+                href={buildWhatsAppUrl({
+                  customMessage: 'Assalamu Alaikum, I would like to schedule a confidential consultation with HISK LEGAL advocates.'
+                })}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-2.5 bg-[#0F6B4C] hover:bg-[#0A4B35] text-white font-heading font-bold text-xs sm:text-sm py-3.5 px-6 rounded-xl transition-all shadow-md"
+              >
+                <MessageCircle className="w-4.5 h-4.5 text-[#F5A623]" />
+                <span>Schedule Advocate Consultation</span>
+                <ChevronRight className="w-4 h-4" />
+              </a>
             </div>
           </motion.div>
 
-          {/* Column 2: Metrics Highlight Card */}
           <motion.div
-            initial={{ opacity: 0, x: 40, scale: 0.95 }}
-            whileInView={{ opacity: 1, x: 0, scale: 1 }}
+            initial={{ opacity: 0, x: 30 }}
+            whileInView={{ opacity: 1, x: 0 }}
             viewport={{ once: false, amount: 0.15 }}
-            transition={{ duration: 0.7, delay: 0.15 }}
-            className="lg:col-span-5 bg-[#0F6B4C] text-[#FAFAF7] rounded-3xl p-6 sm:p-10 shadow-xl relative overflow-hidden flex flex-col justify-between"
+            transition={{ duration: 0.6, delay: 0.15 }}
+            className="lg:col-span-6 space-y-4"
           >
-            <div className="relative z-10 space-y-6">
-              <div>
-                <span className="text-xs font-bold uppercase tracking-widest text-[#F5A623]">
-                  Full-Service Legal Excellence
-                </span>
-                <h4 className="font-heading font-extrabold text-2xl sm:text-3xl text-white mt-1">
-                  Quantifiable Legal Relief
-                </h4>
+            <div className="bg-white p-5 rounded-2xl border border-[#0F6B4C]/15 shadow-xs flex items-start gap-4">
+              <div className="p-2.5 rounded-xl bg-[#E8F5F0] text-[#0F6B4C] shrink-0 mt-0.5">
+                <Gavel className="w-5 h-5 text-[#0F6B4C]" />
               </div>
+              <div>
+                <h4 className="font-heading font-extrabold text-base text-[#1A1A1A]">
+                  High Court Writs &amp; Emergency Stays
+                </h4>
+                <p className="text-xs sm:text-sm text-[#5A6275] mt-1 leading-relaxed">
+                  Rapid judicial petitions before High Courts to halt illegal tax recoveries, bank attachments, or unauthorized administrative actions.
+                </p>
+              </div>
+            </div>
 
-              <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-1">
-                <div className="bg-[#0A4B35] p-4 sm:p-5 rounded-2xl border border-emerald-600/30">
-                  <div className="font-heading font-extrabold text-xl sm:text-3xl text-[#F5A623]">
-                    {FIRM_METRICS.totalTaxSaved}
-                  </div>
-                  <div className="text-xs sm:text-sm text-emerald-100 font-medium mt-1">
-                    Client Value Protected &amp; Saved
-                  </div>
-                </div>
+            <div className="bg-white p-5 rounded-2xl border border-[#0F6B4C]/15 shadow-xs flex items-start gap-4">
+              <div className="p-2.5 rounded-xl bg-[#E8F5F0] text-[#0F6B4C] shrink-0 mt-0.5">
+                <GraduationCap className="w-5 h-5 text-[#0F6B4C]" />
+              </div>
+              <div>
+                <h4 className="font-heading font-extrabold text-base text-[#1A1A1A]">
+                  Appellate Advocacy &amp; Rebuttals
+                </h4>
+                <p className="text-xs sm:text-sm text-[#5A6275] mt-1 leading-relaxed">
+                  Meticulous drafting of legal grounds, appeals, and representations before Commissioner Appeals (CIR) and Appellate Tribunals (ATIR).
+                </p>
+              </div>
+            </div>
 
-                <div className="bg-[#0A4B35] p-4 sm:p-5 rounded-2xl border border-emerald-600/30">
-                  <div className="font-heading font-extrabold text-xl sm:text-3xl text-white">
-                    {FIRM_METRICS.auditReliefRate}
-                  </div>
-                  <div className="text-xs sm:text-sm text-emerald-100 font-medium mt-1">
-                    Litigation &amp; Relief Success Rate
-                  </div>
-                </div>
+            <div className="bg-white p-5 rounded-2xl border border-[#0F6B4C]/15 shadow-xs flex items-start gap-4">
+              <div className="p-2.5 rounded-xl bg-[#E8F5F0] text-[#0F6B4C] shrink-0 mt-0.5">
+                <TrendingUp className="w-5 h-5 text-[#0F6B4C]" />
+              </div>
+              <div>
+                <h4 className="font-heading font-extrabold text-base text-[#1A1A1A]">
+                  Corporate Structuring &amp; SECP Advisory
+                </h4>
+                <p className="text-xs sm:text-sm text-[#5A6275] mt-1 leading-relaxed">
+                  Full corporate lifecycle counsel including company incorporation, joint ventures, shareholder agreements, and regulatory filings.
+                </p>
               </div>
             </div>
           </motion.div>
         </div>
 
-        {/* Senior Attorney Roster Slideshow */}
-        <div className="max-w-5xl mx-auto">
+        {/* Senior Attorney Roster - Clean Image Cards Gallery */}
+        <div className="max-w-6xl mx-auto">
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             whileInView={{ opacity: 1, y: 0 }}
@@ -210,225 +319,77 @@ export const AboutSection: React.FC = () => {
               Our Senior Legal Advocates
             </h3>
             <p className="text-base text-[#5A6275] mt-2">
-              Meet our founder and senior legal advocates dedicated to technical excellence and client success.
+              Click on any advocate&apos;s photo card to reveal their full profile, credentials, and practice details.
             </p>
           </motion.div>
 
-          {/* Main Featured Slide Container */}
-          <div className="relative bg-white rounded-3xl border border-[#0F6B4C]/20 shadow-lg overflow-hidden transition-all duration-300">
-            <AnimatePresence mode="wait">
-              {(() => {
-                const currentAttorney = ATTORNEYS[activeSlide];
-                const imageSrc = attorneyImages[currentAttorney.id] || currentAttorney.image;
-                const isCeo = currentAttorney.isCeo;
-
-                return (
-                  <motion.div
-                    key={currentAttorney.id}
-                    initial={{ opacity: 0, x: 20 }}
-                    animate={{ opacity: 1, x: 0 }}
-                    exit={{ opacity: 0, x: -20 }}
-                    transition={{ duration: 0.45, ease: 'easeInOut' }}
-                    className="grid lg:grid-cols-12 items-center"
-                  >
-                    {/* Left Column: Attorney Image & Badge */}
-                    <div className="lg:col-span-5 relative h-72 sm:h-96 lg:h-[420px] bg-gradient-to-b from-[#E8F5F0] to-[#0A4B35]/10 overflow-hidden group">
-                      {isCeo && (
-                        <div className="absolute top-4 left-4 z-20 bg-[#0F6B4C] text-[#F5A623] text-xs font-extrabold px-3.5 py-1.5 rounded-full shadow-md flex items-center gap-1.5 border border-[#F5A623]/30">
-                          <Award className="w-4 h-4 text-[#F5A623]" />
-                          <span>FOUNDER &amp; CEO</span>
-                        </div>
-                      )}
-                      <Image
-                        src={imageSrc}
-                        alt={currentAttorney.name}
-                        fill
-                        unoptimized
-                        className="object-cover object-top transition-transform duration-700 group-hover:scale-105"
-                        referrerPolicy="no-referrer"
-                        onError={() => handleImageError(currentAttorney.id, imageSrc)}
-                      />
-                      <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent lg:hidden" />
-                      <div className="absolute bottom-3 left-4 right-4 text-white lg:hidden">
-                        <div className="text-xs font-bold text-[#F5A623]">{currentAttorney.title}</div>
-                        <div className="font-heading font-extrabold text-lg">{currentAttorney.name}</div>
-                      </div>
-                    </div>
-
-                    {/* Right Column: Details & Practice */}
-                    <div className="lg:col-span-7 p-6 sm:p-8 lg:p-10 flex flex-col justify-between space-y-5">
-                      <div className="space-y-4">
-                        <div className="flex flex-wrap items-center gap-2">
-                          {currentAttorney.credentials.map((cred, cIdx) => (
-                            <span
-                              key={cIdx}
-                              className={`text-xs font-extrabold px-3 py-1 rounded-full ${
-                                isCeo
-                                  ? 'bg-[#0F6B4C] text-white'
-                                  : 'bg-[#E8F5F0] text-[#0F6B4C] border border-[#0F6B4C]/20'
-                              }`}
-                            >
-                              {cred}
-                            </span>
-                          ))}
-                          <span className="text-xs text-[#5A6275] font-semibold bg-gray-100 px-3 py-1 rounded-full">
-                            {currentAttorney.experienceYears}+ Years Experience
-                          </span>
-                        </div>
-
-                        <div>
-                          <h4 className="font-heading font-extrabold text-2xl sm:text-3xl text-[#1A1A1A] leading-tight">
-                            {currentAttorney.name}
-                          </h4>
-                          <div className="text-sm text-[#0F6B4C] font-bold mt-1">
-                            {currentAttorney.title}
-                          </div>
-                        </div>
-
-                        <p className="text-sm text-[#5A6275] leading-relaxed font-normal">
-                          {currentAttorney.bio}
-                        </p>
-
-                        <div className="bg-[#E8F5F0]/60 border border-[#0F6B4C]/15 p-3.5 rounded-2xl space-y-1">
-                          <div className="text-xs font-extrabold text-[#0F6B4C] uppercase tracking-wider">
-                            Specialty &amp; Practice Focus:
-                          </div>
-                          <div className="text-xs font-semibold text-[#1A1A1A]">
-                            {currentAttorney.specialty}
-                          </div>
-                        </div>
-                      </div>
-
-                      <div className="flex flex-col sm:flex-row gap-3 pt-2">
-                        {currentAttorney.fullBio && (
-                          <button
-                            onClick={() => setSelectedAttorney(currentAttorney)}
-                            className="flex-1 bg-[#E8F5F0] hover:bg-[#0F6B4C]/15 text-[#0F6B4C] font-heading font-bold text-xs py-3 px-4 rounded-xl transition-all flex items-center justify-center gap-2 border border-[#0F6B4C]/25"
-                          >
-                            <Briefcase className="w-4 h-4" />
-                            <span>Read Full Profile</span>
-                          </button>
-                        )}
-
-                        <a
-                          href={buildWhatsAppUrl({
-                            customMessage: `Assalamu Alaikum Advocate ${currentAttorney.name}, I would like to consult with you directly regarding a legal matter for HISK LEGAL.`
-                          })}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="flex-1 bg-[#0F6B4C] hover:bg-[#0A4B35] text-white font-heading font-bold text-xs py-3 px-4 rounded-xl transition-all flex items-center justify-center gap-2 shadow-md"
-                        >
-                          <MessageCircle className="w-4 h-4 text-[#F5A623]" />
-                          <span>Direct Consultation</span>
-                        </a>
-                      </div>
-                    </div>
-                  </motion.div>
-                );
-              })()}
-            </AnimatePresence>
-          </div>
-
-          {/* Slideshow Control Bar */}
-          <div className="mt-6 flex flex-col sm:flex-row items-center justify-between gap-4 bg-white border border-[#0F6B4C]/15 p-4 rounded-2xl shadow-sm">
-            {/* Left: Counter & Autoplay Toggle */}
-            <div className="flex items-center gap-3">
-              <span className="text-xs font-extrabold text-[#0F6B4C] bg-[#E8F5F0] px-3 py-1.5 rounded-full border border-[#0F6B4C]/20">
-                {String(activeSlide + 1).padStart(2, '0')} / {String(ATTORNEYS.length).padStart(2, '0')}
-              </span>
-              <button
-                onClick={() => setIsAutoplay((prev) => !prev)}
-                className={`flex items-center gap-1.5 text-xs font-bold px-3 py-1.5 rounded-full transition-all border ${
-                  isAutoplay
-                    ? 'bg-[#0F6B4C] text-white border-[#0F6B4C]'
-                    : 'bg-gray-100 text-[#5A6275] border-gray-200 hover:bg-gray-200'
-                }`}
-                title={isAutoplay ? 'Pause Slideshow' : 'Start Slideshow'}
-              >
-                {isAutoplay ? (
-                  <>
-                    <Pause className="w-3.5 h-3.5" />
-                    <span>Auto-Playing</span>
-                  </>
-                ) : (
-                  <>
-                    <Play className="w-3.5 h-3.5" />
-                    <span>Play Slideshow</span>
-                  </>
-                )}
-              </button>
-            </div>
-
-            {/* Center: Slide Indicators */}
-            <div className="flex items-center gap-2">
-              {ATTORNEYS.map((att, idx) => (
-                <button
-                  key={att.id}
-                  onClick={() => setActiveSlide(idx)}
-                  className={`h-2.5 transition-all duration-300 rounded-full ${
-                    activeSlide === idx
-                      ? 'w-8 bg-[#0F6B4C]'
-                      : 'w-2.5 bg-gray-300 hover:bg-gray-400'
-                  }`}
-                  aria-label={`Go to slide ${idx + 1}`}
-                />
-              ))}
-            </div>
-
-            {/* Right: Next / Prev Arrows */}
-            <div className="flex items-center gap-2">
-              <button
-                onClick={handlePrevSlide}
-                className="w-10 h-10 rounded-xl bg-gray-100 hover:bg-[#0F6B4C] text-[#1A1A1A] hover:text-white transition-all flex items-center justify-center border border-gray-200 hover:border-[#0F6B4C] shadow-xs"
-                aria-label="Previous Partner"
-              >
-                <ChevronLeft className="w-5 h-5" />
-              </button>
-              <button
-                onClick={handleNextSlide}
-                className="w-10 h-10 rounded-xl bg-[#0F6B4C] hover:bg-[#0A4B35] text-white transition-all flex items-center justify-center border border-[#0F6B4C] shadow-xs"
-                aria-label="Next Partner"
-              >
-                <ChevronRight className="w-5 h-5" />
-              </button>
-            </div>
-          </div>
-
-          {/* Partner Thumbnail Selector Carousel Tabs */}
-          <div className="mt-6 grid grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4">
+          {/* Partner Image Cards Grid */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
             {ATTORNEYS.map((attorney, idx) => {
               const imageSrc = attorneyImages[attorney.id] || attorney.image;
-              const isActive = activeSlide === idx;
+              const isCeo = attorney.isCeo;
 
               return (
-                <button
+                <motion.div
                   key={attorney.id}
-                  onClick={() => setActiveSlide(idx)}
-                  className={`p-3 rounded-2xl border transition-all text-left flex items-center gap-3 ${
-                    isActive
-                      ? 'bg-[#E8F5F0] border-[#0F6B4C] ring-2 ring-[#0F6B4C]/20 shadow-md transform -translate-y-0.5'
-                      : 'bg-white border-[#0F6B4C]/15 hover:border-[#0F6B4C]/40 hover:bg-gray-50'
+                  initial={{ opacity: 0, y: 20 }}
+                  whileInView={{ opacity: 1, y: 0 }}
+                  viewport={{ once: false, amount: 0.2 }}
+                  transition={{ duration: 0.5, delay: idx * 0.1 }}
+                  onClick={() => setSelectedAttorney(attorney)}
+                  className={`group relative h-[420px] rounded-3xl overflow-hidden border shadow-md hover:shadow-2xl transition-all duration-300 cursor-pointer flex flex-col justify-end bg-slate-900 ${
+                    isCeo
+                      ? 'border-[#0F6B4C]/40 ring-2 ring-[#0F6B4C]/25'
+                      : 'border-[#0F6B4C]/15 hover:border-[#0F6B4C]/50'
                   }`}
                 >
-                  <div className="relative w-12 h-12 rounded-xl overflow-hidden shrink-0 border border-[#0F6B4C]/20 bg-gray-100">
-                    <Image
-                      src={imageSrc}
-                      alt={attorney.name}
-                      fill
-                      unoptimized
-                      className="object-cover object-top"
-                      referrerPolicy="no-referrer"
-                    />
+                  {/* Background Portrait Image */}
+                  <Image
+                    src={imageSrc}
+                    alt={attorney.name}
+                    fill
+                    unoptimized
+                    className="object-cover object-top transition-transform duration-700 group-hover:scale-105"
+                    referrerPolicy="no-referrer"
+                    onError={() => handleImageError(attorney.id, imageSrc)}
+                  />
+
+                  {/* Top Badge */}
+                  {isCeo && (
+                    <div className="absolute top-4 left-4 z-20 bg-[#0F6B4C] text-[#F5A623] text-[11px] font-extrabold px-3 py-1 rounded-full shadow-md flex items-center gap-1.5 border border-[#F5A623]/30">
+                      <Award className="w-3.5 h-3.5 text-[#F5A623]" />
+                      <span>FOUNDER &amp; CEO</span>
+                    </div>
+                  )}
+
+                  {/* Hover Overlay Hint */}
+                  <div className="absolute inset-0 bg-[#0F6B4C]/20 opacity-0 group-hover:opacity-100 transition-opacity duration-300 z-10 flex items-center justify-center p-4">
+                    <div className="bg-white/95 backdrop-blur-xs text-[#0F6B4C] font-extrabold text-xs px-4 py-2.5 rounded-full shadow-xl flex items-center gap-2 transform translate-y-3 group-hover:translate-y-0 transition-transform duration-300">
+                      <Eye className="w-4 h-4 text-[#F5A623]" />
+                      <span>Click to Reveal Full Details</span>
+                    </div>
                   </div>
-                  <div className="overflow-hidden">
-                    <div className={`text-xs font-extrabold truncate ${isActive ? 'text-[#0F6B4C]' : 'text-[#1A1A1A]'}`}>
+
+                  {/* Bottom Dark Gradient Footer (Name & Title + Action) */}
+                  <div className="relative z-20 p-5 bg-gradient-to-t from-black/95 via-black/70 to-transparent text-white space-y-2">
+                    <div className="text-[11px] text-[#F5A623] font-extrabold uppercase tracking-wider">
+                      {isCeo ? 'Founder & Chief Executive Officer' : 'Associate Counsel'}
+                    </div>
+                    <h4 className="font-heading font-extrabold text-lg sm:text-xl text-white leading-tight group-hover:text-[#F5A623] transition-colors">
                       {attorney.name}
-                    </div>
-                    <div className="text-[10px] text-[#5A6275] truncate">
-                      {attorney.isCeo ? 'Founder & CEO' : 'Associate Counsel'}
+                    </h4>
+                    <p className="text-xs text-gray-300 line-clamp-1 font-medium">
+                      {attorney.title}
+                    </p>
+
+                    <div className="pt-2">
+                      <div className="w-full bg-[#0F6B4C] group-hover:bg-[#0A4B35] text-white text-xs font-bold py-2.5 px-3 rounded-xl flex items-center justify-center gap-2 transition-colors shadow-sm">
+                        <span>Click to Reveal Details</span>
+                        <ChevronRight className="w-4 h-4 text-[#F5A623]" />
+                      </div>
                     </div>
                   </div>
-                </button>
+                </motion.div>
               );
             })}
           </div>
@@ -577,4 +538,3 @@ export const AboutSection: React.FC = () => {
     </motion.section>
   );
 };
-

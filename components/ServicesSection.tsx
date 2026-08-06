@@ -221,11 +221,11 @@ export const ServicesSection: React.FC = () => {
       viewport={{ once: false, amount: 0.1 }}
       transition={{ duration: 0.7, ease: [0.22, 1, 0.36, 1] }}
       id="services"
-      className="py-16 sm:py-24 lg:py-32 bg-[#FAFAF7] border-y border-gray-200/80 relative overflow-hidden"
+      className="scroll-mt-20 sm:scroll-mt-24 py-10 sm:py-14 lg:py-16 bg-[#FAFAF7] border-y border-gray-200/80 relative overflow-hidden"
     >
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         {/* Section Header */}
-        <div className="flex flex-col md:flex-row md:items-end justify-between gap-6 mb-8 sm:mb-12">
+        <div className="flex flex-col md:flex-row md:items-end justify-between gap-6 mb-6 sm:mb-8">
           <motion.div
             initial={{ opacity: 0, x: -30, filter: 'blur(4px)' }}
             whileInView={{ opacity: 1, x: 0, filter: 'blur(0px)' }}
@@ -238,50 +238,41 @@ export const ServicesSection: React.FC = () => {
               <span>Full-Spectrum Practice Pillars</span>
             </div>
             <h2 className="font-heading font-extrabold text-3xl sm:text-4xl lg:text-5xl text-[#1A1A1A] tracking-tight mb-3">
-              Major Practice Services
+              Major Practice Areas
             </h2>
             <p className="text-sm sm:text-base text-[#5A6275] font-normal leading-relaxed">
-              High Court advocates and financial consultants delivering strategic, privileged legal defense and corporate advisory across Pakistan.
+              From complex litigation to corporate advisory our advocates provide practical legal solutions tailored to individuals, businesses and institutions.
             </p>
-          </motion.div>
-
-          {/* Navigation Arrows for Horizontal Swiping / Scrolling */}
-          <motion.div
-            initial={{ opacity: 0, x: 30 }}
-            whileInView={{ opacity: 1, x: 0 }}
-            viewport={{ once: false, amount: 0.2 }}
-            transition={{ duration: 0.6, delay: 0.15 }}
-            className="flex items-center gap-3 shrink-0 self-start md:self-end"
-          >
-            <div className="flex items-center gap-1.5 text-xs font-bold text-[#0F6B4C] bg-[#0F6B4C]/10 px-3.5 py-1.5 rounded-full">
-              <span>Swipe right to see more</span>
-              <ChevronRight className="w-3.5 h-3.5 animate-pulse" />
-            </div>
-            <button
-              onClick={() => handleManualScroll('left')}
-              id="scroll-services-left-btn"
-              aria-label="Scroll left"
-              className="w-10 h-10 rounded-full bg-white border border-[#0F6B4C]/20 shadow-xs hover:bg-[#0F6B4C] hover:text-white text-[#0F6B4C] flex items-center justify-center transition-colors"
-            >
-              <ChevronLeft className="w-5 h-5" />
-            </button>
-            <button
-              onClick={() => handleManualScroll('right')}
-              id="scroll-services-right-btn"
-              aria-label="Scroll right"
-              className="w-10 h-10 rounded-full bg-white border border-[#0F6B4C]/20 shadow-xs hover:bg-[#0F6B4C] hover:text-white text-[#0F6B4C] flex items-center justify-center transition-colors"
-            >
-              <ChevronRight className="w-5 h-5" />
-            </button>
           </motion.div>
         </div>
 
-        {/* Horizontal Line of Cards (7 Major Unique Services, No Duplicates, No Auto-Scroll) */}
-        <div
-          ref={scrollRef}
-          className="-mx-4 px-8 scroll-pl-8 sm:-mx-6 sm:px-6 sm:scroll-pl-6 lg:-mx-8 lg:px-8 lg:scroll-pl-8 w-[calc(100%+2rem)] sm:w-[calc(100%+3rem)] lg:w-[calc(100%+4rem)] overflow-x-auto no-scrollbar py-3 touch-auto flex gap-4 sm:gap-6 snap-x snap-mandatory"
-        >
-          {SERVICES_DATA.map((service, idx) => (
+        {/* Horizontal Line of Cards with Flanking Navigation Arrows */}
+        <div className="relative group/carousel">
+          {/* Left Arrow Button */}
+          <button
+            onClick={() => handleManualScroll('left')}
+            id="scroll-services-left-btn"
+            aria-label="Scroll left"
+            className="absolute -left-2 sm:-left-5 top-1/2 -translate-y-1/2 z-20 w-10 h-10 sm:w-11 sm:h-11 rounded-full bg-white/95 backdrop-blur-xs border border-[#0F6B4C]/25 shadow-lg hover:bg-[#0F6B4C] hover:text-white text-[#0F6B4C] flex items-center justify-center transition-all duration-200"
+          >
+            <ChevronLeft className="w-5 h-5 sm:w-6 sm:h-6" />
+          </button>
+
+          {/* Right Arrow Button */}
+          <button
+            onClick={() => handleManualScroll('right')}
+            id="scroll-services-right-btn"
+            aria-label="Scroll right"
+            className="absolute -right-2 sm:-right-5 top-1/2 -translate-y-1/2 z-20 w-10 h-10 sm:w-11 sm:h-11 rounded-full bg-white/95 backdrop-blur-xs border border-[#0F6B4C]/25 shadow-lg hover:bg-[#0F6B4C] hover:text-white text-[#0F6B4C] flex items-center justify-center transition-all duration-200"
+          >
+            <ChevronRight className="w-5 h-5 sm:w-6 sm:h-6" />
+          </button>
+
+          <div
+            ref={scrollRef}
+            className="-mx-4 px-8 scroll-pl-8 sm:-mx-6 sm:px-6 sm:scroll-pl-6 lg:-mx-8 lg:px-8 lg:scroll-pl-8 w-[calc(100%+2rem)] sm:w-[calc(100%+3rem)] lg:w-[calc(100%+4rem)] overflow-x-auto no-scrollbar py-3 touch-auto flex gap-4 sm:gap-6 snap-x snap-mandatory"
+          >
+            {SERVICES_DATA.map((service, idx) => (
             <motion.div
               key={service.id}
               id={`service-card-${service.id}`}
@@ -340,6 +331,7 @@ export const ServicesSection: React.FC = () => {
               </div>
             </motion.div>
           ))}
+        </div>
         </div>
       </div>
 

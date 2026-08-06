@@ -19,7 +19,9 @@ export type WhatsAppTopic =
   | 'practice_area'
   | 'blog_inquiry'
   | 'urgent_notice'
-  | 'business_tax';
+  | 'business_tax'
+  | 'criminal_fir'
+  | 'civil_case';
 
 interface BuildWhatsAppUrlOptions {
   topic?: WhatsAppTopic;

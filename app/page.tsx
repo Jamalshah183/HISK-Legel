@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { Navbar } from '@/components/Navbar';
 import { Hero } from '@/components/Hero';
+import { FacingFbrNoticeSection } from '@/components/FacingFbrNoticeSection';
 import { ServicesSection } from '@/components/ServicesSection';
 import { TaxCalculator } from '@/components/TaxCalculator';
 import { AboutSection } from '@/components/AboutSection';
@@ -33,7 +34,7 @@ export default function Home() {
     if (isPortalOpen) return;
 
     const handleScroll = () => {
-      const sections = ['home', 'services', 'calculator', 'about', 'insights', 'reviews'];
+      const sections = ['home', 'services', 'about', 'insights', 'reviews', 'calculator'];
       const scrollPosition = window.scrollY + 200;
 
       for (const sectionId of sections) {
@@ -55,9 +56,19 @@ export default function Home() {
 
   const scrollToSection = (id: string) => {
     setActiveTab(id);
+    if (id === 'home') {
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+      return;
+    }
     const element = document.getElementById(id);
     if (element) {
-      element.scrollIntoView({ behavior: 'smooth' });
+      const headerOffset = 80;
+      const elementPosition = element.getBoundingClientRect().top + window.pageYOffset;
+      const offsetPosition = elementPosition - headerOffset;
+      window.scrollTo({
+        top: Math.max(0, offsetPosition),
+        behavior: 'smooth'
+      });
     }
   };
 
@@ -111,11 +122,11 @@ export default function Home() {
           />
         </div>
 
+        {/* Facing FBR Notice & Legal Emergency Section with Moving Slides */}
+        <FacingFbrNoticeSection />
+
         {/* Services Section */}
         <ServicesSection />
-
-        {/* Tax Calculator Section */}
-        <TaxCalculator />
 
         {/* About Law Firm Section */}
         <AboutSection />
@@ -125,6 +136,9 @@ export default function Home() {
 
         {/* Reviews & Testimonials Section */}
         <ReviewsSection />
+
+        {/* Tax Calculator Section */}
+        <TaxCalculator />
       </main>
 
       {/* Sticky Floating WhatsApp Quick Chat Desk */}

@@ -21,11 +21,12 @@ export const Hero: React.FC<HeroProps> = () => {
 
   return (
     <motion.section
+      id="home"
       initial={{ opacity: 0, y: 20 }}
       whileInView={{ opacity: 1, y: 0 }}
       viewport={{ once: false, amount: 0.15 }}
       transition={{ duration: 0.7, ease: [0.22, 1, 0.36, 1] }}
-      className="relative overflow-hidden py-6 sm:py-16 lg:py-28 min-h-[calc(100vh-70px)] sm:min-h-0 flex items-center bg-[#FAFAF7]"
+      className="scroll-mt-24 relative overflow-hidden py-6 sm:py-12 lg:py-16 bg-[#FAFAF7]"
     >
       {/* Decorative Subtle Glow */}
       <div className="absolute top-0 right-1/4 w-64 h-64 sm:w-96 sm:h-96 rounded-full bg-[#0F6B4C]/5 blur-3xl pointer-events-none" />
