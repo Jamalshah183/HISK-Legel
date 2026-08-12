@@ -26,7 +26,7 @@ export const Hero: React.FC<HeroProps> = () => {
       whileInView={{ opacity: 1, y: 0 }}
       viewport={{ once: false, amount: 0.15 }}
       transition={{ duration: 0.7, ease: [0.22, 1, 0.36, 1] }}
-      className="scroll-mt-24 relative overflow-hidden pt-1 sm:pt-2 lg:pt-3 pb-6 sm:pb-12 lg:pb-16 bg-[#FAFAF7]"
+      className="scroll-mt-24 relative overflow-hidden py-6 sm:py-12 lg:py-16 bg-[#FAFAF7]"
     >
       {/* Decorative Subtle Glow */}
       <div className="absolute top-0 right-1/4 w-64 h-64 sm:w-96 sm:h-96 rounded-full bg-[#0F6B4C]/5 blur-3xl pointer-events-none" />
