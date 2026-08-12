@@ -43,7 +43,7 @@ export default function InsightsPage() {
       <header className="sticky top-0 z-40 bg-[#0F6B4C] text-white shadow-md border-b border-[#0A4B35]">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-20 flex items-center justify-between">
           <Link href="/" className="flex items-center group">
-            <div className="relative w-36 h-12 sm:w-48 sm:h-16 shrink-0">
+            <div className="relative w-56 h-18 sm:w-76 sm:h-24 shrink-0">
               <Image
                 src="https://i.ibb.co/V02sjKtY/file-00000000549882089b03c95577e607a2.png"
                 alt="HISK LEGAL Logo"

@@ -16,8 +16,8 @@ export const Footer: React.FC<FooterProps> = ({ setActiveTab }) => {
       setActiveTab(id);
     }
     if (id === 'home') {
-      if (window.location.pathname !== '/') {
-        window.location.href = '/';
+      if (typeof window !== 'undefined' && window.location.pathname !== '/') {
+        window.location.assign('/');
       } else {
         window.scrollTo({ top: 0, behavior: 'smooth' });
       }
@@ -32,8 +32,8 @@ export const Footer: React.FC<FooterProps> = ({ setActiveTab }) => {
         top: Math.max(0, offsetPosition),
         behavior: 'smooth'
       });
-    } else {
-      window.location.href = `/#${id}`;
+    } else if (typeof window !== 'undefined') {
+      window.location.assign(`/#${id}`);
     }
   };
 
@@ -44,7 +44,7 @@ export const Footer: React.FC<FooterProps> = ({ setActiveTab }) => {
           {/* Brand */}
           <div className="lg:col-span-2 space-y-4">
             <div className="flex items-center">
-              <div className="relative w-44 h-18 sm:w-56 sm:h-24 shrink-0">
+              <div className="relative w-64 h-24 sm:w-84 sm:h-32 shrink-0">
                 <Image
                   src="https://i.ibb.co/V02sjKtY/file-00000000549882089b03c95577e607a2.png"
                   alt="HISK LEGAL Logo"
