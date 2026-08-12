@@ -1,9 +1,8 @@
 'use client';
 
-import React, { useState } from 'react';
-import Image from 'next/image';
+import React from 'react';
 import { motion } from 'motion/react';
-import { MessageCircle, ArrowRight, ShieldCheck, Award, Users, CheckCircle2 } from 'lucide-react';
+import { MessageCircle, ArrowRight, ShieldCheck, Award, Users, CheckCircle2, Scale } from 'lucide-react';
 import { buildWhatsAppUrl } from '@/lib/whatsapp';
 import { FIRM_METRICS } from '@/data/lawFirmData';
 
@@ -12,9 +11,7 @@ interface HeroProps {
   onNavigateToPractice?: () => void;
 }
 
-export const Hero: React.FC<HeroProps> = () => {
-  const [imgSrc] = useState('https://i.ibb.co/5h45Pwhx/hero-section.png');
-
+export const Hero: React.FC<HeroProps> = ({ onNavigateToPractice }) => {
   const whatsappUrl = buildWhatsAppUrl({
     customMessage: 'Assalamu Alaikum HISK LEGAL, I would like to book a free tax consultation with a High Court Advocate regarding my FBR tax matter.'
   });
@@ -22,174 +19,133 @@ export const Hero: React.FC<HeroProps> = () => {
   return (
     <motion.section
       id="home"
-      initial={{ opacity: 0, y: 20 }}
-      whileInView={{ opacity: 1, y: 0 }}
-      viewport={{ once: false, amount: 0.15 }}
-      transition={{ duration: 0.7, ease: [0.22, 1, 0.36, 1] }}
-      className="scroll-mt-24 relative overflow-hidden pt-0.5 sm:pt-1 lg:pt-1 pb-6 sm:pb-12 lg:pb-16 bg-[#FAFAF7]"
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      transition={{ duration: 0.8 }}
+      className="scroll-mt-24 relative overflow-hidden min-h-[85vh] sm:min-h-[88vh] flex items-center justify-center pt-16 sm:pt-20 lg:pt-24 pb-12 sm:pb-16 lg:pb-20 bg-[#0A1410] text-white"
     >
-      {/* Decorative Subtle Glow */}
-      <div className="absolute top-0 right-1/4 w-64 h-64 sm:w-96 sm:h-96 rounded-full bg-[#0F6B4C]/5 blur-3xl pointer-events-none" />
-      <div className="absolute bottom-0 left-1/4 w-64 h-64 sm:w-96 sm:h-96 rounded-full bg-[#F5A623]/10 blur-3xl pointer-events-none" />
+      {/* Background Video */}
+      <div className="absolute inset-0 w-full h-full overflow-hidden pointer-events-none z-0">
+        <video
+          autoPlay
+          loop
+          muted
+          playsInline
+          className="w-full h-full object-cover scale-105"
+        >
+          <source src="https://www.pexels.com/download/video/16555149/" type="video/mp4" />
+          Your browser does not support the video tag.
+        </video>
 
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10 w-full">
-        <div className="grid lg:grid-cols-12 gap-6 sm:gap-12 lg:gap-8 items-center">
-          {/* Left Column (Main Content) */}
-          <div className="lg:col-span-7 flex flex-col space-y-4 sm:space-y-5 lg:space-y-6 text-center lg:text-left items-center lg:items-start">
-            {/* Minimal Badge */}
-            <motion.div
-              initial={{ opacity: 0, scale: 0.85, y: -10 }}
-              whileInView={{ opacity: 1, scale: 1, y: 0 }}
-              viewport={{ once: false, amount: 0.3 }}
-              transition={{ duration: 0.5, delay: 0.1 }}
-              className="flex justify-center lg:justify-start w-full"
+        {/* Multi-layered Vignette & Dark Overlay for Crisp Contrast */}
+        <div className="absolute inset-0 bg-gradient-to-b from-[#060D0A]/60 via-[#0A1813]/40 to-[#060D0A]/70 mix-blend-multiply" />
+        <div className="absolute inset-0 bg-black/20" />
+      </div>
+
+      {/* Atmospheric Ambient Glows */}
+      <div className="absolute top-1/4 right-1/4 w-72 h-72 sm:w-[500px] sm:h-[500px] rounded-full bg-[#0F6B4C]/30 blur-3xl pointer-events-none z-0" />
+      <div className="absolute bottom-1/4 left-1/4 w-72 h-72 sm:w-[500px] sm:h-[500px] rounded-full bg-[#F5A623]/20 blur-3xl pointer-events-none z-0" />
+
+      {/* Main Hero Content Container */}
+      <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10 w-full flex flex-col items-center text-center space-y-6 sm:space-y-8">
+        
+        {/* Minimalist Trust Badge */}
+        <motion.div
+          initial={{ opacity: 0, scale: 0.85, y: -15 }}
+          animate={{ opacity: 1, scale: 1, y: 0 }}
+          transition={{ duration: 0.5, delay: 0.1 }}
+          className="flex justify-center w-full"
+        >
+          <div className="inline-flex items-center gap-2 bg-[#0F6B4C]/40 backdrop-blur-md border border-[#279B71]/40 px-4 py-1.5 rounded-full text-xs sm:text-sm font-semibold text-[#82E6C2] shadow-lg">
+            <ShieldCheck className="w-4 h-4 text-[#82E6C2]" />
+            <span>Trusted Advocacy Solutions Beyond Expectations</span>
+          </div>
+        </motion.div>
+
+        {/* Outcome-Focused Headline */}
+        <motion.h1
+          initial={{ opacity: 0, y: 25 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.6, delay: 0.2 }}
+          className="font-heading font-extrabold text-3xl sm:text-4xl lg:text-5xl lg:leading-[1.18] text-white tracking-tight max-w-4xl text-center drop-shadow-md"
+        >
+          <span className="text-[#3AD198]">Strategic Legal Representation</span>{' '}
+          For Individuals, Businesses &amp; Corporate Clients{' '}
+          <span className="text-[#3AD198]">Across Pakistan &amp; Beyond</span>
+        </motion.h1>
+
+        {/* Subheadline */}
+        <motion.p
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.6, delay: 0.3 }}
+          className="text-sm sm:text-base lg:text-lg text-gray-200 font-normal leading-relaxed max-w-3xl text-center drop-shadow-sm"
+        >
+          <strong className="font-semibold text-white">20+ Years of Legal Excellence</strong> — Trusted advocates with over two decades of experience in civil, criminal, family, rent, corporate and tax litigation, successfully safeguarding the interests of 5,000+ businesses and high-net-worth clients under one roof.
+        </motion.p>
+
+        {/* Action Buttons */}
+        <motion.div
+          initial={{ opacity: 0, scale: 0.92, y: 15 }}
+          animate={{ opacity: 1, scale: 1, y: 0 }}
+          transition={{ duration: 0.5, delay: 0.4 }}
+          className="pt-2 flex flex-col sm:flex-row items-center justify-center gap-3.5 sm:gap-4 w-full sm:w-auto"
+        >
+          <a
+            href={whatsappUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            id="hero-primary-cta"
+            className="w-full sm:w-auto bg-[#F5A623] hover:bg-[#E09415] text-[#1A1A1A] font-heading font-extrabold text-base sm:text-lg px-7 py-4 rounded-xl sm:rounded-2xl shadow-xl hover:shadow-2xl transition-all transform hover:-translate-y-0.5 inline-flex items-center justify-center gap-2.5 text-center"
+          >
+            <MessageCircle className="w-5 h-5 sm:w-6 sm:h-6 fill-[#1A1A1A]" />
+            <span>Book Free Consultation</span>
+            <ArrowRight className="w-4 h-4 sm:w-5 sm:h-5" />
+          </a>
+
+          {onNavigateToPractice && (
+            <button
+              onClick={onNavigateToPractice}
+              type="button"
+              className="w-full sm:w-auto bg-white/10 hover:bg-white/20 backdrop-blur-md text-white border border-white/20 font-heading font-bold text-base px-6 py-4 rounded-xl sm:rounded-2xl transition-all inline-flex items-center justify-center gap-2"
             >
-              <div className="inline-flex items-center gap-1.5 sm:gap-2 bg-[#E8F5F0] border border-[#0F6B4C]/20 px-3.5 py-1.5 rounded-full text-xs font-semibold text-[#0F6B4C] shadow-xs">
-                <ShieldCheck className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-[#0F6B4C]" />
-                <span>Trusted Advocacy Solutions Beyond Expectations</span>
-              </div>
-            </motion.div>
+              <Scale className="w-5 h-5 text-[#82E6C2]" />
+              <span>Explore Practice Areas</span>
+            </button>
+          )}
+        </motion.div>
 
-            {/* Outcome-Focused Headline */}
-            <motion.h1
-              initial={{ opacity: 0, y: 25 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: false, amount: 0.3 }}
-              transition={{ duration: 0.6, delay: 0.15 }}
-              className="font-heading font-extrabold text-2xl sm:text-3xl lg:text-[2.5rem] text-[#1A1A1A] leading-snug sm:leading-tight lg:leading-[1.2] tracking-tight text-center lg:text-left"
-            >
-              <span className="text-[#0F6B4C]">Strategic Legal Representation</span>{' '}
-              For Individuals, Businesses &amp; Corporate Clients{' '}
-              <span className="text-[#0F6B4C]">Across Pakistan &amp; Beyond</span>
-            </motion.h1>
-
-            {/* Subheadline */}
-            <motion.p
-              initial={{ opacity: 0, y: 20 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: false, amount: 0.3 }}
-              transition={{ duration: 0.6, delay: 0.25 }}
-              className="text-xs sm:text-sm lg:text-base text-[#5A6275] font-normal leading-relaxed max-w-2xl text-center lg:text-left mx-auto lg:mx-0"
-            >
-              <strong className="font-semibold text-[#1A1A1A]">20+ Years of Legal Excellence</strong> — Trusted advocates with over two decades of experience in civil, criminal, family, rent, corporate and tax litigation, successfully safeguarding the interests of 5,000+ businesses and high-net-worth clients under one roof.
-            </motion.p>
-
-            {/* Mobile-Only Floating Image (Placed in the middle, between text & CTA) */}
-            <motion.div
-              initial={{ opacity: 0, scale: 0.9 }}
-              whileInView={{ opacity: 1, scale: 1 }}
-              viewport={{ once: false, amount: 0.3 }}
-              transition={{ duration: 0.6, delay: 0.2 }}
-              className="lg:hidden relative flex justify-center items-center my-2 py-1 w-full"
-            >
-              <div className="absolute w-48 h-48 sm:w-72 sm:h-72 rounded-full bg-gradient-to-tr from-[#0F6B4C]/20 to-[#F5A623]/25 blur-2xl -z-10 pointer-events-none" />
-              <motion.div
-                animate={{ y: [0, -10, 0] }}
-                transition={{
-                  duration: 4.5,
-                  repeat: Infinity,
-                  ease: 'easeInOut',
-                }}
-                className="relative w-full max-w-[260px] sm:max-w-sm h-48 sm:h-64 flex items-center justify-center"
-              >
-                <Image
-                  src={imgSrc}
-                  alt="HISK LEGAL Legal Defense"
-                  fill
-                  priority
-                  unoptimized
-                  className="object-contain object-center drop-shadow-xl"
-                  referrerPolicy="no-referrer"
-                />
-              </motion.div>
-            </motion.div>
-
-            {/* Primary CTA Button (Below Image on Mobile, Below Subheadline on Desktop) */}
-            <motion.div
-              initial={{ opacity: 0, scale: 0.92, y: 15 }}
-              whileInView={{ opacity: 1, scale: 1, y: 0 }}
-              viewport={{ once: false, amount: 0.3 }}
-              transition={{ duration: 0.5, delay: 0.3 }}
-              className="pt-1 sm:pt-0 w-full lg:w-auto flex justify-center lg:justify-start"
-            >
-              <a
-                href={whatsappUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-                id="hero-primary-cta"
-                className="w-full sm:w-auto bg-[#F5A623] hover:bg-[#E09415] text-[#1A1A1A] font-heading font-extrabold text-base sm:text-lg px-6 py-3.5 sm:px-8 sm:py-4 rounded-xl sm:rounded-2xl shadow-md sm:shadow-lg hover:shadow-xl transition-all transform hover:-translate-y-0.5 inline-flex items-center justify-center gap-2.5 text-center"
-              >
-                <MessageCircle className="w-5 h-5 sm:w-6 sm:h-6 fill-[#1A1A1A]" />
-                <span>Book Free Consultation</span>
-                <ArrowRight className="w-4 h-4 sm:w-5 sm:h-5" />
-              </a>
-            </motion.div>
-
-            {/* Trust-Signal Strip */}
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: false, amount: 0.3 }}
-              transition={{ duration: 0.6, delay: 0.35 }}
-              className="pt-3 sm:pt-6 border-t border-[#0F6B4C]/15 flex flex-wrap items-center justify-center lg:justify-start gap-3 sm:gap-6 text-xs text-[#5A6275] font-medium w-full"
-            >
-              <div className="flex items-center gap-1.5 sm:gap-2">
-                <CheckCircle2 className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-[#0F6B4C]" />
-                <span>
-                  <strong className="text-[#1A1A1A] font-extrabold">{FIRM_METRICS.successfulCases}</strong> Successful Cases
-                </span>
-              </div>
-
-              <div className="flex items-center gap-1.5 sm:gap-2">
-                <Users className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-[#0F6B4C]" />
-                <span>
-                  <strong className="text-[#1A1A1A] font-extrabold">{FIRM_METRICS.clientsServed}</strong> Clients Served
-                </span>
-              </div>
-
-              <div className="flex items-center gap-1.5 sm:gap-2">
-                <Award className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-[#0F6B4C]" />
-                <span>
-                  <strong className="text-[#1A1A1A] font-extrabold">{FIRM_METRICS.totalTaxSaved}</strong> Tax Saved
-                </span>
-              </div>
-            </motion.div>
+        {/* Glassmorphic Metrics / Trust-Signal Strip */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.6, delay: 0.5 }}
+          className="mt-4 pt-4 sm:pt-6 w-full max-w-3xl bg-black/40 backdrop-blur-md rounded-2xl p-4 sm:p-5 border border-white/15 shadow-2xl grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-6 text-xs sm:text-sm text-gray-200 font-medium"
+        >
+          <div className="flex items-center justify-center gap-2 py-1">
+            <CheckCircle2 className="w-4 h-4 text-[#3AD198] shrink-0" />
+            <span>
+              <strong className="text-white font-extrabold text-sm sm:text-base">{FIRM_METRICS.successfulCases}</strong> Successful Cases
+            </span>
           </div>
 
-          {/* Desktop-Only Right Column: Visual with Floating Effect */}
-          <motion.div
-            initial={{ opacity: 0, scale: 0.88, x: 35, rotate: 2 }}
-            whileInView={{ opacity: 1, scale: 1, x: 0, rotate: 0 }}
-            viewport={{ once: false, amount: 0.2 }}
-            transition={{ duration: 0.8, delay: 0.2, ease: [0.22, 1, 0.36, 1] }}
-            className="hidden lg:flex lg:col-span-5 relative justify-center items-center"
-          >
-            {/* Background Glow Ring */}
-            <div className="absolute w-[480px] h-[480px] lg:w-[540px] lg:h-[540px] rounded-full bg-gradient-to-tr from-[#0F6B4C]/20 to-[#F5A623]/25 blur-3xl -z-10 pointer-events-none" />
+          <div className="flex items-center justify-center gap-2 py-1 border-t sm:border-t-0 sm:border-l border-white/10">
+            <Users className="w-4 h-4 text-[#3AD198] shrink-0" />
+            <span>
+              <strong className="text-white font-extrabold text-sm sm:text-base">{FIRM_METRICS.clientsServed}</strong> Clients Served
+            </span>
+          </div>
 
-            <motion.div
-              animate={{ y: [0, -16, 0] }}
-              transition={{
-                duration: 5,
-                repeat: Infinity,
-                ease: 'easeInOut',
-              }}
-              className="relative w-full lg:max-w-xl h-[500px] lg:h-[580px] flex items-center justify-center"
-            >
-              <Image
-                src={imgSrc}
-                alt="HISK LEGAL Legal Defense"
-                fill
-                priority
-                unoptimized
-                className="object-contain object-center drop-shadow-2xl scale-110 lg:scale-115"
-                referrerPolicy="no-referrer"
-              />
-            </motion.div>
-          </motion.div>
-        </div>
+          <div className="flex items-center justify-center gap-2 py-1 border-t sm:border-t-0 sm:border-l border-white/10">
+            <Award className="w-4 h-4 text-[#3AD198] shrink-0" />
+            <span>
+              <strong className="text-white font-extrabold text-sm sm:text-base">{FIRM_METRICS.totalTaxSaved}</strong> Tax Saved
+            </span>
+          </div>
+        </motion.div>
       </div>
     </motion.section>
   );
 };
+
 
