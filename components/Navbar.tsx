@@ -127,7 +127,7 @@ export const Navbar: React.FC<NavbarProps> = ({ activeTab, setActiveTab, onOpenP
             className="flex items-center text-left focus:outline-none"
             id="nav-logo-btn"
           >
-            <div className="relative w-36 h-14 sm:w-48 sm:h-20 shrink-0">
+            <div className="relative w-56 h-20 sm:w-72 sm:h-28 lg:w-84 lg:h-32 shrink-0">
               <Image
                 src="https://i.ibb.co/V02sjKtY/file-00000000549882089b03c95577e607a2.png"
                 alt="HISK LEGAL Logo"
