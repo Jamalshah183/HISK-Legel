@@ -183,7 +183,18 @@ export const SERVICES_DATA: ServiceItem[] = [
 
 export const ServicesSection: React.FC = () => {
   const [modalService, setModalService] = useState<ServiceItem | null>(null);
+  const [selectedCategory, setSelectedCategory] = useState<string>('All');
   const scrollRef = useRef<HTMLDivElement>(null);
+
+  const CATEGORIES = ['All', 'Tax & Finance', 'Corporate & Business', 'Litigation & Disputes', 'Property & Real Estate', 'Specialized Law'];
+
+  const filteredServices = selectedCategory === 'All'
+    ? SERVICES_DATA
+    : SERVICES_DATA.filter(service => service.category === selectedCategory);
+
+  const displayServices = filteredServices.length < 4
+    ? [...filteredServices, ...filteredServices, ...filteredServices, ...filteredServices]
+    : [...filteredServices, ...filteredServices];
 
   // Helper to render icon with text-current so group-hover transition works smoothly
   const getServiceIcon = (iconName: string) => {
@@ -231,107 +242,102 @@ export const ServicesSection: React.FC = () => {
             whileInView={{ opacity: 1, x: 0, filter: 'blur(0px)' }}
             viewport={{ once: false, amount: 0.2 }}
             transition={{ duration: 0.6 }}
-            className="max-w-2xl"
+            className="w-full max-w-4xl"
           >
-            <div className="inline-flex items-center gap-2 bg-[#E8F5F0] border border-[#0F6B4C]/20 px-4 py-1.5 rounded-full text-xs font-extrabold text-[#0F6B4C] mb-3 shadow-xs">
-              <Sparkles className="w-3.5 h-3.5 text-[#0F6B4C]" />
-              <span>Full-Spectrum Practice Pillars</span>
-            </div>
             <h2 className="font-heading font-extrabold text-3xl sm:text-4xl lg:text-5xl text-[#1A1A1A] tracking-tight mb-3">
               Major Practice Areas
             </h2>
-            <p className="text-sm sm:text-base text-[#5A6275] font-normal leading-relaxed">
+            <p className="text-sm sm:text-base text-[#5A6275] font-normal leading-relaxed mb-4">
               From complex litigation to corporate advisory our advocates provide practical legal solutions tailored to individuals, businesses and institutions.
             </p>
+
+            {/* Category Filter Buttons */}
+            <div className="flex flex-wrap items-center gap-2 pt-2">
+              {CATEGORIES.map((cat) => {
+                const isActive = selectedCategory === cat;
+                return (
+                  <button
+                    key={cat}
+                    onClick={() => setSelectedCategory(cat)}
+                    type="button"
+                    id={`category-btn-${cat.toLowerCase().replace(/\s+/g, '-')}`}
+                    className={`px-3.5 py-1.5 sm:px-4 sm:py-2 rounded-full text-xs sm:text-sm font-extrabold transition-all duration-200 border cursor-pointer ${
+                      isActive
+                        ? 'bg-[#0F6B4C] text-white border-[#0F6B4C] shadow-sm scale-105'
+                        : 'bg-white text-[#5A6275] border-gray-200 hover:border-[#0F6B4C]/50 hover:text-[#0F6B4C]'
+                    }`}
+                  >
+                    {cat}
+                  </button>
+                );
+              })}
+            </div>
           </motion.div>
         </div>
 
-        {/* Horizontal Line of Cards with Flanking Navigation Arrows */}
-        <div className="relative group/carousel">
-          {/* Left Arrow Button */}
-          <button
-            onClick={() => handleManualScroll('left')}
-            id="scroll-services-left-btn"
-            aria-label="Scroll left"
-            className="absolute -left-2 sm:-left-5 top-1/2 -translate-y-1/2 z-20 w-10 h-10 sm:w-11 sm:h-11 rounded-full bg-white/95 backdrop-blur-xs border border-[#0F6B4C]/25 shadow-lg hover:bg-[#0F6B4C] hover:text-white text-[#0F6B4C] flex items-center justify-center transition-all duration-200"
-          >
-            <ChevronLeft className="w-5 h-5 sm:w-6 sm:h-6" />
-          </button>
+        {/* Continuous Auto-Moving Track of Cards (Left to Right) */}
+        <div className="relative overflow-hidden py-3 -mx-4 px-4 sm:-mx-6 sm:px-6 lg:-mx-8 lg:px-8">
+          {/* Subtle Left & Right Edge Vignette Shadows */}
+          <div className="absolute left-0 top-0 bottom-0 w-8 sm:w-16 bg-gradient-to-r from-[#FAFAF7] to-transparent z-10 pointer-events-none" />
+          <div className="absolute right-0 top-0 bottom-0 w-8 sm:w-16 bg-gradient-to-l from-[#FAFAF7] to-transparent z-10 pointer-events-none" />
 
-          {/* Right Arrow Button */}
-          <button
-            onClick={() => handleManualScroll('right')}
-            id="scroll-services-right-btn"
-            aria-label="Scroll right"
-            className="absolute -right-2 sm:-right-5 top-1/2 -translate-y-1/2 z-20 w-10 h-10 sm:w-11 sm:h-11 rounded-full bg-white/95 backdrop-blur-xs border border-[#0F6B4C]/25 shadow-lg hover:bg-[#0F6B4C] hover:text-white text-[#0F6B4C] flex items-center justify-center transition-all duration-200"
-          >
-            <ChevronRight className="w-5 h-5 sm:w-6 sm:h-6" />
-          </button>
-
-          <div
-            ref={scrollRef}
-            className="-mx-4 px-8 scroll-pl-8 sm:-mx-6 sm:px-6 sm:scroll-pl-6 lg:-mx-8 lg:px-8 lg:scroll-pl-8 w-[calc(100%+2rem)] sm:w-[calc(100%+3rem)] lg:w-[calc(100%+4rem)] overflow-x-auto no-scrollbar py-3 touch-auto flex gap-4 sm:gap-6 snap-x snap-mandatory"
-          >
-            {SERVICES_DATA.map((service, idx) => (
-            <motion.div
-              key={service.id}
-              id={`service-card-${service.id}`}
-              initial={{ opacity: 0 }}
-              whileInView={{ opacity: 1 }}
-              viewport={{ once: true, amount: 0.1 }}
-              transition={{ duration: 0.4, delay: idx * 0.05 }}
-              className="w-[82vw] max-w-[340px] sm:w-[320px] md:w-[350px] lg:w-[380px] shrink-0 bg-white rounded-2xl p-5 sm:p-7 border border-[#0F6B4C]/15 shadow-xs hover:shadow-lg transition-shadow duration-300 hover:border-[#0F6B4C]/50 flex flex-col justify-between group cursor-pointer snap-start"
-              onClick={() => setModalService(service)}
-            >
-              <div>
-                {/* Top Bar with Icon & Badge */}
-                <div className="flex items-start justify-between gap-3 mb-5">
-                  <div className="w-12 h-12 rounded-xl bg-[#E8F5F0] text-[#0F6B4C] group-hover:bg-[#0F6B4C] group-hover:text-white transition-all duration-300 flex items-center justify-center shrink-0 shadow-xs">
-                    {getServiceIcon(service.iconName)}
-                  </div>
-                  {service.badge && (
-                    <span className="text-[10px] font-extrabold uppercase tracking-wider bg-[#F5A623]/20 text-[#1A1A1A] border border-[#F5A623]/40 px-2.5 py-1 rounded-md">
-                      {service.badge}
-                    </span>
-                  )}
-                </div>
-
-                {/* Title */}
-                <h3 className="font-heading font-extrabold text-lg sm:text-xl text-[#1A1A1A] group-hover:text-[#0F6B4C] transition-colors duration-300 mb-2.5">
-                  {service.title}
-                </h3>
-
-                {/* Short Description */}
-                <p className="text-xs sm:text-sm text-[#5A6275] font-normal leading-relaxed line-clamp-2 mb-4">
-                  {service.shortDesc}
-                </p>
-
-                {/* Sub-Services Tags */}
-                <div className="mb-4">
-                  <span className="text-[10px] font-extrabold text-[#0F6B4C] uppercase tracking-wider block mb-2">
-                    Key Practice Sub-Services:
-                  </span>
-                  <div className="flex flex-wrap gap-1.5">
-                    {service.subServices.map((sub, idx) => (
-                      <span
-                        key={idx}
-                        className="bg-[#FAFAF7] border border-gray-200/80 text-[#1A1A1A] text-[11px] font-semibold px-2 py-0.5 rounded-md"
-                      >
-                        {sub}
+          <div className="animate-marquee-ltr flex gap-4 sm:gap-6 w-max py-2">
+            {displayServices.map((service, idx) => (
+              <div
+                key={`${service.id}-${idx}`}
+                id={`service-card-${service.id}-${idx}`}
+                className="w-[82vw] max-w-[340px] sm:w-[320px] md:w-[350px] lg:w-[380px] shrink-0 bg-white rounded-2xl p-5 sm:p-7 border border-[#0F6B4C]/15 shadow-xs hover:shadow-lg transition-all duration-300 hover:border-[#0F6B4C]/50 hover:-translate-y-1 flex flex-col justify-between group cursor-pointer"
+                onClick={() => setModalService(service)}
+              >
+                <div>
+                  {/* Top Bar with Icon & Badge */}
+                  <div className="flex items-start justify-between gap-3 mb-5">
+                    <div className="w-12 h-12 rounded-xl bg-[#E8F5F0] text-[#0F6B4C] group-hover:bg-[#0F6B4C] group-hover:text-white transition-all duration-300 flex items-center justify-center shrink-0 shadow-xs">
+                      {getServiceIcon(service.iconName)}
+                    </div>
+                    {service.badge && (
+                      <span className="text-[10px] font-extrabold uppercase tracking-wider bg-[#F5A623]/20 text-[#1A1A1A] border border-[#F5A623]/40 px-2.5 py-1 rounded-md">
+                        {service.badge}
                       </span>
-                    ))}
+                    )}
+                  </div>
+
+                  {/* Title */}
+                  <h3 className="font-heading font-extrabold text-lg sm:text-xl text-[#1A1A1A] group-hover:text-[#0F6B4C] transition-colors duration-300 mb-2.5">
+                    {service.title}
+                  </h3>
+
+                  {/* Short Description */}
+                  <p className="text-xs sm:text-sm text-[#5A6275] font-normal leading-relaxed line-clamp-2 mb-4">
+                    {service.shortDesc}
+                  </p>
+
+                  {/* Sub-Services Tags */}
+                  <div className="mb-4">
+                    <span className="text-[10px] font-extrabold text-[#0F6B4C] uppercase tracking-wider block mb-2">
+                      Key Practice Sub-Services:
+                    </span>
+                    <div className="flex flex-wrap gap-1.5">
+                      {service.subServices.map((sub, sIdx) => (
+                        <span
+                          key={sIdx}
+                          className="bg-[#FAFAF7] border border-gray-200/80 text-[#1A1A1A] text-[11px] font-semibold px-2 py-0.5 rounded-md"
+                        >
+                          {sub}
+                        </span>
+                      ))}
+                    </div>
                   </div>
                 </div>
-              </div>
 
-              {/* Footer Action */}
-              <div className="pt-4 border-t border-gray-100 flex items-center justify-between text-xs font-bold text-[#0F6B4C]">
-                <span>View Full Practice Coverage</span>
-                <span className="group-hover:translate-x-1 transition-transform duration-300">→</span>
+                {/* Footer Action */}
+                <div className="pt-4 border-t border-gray-100 flex items-center justify-between text-xs font-bold text-[#0F6B4C]">
+                  <span>View Full Practice Coverage</span>
+                  <span className="group-hover:translate-x-1 transition-transform duration-300">→</span>
+                </div>
               </div>
-            </motion.div>
-          ))}
-        </div>
+            ))}
+          </div>
         </div>
       </div>
 

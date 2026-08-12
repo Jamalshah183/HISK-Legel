@@ -3,7 +3,6 @@
 import React, { useState, useEffect } from 'react';
 import { Navbar } from '@/components/Navbar';
 import { Hero } from '@/components/Hero';
-import { FacingFbrNoticeSection } from '@/components/FacingFbrNoticeSection';
 import { ServicesSection } from '@/components/ServicesSection';
 import { TaxCalculator } from '@/components/TaxCalculator';
 import { AboutSection } from '@/components/AboutSection';
@@ -121,9 +120,6 @@ export default function Home() {
             onNavigateToPractice={() => scrollToSection('services')}
           />
         </div>
-
-        {/* Facing FBR Notice & Legal Emergency Section with Moving Slides */}
-        <FacingFbrNoticeSection />
 
         {/* Services Section */}
         <ServicesSection />
