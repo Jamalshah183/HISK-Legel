@@ -62,10 +62,6 @@ export const AboutSection: React.FC = () => {
           transition={{ duration: 0.6 }}
           className="max-w-3xl mx-auto text-center mb-8 sm:mb-12"
         >
-          <div className="inline-flex items-center gap-2 bg-[#E8F5F0] border border-[#0F6B4C]/20 px-4 py-1.5 rounded-full text-xs font-bold text-[#0F6B4C] mb-4">
-            <Shield className="w-4 h-4 text-[#F5A623]" />
-            <span>High Court Advocates &amp; Legal Leadership</span>
-          </div>
           <h2 className="font-heading font-extrabold text-3xl sm:text-4xl lg:text-5xl text-[#1A1A1A] tracking-tight mb-4">
             About HISK LEGAL
           </h2>
@@ -248,10 +244,6 @@ export const AboutSection: React.FC = () => {
             transition={{ duration: 0.6 }}
             className="text-center max-w-2xl mx-auto mb-10"
           >
-            <div className="inline-flex items-center gap-1.5 bg-[#F5A623]/15 text-[#B87B00] px-3.5 py-1 rounded-full text-xs font-extrabold mb-3">
-              <UserCheck className="w-4 h-4 text-[#F5A623]" />
-              <span>Firm Leadership &amp; Senior Advocates</span>
-            </div>
             <h3 className="font-heading font-extrabold text-3xl sm:text-4xl text-[#1A1A1A]">
               Our Senior Legal Advocates
             </h3>
