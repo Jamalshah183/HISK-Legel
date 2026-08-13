@@ -234,25 +234,25 @@ export const ServicesSection: React.FC = () => {
       id="services"
       className="scroll-mt-20 sm:scroll-mt-24 py-10 sm:py-14 lg:py-16 bg-[#FAFAF7] border-y border-gray-200/80 relative overflow-hidden"
     >
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col items-center justify-center text-center">
         {/* Section Header */}
-        <div className="flex flex-col md:flex-row md:items-end justify-between gap-6 mb-6 sm:mb-8">
+        <div className="w-full flex flex-col items-center justify-center text-center gap-4 mb-6 sm:mb-8 border-b border-[#0F6B4C]/15 pb-6 mx-auto">
           <motion.div
-            initial={{ opacity: 0, x: -30, filter: 'blur(4px)' }}
-            whileInView={{ opacity: 1, x: 0, filter: 'blur(0px)' }}
+            initial={{ opacity: 0, y: 15 }}
+            whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: false, amount: 0.2 }}
             transition={{ duration: 0.6 }}
-            className="w-full max-w-4xl"
+            className="w-full max-w-3xl mx-auto flex flex-col items-center justify-center text-center"
           >
-            <h2 className="font-heading font-extrabold text-3xl sm:text-4xl lg:text-5xl text-[#1A1A1A] tracking-tight mb-3">
+            <h2 className="w-full font-heading font-extrabold text-3xl sm:text-4xl lg:text-5xl text-[#1A1A1A] tracking-tight mb-3 text-center mx-auto">
               Major Practice Areas
             </h2>
-            <p className="text-sm sm:text-base text-[#5A6275] font-normal leading-relaxed mb-4">
+            <p className="w-full text-sm sm:text-base text-[#5A6275] font-normal leading-relaxed mb-4 text-center max-w-2xl mx-auto">
               From complex litigation to corporate advisory our advocates provide practical legal solutions tailored to individuals, businesses and institutions.
             </p>
 
             {/* Category Filter Buttons */}
-            <div className="flex flex-wrap items-center gap-2 pt-2">
+            <div className="w-full flex flex-wrap items-center justify-center text-center gap-2 pt-2 mx-auto">
               {CATEGORIES.map((cat) => {
                 const isActive = selectedCategory === cat;
                 return (
@@ -276,7 +276,7 @@ export const ServicesSection: React.FC = () => {
         </div>
 
         {/* Continuous Auto-Moving Track of Cards (Left to Right) */}
-        <div className="relative overflow-hidden py-3 -mx-4 px-4 sm:-mx-6 sm:px-6 lg:-mx-8 lg:px-8">
+        <div className="w-full relative overflow-hidden py-3 -mx-4 px-4 sm:-mx-6 sm:px-6 lg:-mx-8 lg:px-8 flex justify-center items-center">
           {/* Subtle Left & Right Edge Vignette Shadows */}
           <div className="absolute left-0 top-0 bottom-0 w-8 sm:w-16 bg-gradient-to-r from-[#FAFAF7] to-transparent z-10 pointer-events-none" />
           <div className="absolute right-0 top-0 bottom-0 w-8 sm:w-16 bg-gradient-to-l from-[#FAFAF7] to-transparent z-10 pointer-events-none" />

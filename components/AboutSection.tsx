@@ -37,6 +37,13 @@ export const AboutSection: React.FC = () => {
     }
   };
 
+  const displayAttorneys = [
+    ...ATTORNEYS,
+    ...ATTORNEYS,
+    ...ATTORNEYS,
+    ...ATTORNEYS
+  ];
+
   return (
     <motion.section
       initial={{ opacity: 0, y: 30 }}
@@ -67,77 +74,7 @@ export const AboutSection: React.FC = () => {
           </p>
         </motion.div>
 
-        {/* Core Practice Foundations Grid (No Logo) */}
-        <div className="grid md:grid-cols-3 gap-6 mb-12 sm:mb-16">
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: false, amount: 0.2 }}
-            transition={{ duration: 0.5, delay: 0.1 }}
-            className="bg-white p-6 sm:p-8 rounded-3xl border border-[#0F6B4C]/15 shadow-xs hover:shadow-md transition-shadow flex flex-col justify-between"
-          >
-            <div>
-              <div className="w-12 h-12 rounded-2xl bg-[#E8F5F0] text-[#0F6B4C] flex items-center justify-center mb-5">
-                <Scale className="w-6 h-6 text-[#0F6B4C]" />
-              </div>
-              <h3 className="font-heading font-extrabold text-xl text-[#1A1A1A] mb-2">
-                High Court &amp; Appellate Litigation
-              </h3>
-              <p className="text-sm text-[#5A6275] leading-relaxed font-normal">
-                Extensive litigation practice before Islamabad High Court, Lahore High Court, Appellate Tribunals, and administrative forums with a proven record of stay orders and writ petitions.
-              </p>
-            </div>
-            <div className="mt-6 pt-4 border-t border-gray-100 flex items-center text-xs font-bold text-[#0F6B4C]">
-              <span>Islamabad &amp; Regional High Courts</span>
-            </div>
-          </motion.div>
 
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: false, amount: 0.2 }}
-            transition={{ duration: 0.5, delay: 0.2 }}
-            className="bg-white p-6 sm:p-8 rounded-3xl border border-[#0F6B4C]/15 shadow-xs hover:shadow-md transition-shadow flex flex-col justify-between"
-          >
-            <div>
-              <div className="w-12 h-12 rounded-2xl bg-[#E8F5F0] text-[#0F6B4C] flex items-center justify-center mb-5">
-                <FileCheck className="w-6 h-6 text-[#0F6B4C]" />
-              </div>
-              <h3 className="font-heading font-extrabold text-xl text-[#1A1A1A] mb-2">
-                FBR Tax &amp; Regulatory Defense
-              </h3>
-              <p className="text-sm text-[#5A6275] leading-relaxed font-normal">
-                Specialized advocacy against high-value FBR audit demands, Section 122 reassessments, Section 140 bank attachments, and complex corporate tax compliance.
-              </p>
-            </div>
-            <div className="mt-6 pt-4 border-t border-gray-100 flex items-center text-xs font-bold text-[#0F6B4C]">
-              <span>Federal Board of Revenue (FBR)</span>
-            </div>
-          </motion.div>
-
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: false, amount: 0.2 }}
-            transition={{ duration: 0.5, delay: 0.3 }}
-            className="bg-white p-6 sm:p-8 rounded-3xl border border-[#0F6B4C]/15 shadow-xs hover:shadow-md transition-shadow flex flex-col justify-between"
-          >
-            <div>
-              <div className="w-12 h-12 rounded-2xl bg-[#E8F5F0] text-[#0F6B4C] flex items-center justify-center mb-5">
-                <Lock className="w-6 h-6 text-[#0F6B4C]" />
-              </div>
-              <h3 className="font-heading font-extrabold text-xl text-[#1A1A1A] mb-2">
-                100% Statutory Confidentiality
-              </h3>
-              <p className="text-sm text-[#5A6275] leading-relaxed font-normal">
-                Protected by statutory attorney-client privilege, ensuring your financial records, litigation strategy, and corporate discussions remain strictly confidential.
-              </p>
-            </div>
-            <div className="mt-6 pt-4 border-t border-gray-100 flex items-center text-xs font-bold text-[#0F6B4C]">
-              <span>Legal Privilege Guaranteed</span>
-            </div>
-          </motion.div>
-        </div>
 
         {/* Quantifiable Relief & Firm Metrics Banner */}
         <motion.div
@@ -323,75 +260,77 @@ export const AboutSection: React.FC = () => {
             </p>
           </motion.div>
 
-          {/* Partner Image Cards Grid */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-            {ATTORNEYS.map((attorney, idx) => {
-              const imageSrc = attorneyImages[attorney.id] || attorney.image;
-              const isCeo = attorney.isCeo;
+          {/* Continuous Auto-Moving Track of Partner Cards */}
+          <div className="w-full relative overflow-hidden py-3 -mx-4 px-4 sm:-mx-6 sm:px-6 lg:-mx-8 lg:px-8 flex justify-center items-center">
+            {/* Subtle Left & Right Edge Vignette Shadows */}
+            <div className="absolute left-0 top-0 bottom-0 w-8 sm:w-16 bg-gradient-to-r from-[#FAFAF7] to-transparent z-10 pointer-events-none" />
+            <div className="absolute right-0 top-0 bottom-0 w-8 sm:w-16 bg-gradient-to-l from-[#FAFAF7] to-transparent z-10 pointer-events-none" />
 
-              return (
-                <motion.div
-                  key={attorney.id}
-                  initial={{ opacity: 0, y: 20 }}
-                  whileInView={{ opacity: 1, y: 0 }}
-                  viewport={{ once: false, amount: 0.2 }}
-                  transition={{ duration: 0.5, delay: idx * 0.1 }}
-                  onClick={() => setSelectedAttorney(attorney)}
-                  className={`group relative h-[420px] rounded-3xl overflow-hidden border shadow-md hover:shadow-2xl transition-all duration-300 cursor-pointer flex flex-col justify-end bg-slate-900 ${
-                    isCeo
-                      ? 'border-[#0F6B4C]/40 ring-2 ring-[#0F6B4C]/25'
-                      : 'border-[#0F6B4C]/15 hover:border-[#0F6B4C]/50'
-                  }`}
-                >
-                  {/* Background Portrait Image */}
-                  <Image
-                    src={imageSrc}
-                    alt={attorney.name}
-                    fill
-                    unoptimized
-                    className="object-cover object-top transition-transform duration-700 group-hover:scale-105"
-                    referrerPolicy="no-referrer"
-                    onError={() => handleImageError(attorney.id, imageSrc)}
-                  />
+            <div className="animate-marquee-ltr flex gap-4 sm:gap-6 w-max py-2">
+              {displayAttorneys.map((attorney, idx) => {
+                const imageSrc = attorneyImages[attorney.id] || attorney.image;
+                const isCeo = attorney.isCeo;
 
-                  {/* Top Badge */}
-                  {isCeo && (
-                    <div className="absolute top-4 left-4 z-20 bg-[#0F6B4C] text-[#F5A623] text-[11px] font-extrabold px-3 py-1 rounded-full shadow-md flex items-center gap-1.5 border border-[#F5A623]/30">
-                      <Award className="w-3.5 h-3.5 text-[#F5A623]" />
-                      <span>FOUNDER &amp; CEO</span>
+                return (
+                  <div
+                    key={`${attorney.id}-${idx}`}
+                    onClick={() => setSelectedAttorney(attorney)}
+                    className={`group relative w-[280px] sm:w-[320px] md:w-[340px] shrink-0 h-[420px] rounded-3xl overflow-hidden border shadow-md hover:shadow-2xl transition-all duration-300 cursor-pointer flex flex-col justify-end bg-slate-900 ${
+                      isCeo
+                        ? 'border-[#0F6B4C]/40 ring-2 ring-[#0F6B4C]/25'
+                        : 'border-[#0F6B4C]/15 hover:border-[#0F6B4C]/50'
+                    }`}
+                  >
+                    {/* Background Portrait Image */}
+                    <Image
+                      src={imageSrc}
+                      alt={attorney.name}
+                      fill
+                      unoptimized
+                      className="object-cover object-top transition-transform duration-700 group-hover:scale-105"
+                      referrerPolicy="no-referrer"
+                      onError={() => handleImageError(attorney.id, imageSrc)}
+                    />
+
+                    {/* Top Badge */}
+                    {isCeo && (
+                      <div className="absolute top-4 left-4 z-20 bg-[#0F6B4C] text-[#F5A623] text-[11px] font-extrabold px-3 py-1 rounded-full shadow-md flex items-center gap-1.5 border border-[#F5A623]/30">
+                        <Award className="w-3.5 h-3.5 text-[#F5A623]" />
+                        <span>FOUNDER &amp; CEO</span>
+                      </div>
+                    )}
+
+                    {/* Hover Overlay Hint */}
+                    <div className="absolute inset-0 bg-[#0F6B4C]/20 opacity-0 group-hover:opacity-100 transition-opacity duration-300 z-10 flex items-center justify-center p-4">
+                      <div className="bg-white/95 backdrop-blur-xs text-[#0F6B4C] font-extrabold text-xs px-4 py-2.5 rounded-full shadow-xl flex items-center gap-2 transform translate-y-3 group-hover:translate-y-0 transition-transform duration-300">
+                        <Eye className="w-4 h-4 text-[#F5A623]" />
+                        <span>Click to Reveal Full Details</span>
+                      </div>
                     </div>
-                  )}
 
-                  {/* Hover Overlay Hint */}
-                  <div className="absolute inset-0 bg-[#0F6B4C]/20 opacity-0 group-hover:opacity-100 transition-opacity duration-300 z-10 flex items-center justify-center p-4">
-                    <div className="bg-white/95 backdrop-blur-xs text-[#0F6B4C] font-extrabold text-xs px-4 py-2.5 rounded-full shadow-xl flex items-center gap-2 transform translate-y-3 group-hover:translate-y-0 transition-transform duration-300">
-                      <Eye className="w-4 h-4 text-[#F5A623]" />
-                      <span>Click to Reveal Full Details</span>
-                    </div>
-                  </div>
+                    {/* Bottom Dark Gradient Footer (Name & Title + Action) */}
+                    <div className="relative z-20 p-5 bg-gradient-to-t from-black/95 via-black/70 to-transparent text-white space-y-2 text-left">
+                      <div className="text-[11px] text-[#F5A623] font-extrabold uppercase tracking-wider">
+                        {isCeo ? 'Founder & Chief Executive Officer' : 'Associate Counsel'}
+                      </div>
+                      <h4 className="font-heading font-extrabold text-lg sm:text-xl text-white leading-tight group-hover:text-[#F5A623] transition-colors">
+                        {attorney.name}
+                      </h4>
+                      <p className="text-xs text-gray-300 line-clamp-1 font-medium">
+                        {attorney.title}
+                      </p>
 
-                  {/* Bottom Dark Gradient Footer (Name & Title + Action) */}
-                  <div className="relative z-20 p-5 bg-gradient-to-t from-black/95 via-black/70 to-transparent text-white space-y-2">
-                    <div className="text-[11px] text-[#F5A623] font-extrabold uppercase tracking-wider">
-                      {isCeo ? 'Founder & Chief Executive Officer' : 'Associate Counsel'}
-                    </div>
-                    <h4 className="font-heading font-extrabold text-lg sm:text-xl text-white leading-tight group-hover:text-[#F5A623] transition-colors">
-                      {attorney.name}
-                    </h4>
-                    <p className="text-xs text-gray-300 line-clamp-1 font-medium">
-                      {attorney.title}
-                    </p>
-
-                    <div className="pt-2">
-                      <div className="w-full bg-[#0F6B4C] group-hover:bg-[#0A4B35] text-white text-xs font-bold py-2.5 px-3 rounded-xl flex items-center justify-center gap-2 transition-colors shadow-sm">
-                        <span>Click to Reveal Details</span>
-                        <ChevronRight className="w-4 h-4 text-[#F5A623]" />
+                      <div className="pt-2">
+                        <div className="w-full bg-[#0F6B4C] group-hover:bg-[#0A4B35] text-white text-xs font-bold py-2.5 px-3 rounded-xl flex items-center justify-center gap-2 transition-colors shadow-sm">
+                          <span>Click to Reveal Details</span>
+                          <ChevronRight className="w-4 h-4 text-[#F5A623]" />
+                        </div>
                       </div>
                     </div>
                   </div>
-                </motion.div>
-              );
-            })}
+                );
+              })}
+            </div>
           </div>
         </div>
       </div>
