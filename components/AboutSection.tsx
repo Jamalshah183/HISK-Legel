@@ -9,6 +9,7 @@ import {
   GraduationCap,
   MessageCircle,
   ChevronRight,
+  ArrowRight,
   X,
   Award,
   CheckCircle2,
@@ -142,127 +143,154 @@ export const AboutSection: React.FC = () => {
           </div>
         </motion.div>
 
-        {/* Why Clients Trust Us - Redesigned Showcase Layout */}
-        <div className="bg-gradient-to-br from-white via-[#F4F9F6] to-white p-6 sm:p-8 lg:p-12 rounded-3xl border border-[#0F6B4C]/20 shadow-md mb-20">
-          <div className="grid lg:grid-cols-12 gap-8 lg:gap-12 items-center">
-            {/* Left Column - Core Narrative & Action */}
+        {/* Why Clients Trust Us - High-Impact Luxury Legal Showcase */}
+        <div className="relative bg-[#0B251C] text-white p-6 sm:p-10 lg:p-14 rounded-3xl border border-[#0F6B4C]/40 shadow-2xl overflow-hidden mb-24">
+          {/* Ambient Lighting & Geometric Overlays */}
+          <div className="absolute -top-24 -left-24 w-96 h-96 bg-[#0F6B4C]/30 rounded-full blur-3xl pointer-events-none" />
+          <div className="absolute -bottom-24 -right-24 w-96 h-96 bg-[#F5A623]/20 rounded-full blur-3xl pointer-events-none" />
+          <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-full h-full bg-[radial-gradient(#1A4D3B_1px,transparent_1px)] [background-size:24px_24px] opacity-20 pointer-events-none" />
+
+          <div className="relative z-10 grid lg:grid-cols-12 gap-10 lg:gap-14 items-center">
+            {/* Left Column - Core Strategic Positioning */}
             <motion.div
               initial={{ opacity: 0, x: -30 }}
               whileInView={{ opacity: 1, x: 0 }}
               viewport={{ once: false, amount: 0.15 }}
               transition={{ duration: 0.6 }}
-              className="lg:col-span-6 space-y-6"
+              className="lg:col-span-6 space-y-7"
             >
-              <div className="inline-flex items-center gap-2 bg-[#0F6B4C]/10 border border-[#0F6B4C]/20 text-[#0F6B4C] px-4 py-1.5 rounded-full text-xs font-extrabold tracking-wide uppercase">
-                <Building2 className="w-4 h-4 text-[#0F6B4C]" />
-                <span>Commercial &amp; High Court Expertise</span>
+              <div className="inline-flex items-center gap-2 bg-[#0F6B4C]/40 border border-[#0F6B4C] px-4 py-1.5 rounded-full text-xs font-extrabold text-[#F5A623] backdrop-blur-md shadow-sm">
+                <span className="w-2 h-2 rounded-full bg-[#F5A623] animate-pulse" />
+                <Building2 className="w-4 h-4 text-[#F5A623]" />
+                <span className="uppercase tracking-wider">Commercial &amp; High Court Expertise</span>
               </div>
 
-              <h3 className="font-heading font-extrabold text-2xl sm:text-3xl lg:text-4xl text-[#1A1A1A] leading-tight tracking-tight">
-                Why Corporate Clients &amp; Individuals Trust <span className="text-[#0F6B4C]">HISK LEGAL</span>
+              <h3 className="font-heading font-extrabold text-3xl sm:text-4xl lg:text-5xl text-white leading-[1.15] tracking-tight">
+                Why Corporate Leaders &amp; Taxpayers Trust <span className="text-transparent bg-clip-text bg-gradient-to-r from-[#F5A623] via-[#FFD07B] to-[#F5A623]">HISK LEGAL</span>
               </h3>
 
-              <p className="text-sm sm:text-base text-[#4A5265] leading-relaxed font-normal">
+              <p className="text-sm sm:text-base text-[#C2D8D0] leading-relaxed font-light">
                 Under the leadership of Founder &amp; CEO Hafiz Irfan Shabber Kayani, HISK LEGAL combines rigorous statutory analysis with proactive courtroom advocacy. Our practice encompasses Civil, Criminal, Corporate, Banking, Property, and Tax law.
               </p>
 
-              <p className="text-sm sm:text-base text-[#4A5265] leading-relaxed font-normal">
-                We understand the critical urgency of legal proceedings. From filing emergency stay petitions against administrative actions to drafting complex corporate agreements, our senior advocates ensure clear communication and relentless representation.
-              </p>
-
-              {/* Quick Highlight Stats / Guarantees */}
-              <div className="grid grid-cols-2 gap-3 pt-1">
-                <div className="flex items-center gap-2.5 bg-white p-3 rounded-xl border border-[#0F6B4C]/15 shadow-2xs">
-                  <div className="w-2 h-2 rounded-full bg-[#0F6B4C]" />
-                  <span className="text-xs font-bold text-[#1A1A1A]">Article 199 Writ Jurisdiction</span>
+              {/* Feature Checklist Highlights */}
+              <div className="space-y-3 pt-1">
+                <div className="flex items-start gap-3">
+                  <div className="p-1 rounded-full bg-[#F5A623]/20 text-[#F5A623] mt-1 shrink-0">
+                    <CheckCircle2 className="w-4 h-4" />
+                  </div>
+                  <p className="text-xs sm:text-sm text-[#E2F0EA] font-medium">
+                    <strong className="text-white">Emergency Article 199 Relief:</strong> Immediate High Court stay orders against illegal FBR bank account attachments &amp; recovery notices.
+                  </p>
                 </div>
-                <div className="flex items-center gap-2.5 bg-white p-3 rounded-xl border border-[#0F6B4C]/15 shadow-2xs">
-                  <div className="w-2 h-2 rounded-full bg-[#F5A623]" />
-                  <span className="text-xs font-bold text-[#1A1A1A]">FBR Audit &amp; Stay Orders</span>
+
+                <div className="flex items-start gap-3">
+                  <div className="p-1 rounded-full bg-[#F5A623]/20 text-[#F5A623] mt-1 shrink-0">
+                    <CheckCircle2 className="w-4 h-4" />
+                  </div>
+                  <p className="text-xs sm:text-sm text-[#E2F0EA] font-medium">
+                    <strong className="text-white">Senior Appellate Advocacy:</strong> Proven defense records before Commissioner Appeals (CIR), Appellate Tribunal (ATIR), &amp; High Courts.
+                  </p>
                 </div>
               </div>
 
-              <div className="pt-2">
+              {/* Key Advantage Metrics Cards */}
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 pt-2">
+                <div className="bg-[#12382A]/80 border border-[#0F6B4C] p-3.5 rounded-2xl text-center backdrop-blur-sm">
+                  <div className="font-heading font-black text-xl sm:text-2xl text-[#F5A623]">High Court</div>
+                  <div className="text-[10px] sm:text-xs text-[#9EBEB2] font-semibold mt-0.5">Appellate Rights</div>
+                </div>
+                <div className="bg-[#12382A]/80 border border-[#0F6B4C] p-3.5 rounded-2xl text-center backdrop-blur-sm">
+                  <div className="font-heading font-black text-xl sm:text-2xl text-white">PKR 10B+</div>
+                  <div className="text-[10px] sm:text-xs text-[#9EBEB2] font-semibold mt-0.5">Tax Liabilities Defended</div>
+                </div>
+                <div className="bg-[#12382A]/80 border border-[#0F6B4C] p-3.5 rounded-2xl text-center backdrop-blur-sm col-span-2 sm:col-span-1">
+                  <div className="font-heading font-black text-xl sm:text-2xl text-[#F5A623]">24/7</div>
+                  <div className="text-[10px] sm:text-xs text-[#9EBEB2] font-semibold mt-0.5">Urgent Stay Counsel</div>
+                </div>
+              </div>
+
+              <div className="pt-3">
                 <a
                   href={buildWhatsAppUrl({
                     customMessage: 'Assalamu Alaikum, I would like to schedule a confidential consultation with HISK LEGAL advocates.'
                   })}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="inline-flex items-center gap-2.5 bg-[#0F6B4C] hover:bg-[#0A4B35] text-white font-heading font-bold text-xs sm:text-sm py-3.5 px-6 rounded-xl transition-all shadow-md hover:shadow-lg hover:-translate-y-0.5"
+                  className="inline-flex items-center justify-center gap-3 bg-gradient-to-r from-[#F5A623] to-[#D98E11] hover:from-[#E0951C] hover:to-[#C27E0B] text-[#0B251C] font-heading font-extrabold text-sm sm:text-base py-4 px-7 rounded-2xl transition-all shadow-xl hover:shadow-[#F5A623]/20 hover:-translate-y-0.5 w-full sm:w-auto text-center"
                 >
-                  <MessageCircle className="w-4.5 h-4.5 text-[#F5A623]" />
+                  <MessageCircle className="w-4.5 h-4.5 text-[#0B251C] fill-[#0B251C]" />
                   <span>Schedule Advocate Consultation</span>
-                  <ChevronRight className="w-4 h-4" />
+                  <ArrowRight className="w-4 h-4" />
                 </a>
               </div>
             </motion.div>
 
-            {/* Right Column - Elevated Feature Pillar Cards */}
+            {/* Right Column - Glassmorphic Pillar Cards */}
             <motion.div
               initial={{ opacity: 0, x: 30 }}
               whileInView={{ opacity: 1, x: 0 }}
               viewport={{ once: false, amount: 0.15 }}
               transition={{ duration: 0.6, delay: 0.15 }}
-              className="lg:col-span-6 space-y-4"
+              className="lg:col-span-6 space-y-5"
             >
-              <div className="bg-white p-5 sm:p-6 rounded-2xl border border-[#0F6B4C]/20 hover:border-[#0F6B4C]/50 shadow-xs hover:shadow-md transition-all group">
-                <div className="flex items-start gap-4">
-                  <div className="p-3 rounded-xl bg-gradient-to-br from-[#E8F5F0] to-[#D1EDE2] text-[#0F6B4C] shrink-0 mt-0.5 group-hover:scale-105 transition-transform">
-                    <Gavel className="w-6 h-6 text-[#0F6B4C]" />
+              <div className="group relative bg-[#12382A]/90 hover:bg-[#184836] p-6 rounded-2xl border border-[#0F6B4C] hover:border-[#F5A623]/60 transition-all shadow-lg hover:shadow-2xl">
+                <div className="flex items-start gap-4 sm:gap-5">
+                  <div className="p-3.5 rounded-2xl bg-gradient-to-br from-[#0F6B4C] to-[#08422F] border border-[#0F6B4C] text-[#F5A623] shrink-0 group-hover:scale-110 group-hover:rotate-3 transition-transform shadow-md">
+                    <Gavel className="w-6 h-6 sm:w-7 sm:h-7" />
                   </div>
-                  <div className="space-y-1">
-                    <div className="flex items-center justify-between gap-2">
-                      <h4 className="font-heading font-extrabold text-base sm:text-lg text-[#1A1A1A]">
+                  <div className="space-y-1.5 flex-1">
+                    <div className="flex items-center justify-between gap-2 flex-wrap">
+                      <h4 className="font-heading font-extrabold text-base sm:text-lg text-white group-hover:text-[#F5A623] transition-colors">
                         High Court Writs &amp; Emergency Stays
                       </h4>
-                      <span className="text-[10px] font-extrabold text-[#0F6B4C] bg-[#E8F5F0] px-2 py-0.5 rounded-md uppercase tracking-wider shrink-0">
+                      <span className="text-[10px] font-extrabold text-[#F5A623] bg-[#F5A623]/15 border border-[#F5A623]/30 px-2.5 py-0.5 rounded-full uppercase tracking-wider">
                         Article 199
                       </span>
                     </div>
-                    <p className="text-xs sm:text-sm text-[#5A6275] leading-relaxed">
+                    <p className="text-xs sm:text-sm text-[#C2D8D0] leading-relaxed font-light">
                       Rapid judicial petitions before High Courts to halt illegal tax recoveries, bank attachments, or unauthorized administrative actions.
                     </p>
                   </div>
                 </div>
               </div>
 
-              <div className="bg-white p-5 sm:p-6 rounded-2xl border border-[#0F6B4C]/20 hover:border-[#0F6B4C]/50 shadow-xs hover:shadow-md transition-all group">
-                <div className="flex items-start gap-4">
-                  <div className="p-3 rounded-xl bg-gradient-to-br from-[#E8F5F0] to-[#D1EDE2] text-[#0F6B4C] shrink-0 mt-0.5 group-hover:scale-105 transition-transform">
-                    <GraduationCap className="w-6 h-6 text-[#0F6B4C]" />
+              <div className="group relative bg-[#12382A]/90 hover:bg-[#184836] p-6 rounded-2xl border border-[#0F6B4C] hover:border-[#F5A623]/60 transition-all shadow-lg hover:shadow-2xl">
+                <div className="flex items-start gap-4 sm:gap-5">
+                  <div className="p-3.5 rounded-2xl bg-gradient-to-br from-[#0F6B4C] to-[#08422F] border border-[#0F6B4C] text-[#F5A623] shrink-0 group-hover:scale-110 group-hover:-rotate-3 transition-transform shadow-md">
+                    <GraduationCap className="w-6 h-6 sm:w-7 sm:h-7" />
                   </div>
-                  <div className="space-y-1">
-                    <div className="flex items-center justify-between gap-2">
-                      <h4 className="font-heading font-extrabold text-base sm:text-lg text-[#1A1A1A]">
+                  <div className="space-y-1.5 flex-1">
+                    <div className="flex items-center justify-between gap-2 flex-wrap">
+                      <h4 className="font-heading font-extrabold text-base sm:text-lg text-white group-hover:text-[#F5A623] transition-colors">
                         Appellate Advocacy &amp; Rebuttals
                       </h4>
-                      <span className="text-[10px] font-extrabold text-[#0F6B4C] bg-[#E8F5F0] px-2 py-0.5 rounded-md uppercase tracking-wider shrink-0">
+                      <span className="text-[10px] font-extrabold text-[#F5A623] bg-[#F5A623]/15 border border-[#F5A623]/30 px-2.5 py-0.5 rounded-full uppercase tracking-wider">
                         ATIR &amp; CIR Appeals
                       </span>
                     </div>
-                    <p className="text-xs sm:text-sm text-[#5A6275] leading-relaxed">
+                    <p className="text-xs sm:text-sm text-[#C2D8D0] leading-relaxed font-light">
                       Meticulous drafting of legal grounds, appeals, and representations before Commissioner Appeals (CIR) and Appellate Tribunals (ATIR).
                     </p>
                   </div>
                 </div>
               </div>
 
-              <div className="bg-white p-5 sm:p-6 rounded-2xl border border-[#0F6B4C]/20 hover:border-[#0F6B4C]/50 shadow-xs hover:shadow-md transition-all group">
-                <div className="flex items-start gap-4">
-                  <div className="p-3 rounded-xl bg-gradient-to-br from-[#E8F5F0] to-[#D1EDE2] text-[#0F6B4C] shrink-0 mt-0.5 group-hover:scale-105 transition-transform">
-                    <TrendingUp className="w-6 h-6 text-[#0F6B4C]" />
+              <div className="group relative bg-[#12382A]/90 hover:bg-[#184836] p-6 rounded-2xl border border-[#0F6B4C] hover:border-[#F5A623]/60 transition-all shadow-lg hover:shadow-2xl">
+                <div className="flex items-start gap-4 sm:gap-5">
+                  <div className="p-3.5 rounded-2xl bg-gradient-to-br from-[#0F6B4C] to-[#08422F] border border-[#0F6B4C] text-[#F5A623] shrink-0 group-hover:scale-110 group-hover:rotate-3 transition-transform shadow-md">
+                    <TrendingUp className="w-6 h-6 sm:w-7 sm:h-7" />
                   </div>
-                  <div className="space-y-1">
-                    <div className="flex items-center justify-between gap-2">
-                      <h4 className="font-heading font-extrabold text-base sm:text-lg text-[#1A1A1A]">
+                  <div className="space-y-1.5 flex-1">
+                    <div className="flex items-center justify-between gap-2 flex-wrap">
+                      <h4 className="font-heading font-extrabold text-base sm:text-lg text-white group-hover:text-[#F5A623] transition-colors">
                         Corporate Structuring &amp; SECP Advisory
                       </h4>
-                      <span className="text-[10px] font-extrabold text-[#0F6B4C] bg-[#E8F5F0] px-2 py-0.5 rounded-md uppercase tracking-wider shrink-0">
+                      <span className="text-[10px] font-extrabold text-[#F5A623] bg-[#F5A623]/15 border border-[#F5A623]/30 px-2.5 py-0.5 rounded-full uppercase tracking-wider">
                         SECP Governance
                       </span>
                     </div>
-                    <p className="text-xs sm:text-sm text-[#5A6275] leading-relaxed">
+                    <p className="text-xs sm:text-sm text-[#C2D8D0] leading-relaxed font-light">
                       Full corporate lifecycle counsel including company incorporation, joint ventures, shareholder agreements, and regulatory filings.
                     </p>
                   </div>
@@ -272,20 +300,24 @@ export const AboutSection: React.FC = () => {
           </div>
         </div>
 
-        {/* Senior Attorney Roster - Clean Image Cards Gallery */}
+        {/* Senior Attorney Roster - Header Transition */}
         <div className="max-w-6xl mx-auto">
           <motion.div
             initial={{ opacity: 0, y: 20 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: false, amount: 0.2 }}
-            transition={{ duration: 0.6 }}
-            className="text-center max-w-2xl mx-auto mb-12"
-          >
-            <div className="w-12 h-1 bg-gradient-to-r from-[#0F6B4C] to-[#F5A623] mx-auto mb-4 rounded-full" />
-            <h3 className="font-heading font-extrabold text-3xl sm:text-4xl text-[#1A1A1A] tracking-tight">
-              Our Senior Legal Advocates
-            </h3>
-            <p className="text-sm sm:text-base text-[#5A6275] mt-2 font-normal">
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: false, amount: 0.2 }}
+          transition={{ duration: 0.6 }}
+          className="text-center max-w-2xl mx-auto mb-14"
+        >
+          <div className="inline-flex items-center justify-center gap-2 mb-3">
+            <div className="h-0.5 w-10 bg-gradient-to-r from-transparent to-[#0F6B4C]" />
+            <Shield className="w-5 h-5 text-[#F5A623]" />
+            <div className="h-0.5 w-10 bg-gradient-to-l from-transparent to-[#0F6B4C]" />
+          </div>
+          <h3 className="font-heading font-black text-3xl sm:text-4xl lg:text-5xl text-[#1A1A1A] tracking-tight">
+            Our Senior Legal Advocates
+          </h3>
+          <p className="text-sm sm:text-base text-[#5A6275] mt-3 font-normal leading-relaxed">
               Click on any advocate&apos;s photo card to reveal their full profile, credentials, and practice details.
             </p>
           </motion.div>
