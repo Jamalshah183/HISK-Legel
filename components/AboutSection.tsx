@@ -142,97 +142,134 @@ export const AboutSection: React.FC = () => {
           </div>
         </motion.div>
 
-        {/* Why Clients Trust Us - Two Column Feature Layout */}
-        <div className="grid lg:grid-cols-12 gap-8 lg:gap-12 mb-20 items-center">
-          <motion.div
-            initial={{ opacity: 0, x: -30 }}
-            whileInView={{ opacity: 1, x: 0 }}
-            viewport={{ once: false, amount: 0.15 }}
-            transition={{ duration: 0.6 }}
-            className="lg:col-span-6 space-y-5"
-          >
-            <div className="inline-flex items-center gap-1.5 bg-[#0F6B4C]/10 text-[#0F6B4C] px-3.5 py-1 rounded-full text-xs font-bold">
-              <Building2 className="w-4 h-4 text-[#0F6B4C]" />
-              <span>Commercial &amp; High Court Expertise</span>
-            </div>
-
-            <h3 className="font-heading font-extrabold text-2xl sm:text-3xl lg:text-4xl text-[#1A1A1A] leading-tight">
-              Why Corporate Clients &amp; Individuals Trust HISK LEGAL
-            </h3>
-
-            <p className="text-sm sm:text-base text-[#5A6275] leading-relaxed font-normal">
-              Under the leadership of Advocate Hafiz Irfan Shabber Kayani, HISK LEGAL combines rigorous statutory analysis with proactive courtroom advocacy. Our practice encompasses Civil, Criminal, Corporate, Banking, Property, and Tax law.
-            </p>
-
-            <p className="text-sm sm:text-base text-[#5A6275] leading-relaxed font-normal">
-              We understand the urgency of legal proceedings. From filing emergency stay petitions against administrative actions to drafting complex corporate agreements, our advocates ensure clear communication and relentless representation.
-            </p>
-
-            <div className="pt-2">
-              <a
-                href={buildWhatsAppUrl({
-                  customMessage: 'Assalamu Alaikum, I would like to schedule a confidential consultation with HISK LEGAL advocates.'
-                })}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="inline-flex items-center gap-2.5 bg-[#0F6B4C] hover:bg-[#0A4B35] text-white font-heading font-bold text-xs sm:text-sm py-3.5 px-6 rounded-xl transition-all shadow-md"
-              >
-                <MessageCircle className="w-4.5 h-4.5 text-[#F5A623]" />
-                <span>Schedule Advocate Consultation</span>
-                <ChevronRight className="w-4 h-4" />
-              </a>
-            </div>
-          </motion.div>
-
-          <motion.div
-            initial={{ opacity: 0, x: 30 }}
-            whileInView={{ opacity: 1, x: 0 }}
-            viewport={{ once: false, amount: 0.15 }}
-            transition={{ duration: 0.6, delay: 0.15 }}
-            className="lg:col-span-6 space-y-4"
-          >
-            <div className="bg-white p-5 rounded-2xl border border-[#0F6B4C]/15 shadow-xs flex items-start gap-4">
-              <div className="p-2.5 rounded-xl bg-[#E8F5F0] text-[#0F6B4C] shrink-0 mt-0.5">
-                <Gavel className="w-5 h-5 text-[#0F6B4C]" />
+        {/* Why Clients Trust Us - Redesigned Showcase Layout */}
+        <div className="bg-gradient-to-br from-white via-[#F4F9F6] to-white p-6 sm:p-8 lg:p-12 rounded-3xl border border-[#0F6B4C]/20 shadow-md mb-20">
+          <div className="grid lg:grid-cols-12 gap-8 lg:gap-12 items-center">
+            {/* Left Column - Core Narrative & Action */}
+            <motion.div
+              initial={{ opacity: 0, x: -30 }}
+              whileInView={{ opacity: 1, x: 0 }}
+              viewport={{ once: false, amount: 0.15 }}
+              transition={{ duration: 0.6 }}
+              className="lg:col-span-6 space-y-6"
+            >
+              <div className="inline-flex items-center gap-2 bg-[#0F6B4C]/10 border border-[#0F6B4C]/20 text-[#0F6B4C] px-4 py-1.5 rounded-full text-xs font-extrabold tracking-wide uppercase">
+                <Building2 className="w-4 h-4 text-[#0F6B4C]" />
+                <span>Commercial &amp; High Court Expertise</span>
               </div>
-              <div>
-                <h4 className="font-heading font-extrabold text-base text-[#1A1A1A]">
-                  High Court Writs &amp; Emergency Stays
-                </h4>
-                <p className="text-xs sm:text-sm text-[#5A6275] mt-1 leading-relaxed">
-                  Rapid judicial petitions before High Courts to halt illegal tax recoveries, bank attachments, or unauthorized administrative actions.
-                </p>
-              </div>
-            </div>
 
-            <div className="bg-white p-5 rounded-2xl border border-[#0F6B4C]/15 shadow-xs flex items-start gap-4">
-              <div className="p-2.5 rounded-xl bg-[#E8F5F0] text-[#0F6B4C] shrink-0 mt-0.5">
-                <GraduationCap className="w-5 h-5 text-[#0F6B4C]" />
-              </div>
-              <div>
-                <h4 className="font-heading font-extrabold text-base text-[#1A1A1A]">
-                  Appellate Advocacy &amp; Rebuttals
-                </h4>
-                <p className="text-xs sm:text-sm text-[#5A6275] mt-1 leading-relaxed">
-                  Meticulous drafting of legal grounds, appeals, and representations before Commissioner Appeals (CIR) and Appellate Tribunals (ATIR).
-                </p>
-              </div>
-            </div>
+              <h3 className="font-heading font-extrabold text-2xl sm:text-3xl lg:text-4xl text-[#1A1A1A] leading-tight tracking-tight">
+                Why Corporate Clients &amp; Individuals Trust <span className="text-[#0F6B4C]">HISK LEGAL</span>
+              </h3>
 
-            <div className="bg-white p-5 rounded-2xl border border-[#0F6B4C]/15 shadow-xs flex items-start gap-4">
-              <div className="p-2.5 rounded-xl bg-[#E8F5F0] text-[#0F6B4C] shrink-0 mt-0.5">
-                <TrendingUp className="w-5 h-5 text-[#0F6B4C]" />
+              <p className="text-sm sm:text-base text-[#4A5265] leading-relaxed font-normal">
+                Under the leadership of Founder &amp; CEO Hafiz Irfan Shabber Kayani, HISK LEGAL combines rigorous statutory analysis with proactive courtroom advocacy. Our practice encompasses Civil, Criminal, Corporate, Banking, Property, and Tax law.
+              </p>
+
+              <p className="text-sm sm:text-base text-[#4A5265] leading-relaxed font-normal">
+                We understand the critical urgency of legal proceedings. From filing emergency stay petitions against administrative actions to drafting complex corporate agreements, our senior advocates ensure clear communication and relentless representation.
+              </p>
+
+              {/* Quick Highlight Stats / Guarantees */}
+              <div className="grid grid-cols-2 gap-3 pt-1">
+                <div className="flex items-center gap-2.5 bg-white p-3 rounded-xl border border-[#0F6B4C]/15 shadow-2xs">
+                  <div className="w-2 h-2 rounded-full bg-[#0F6B4C]" />
+                  <span className="text-xs font-bold text-[#1A1A1A]">Article 199 Writ Jurisdiction</span>
+                </div>
+                <div className="flex items-center gap-2.5 bg-white p-3 rounded-xl border border-[#0F6B4C]/15 shadow-2xs">
+                  <div className="w-2 h-2 rounded-full bg-[#F5A623]" />
+                  <span className="text-xs font-bold text-[#1A1A1A]">FBR Audit &amp; Stay Orders</span>
+                </div>
               </div>
-              <div>
-                <h4 className="font-heading font-extrabold text-base text-[#1A1A1A]">
-                  Corporate Structuring &amp; SECP Advisory
-                </h4>
-                <p className="text-xs sm:text-sm text-[#5A6275] mt-1 leading-relaxed">
-                  Full corporate lifecycle counsel including company incorporation, joint ventures, shareholder agreements, and regulatory filings.
-                </p>
+
+              <div className="pt-2">
+                <a
+                  href={buildWhatsAppUrl({
+                    customMessage: 'Assalamu Alaikum, I would like to schedule a confidential consultation with HISK LEGAL advocates.'
+                  })}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-2.5 bg-[#0F6B4C] hover:bg-[#0A4B35] text-white font-heading font-bold text-xs sm:text-sm py-3.5 px-6 rounded-xl transition-all shadow-md hover:shadow-lg hover:-translate-y-0.5"
+                >
+                  <MessageCircle className="w-4.5 h-4.5 text-[#F5A623]" />
+                  <span>Schedule Advocate Consultation</span>
+                  <ChevronRight className="w-4 h-4" />
+                </a>
               </div>
-            </div>
-          </motion.div>
+            </motion.div>
+
+            {/* Right Column - Elevated Feature Pillar Cards */}
+            <motion.div
+              initial={{ opacity: 0, x: 30 }}
+              whileInView={{ opacity: 1, x: 0 }}
+              viewport={{ once: false, amount: 0.15 }}
+              transition={{ duration: 0.6, delay: 0.15 }}
+              className="lg:col-span-6 space-y-4"
+            >
+              <div className="bg-white p-5 sm:p-6 rounded-2xl border border-[#0F6B4C]/20 hover:border-[#0F6B4C]/50 shadow-xs hover:shadow-md transition-all group">
+                <div className="flex items-start gap-4">
+                  <div className="p-3 rounded-xl bg-gradient-to-br from-[#E8F5F0] to-[#D1EDE2] text-[#0F6B4C] shrink-0 mt-0.5 group-hover:scale-105 transition-transform">
+                    <Gavel className="w-6 h-6 text-[#0F6B4C]" />
+                  </div>
+                  <div className="space-y-1">
+                    <div className="flex items-center justify-between gap-2">
+                      <h4 className="font-heading font-extrabold text-base sm:text-lg text-[#1A1A1A]">
+                        High Court Writs &amp; Emergency Stays
+                      </h4>
+                      <span className="text-[10px] font-extrabold text-[#0F6B4C] bg-[#E8F5F0] px-2 py-0.5 rounded-md uppercase tracking-wider shrink-0">
+                        Article 199
+                      </span>
+                    </div>
+                    <p className="text-xs sm:text-sm text-[#5A6275] leading-relaxed">
+                      Rapid judicial petitions before High Courts to halt illegal tax recoveries, bank attachments, or unauthorized administrative actions.
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              <div className="bg-white p-5 sm:p-6 rounded-2xl border border-[#0F6B4C]/20 hover:border-[#0F6B4C]/50 shadow-xs hover:shadow-md transition-all group">
+                <div className="flex items-start gap-4">
+                  <div className="p-3 rounded-xl bg-gradient-to-br from-[#E8F5F0] to-[#D1EDE2] text-[#0F6B4C] shrink-0 mt-0.5 group-hover:scale-105 transition-transform">
+                    <GraduationCap className="w-6 h-6 text-[#0F6B4C]" />
+                  </div>
+                  <div className="space-y-1">
+                    <div className="flex items-center justify-between gap-2">
+                      <h4 className="font-heading font-extrabold text-base sm:text-lg text-[#1A1A1A]">
+                        Appellate Advocacy &amp; Rebuttals
+                      </h4>
+                      <span className="text-[10px] font-extrabold text-[#0F6B4C] bg-[#E8F5F0] px-2 py-0.5 rounded-md uppercase tracking-wider shrink-0">
+                        ATIR &amp; CIR Appeals
+                      </span>
+                    </div>
+                    <p className="text-xs sm:text-sm text-[#5A6275] leading-relaxed">
+                      Meticulous drafting of legal grounds, appeals, and representations before Commissioner Appeals (CIR) and Appellate Tribunals (ATIR).
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              <div className="bg-white p-5 sm:p-6 rounded-2xl border border-[#0F6B4C]/20 hover:border-[#0F6B4C]/50 shadow-xs hover:shadow-md transition-all group">
+                <div className="flex items-start gap-4">
+                  <div className="p-3 rounded-xl bg-gradient-to-br from-[#E8F5F0] to-[#D1EDE2] text-[#0F6B4C] shrink-0 mt-0.5 group-hover:scale-105 transition-transform">
+                    <TrendingUp className="w-6 h-6 text-[#0F6B4C]" />
+                  </div>
+                  <div className="space-y-1">
+                    <div className="flex items-center justify-between gap-2">
+                      <h4 className="font-heading font-extrabold text-base sm:text-lg text-[#1A1A1A]">
+                        Corporate Structuring &amp; SECP Advisory
+                      </h4>
+                      <span className="text-[10px] font-extrabold text-[#0F6B4C] bg-[#E8F5F0] px-2 py-0.5 rounded-md uppercase tracking-wider shrink-0">
+                        SECP Governance
+                      </span>
+                    </div>
+                    <p className="text-xs sm:text-sm text-[#5A6275] leading-relaxed">
+                      Full corporate lifecycle counsel including company incorporation, joint ventures, shareholder agreements, and regulatory filings.
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </motion.div>
+          </div>
         </div>
 
         {/* Senior Attorney Roster - Clean Image Cards Gallery */}
@@ -242,12 +279,13 @@ export const AboutSection: React.FC = () => {
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: false, amount: 0.2 }}
             transition={{ duration: 0.6 }}
-            className="text-center max-w-2xl mx-auto mb-10"
+            className="text-center max-w-2xl mx-auto mb-12"
           >
-            <h3 className="font-heading font-extrabold text-3xl sm:text-4xl text-[#1A1A1A]">
+            <div className="w-12 h-1 bg-gradient-to-r from-[#0F6B4C] to-[#F5A623] mx-auto mb-4 rounded-full" />
+            <h3 className="font-heading font-extrabold text-3xl sm:text-4xl text-[#1A1A1A] tracking-tight">
               Our Senior Legal Advocates
             </h3>
-            <p className="text-base text-[#5A6275] mt-2">
+            <p className="text-sm sm:text-base text-[#5A6275] mt-2 font-normal">
               Click on any advocate&apos;s photo card to reveal their full profile, credentials, and practice details.
             </p>
           </motion.div>
