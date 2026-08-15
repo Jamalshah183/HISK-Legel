@@ -300,28 +300,8 @@ export const AboutSection: React.FC = () => {
           </div>
         </div>
 
-        {/* Senior Attorney Roster - Header Transition */}
+        {/* Senior Attorney Roster - Moving Track */}
         <div className="max-w-6xl mx-auto">
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-          whileInView={{ opacity: 1, y: 0 }}
-          viewport={{ once: false, amount: 0.2 }}
-          transition={{ duration: 0.6 }}
-          className="text-center max-w-2xl mx-auto mb-14"
-        >
-          <div className="inline-flex items-center justify-center gap-2 mb-3">
-            <div className="h-0.5 w-10 bg-gradient-to-r from-transparent to-[#0F6B4C]" />
-            <Shield className="w-5 h-5 text-[#F5A623]" />
-            <div className="h-0.5 w-10 bg-gradient-to-l from-transparent to-[#0F6B4C]" />
-          </div>
-          <h3 className="font-heading font-black text-3xl sm:text-4xl lg:text-5xl text-[#1A1A1A] tracking-tight">
-            Our Senior Legal Advocates
-          </h3>
-          <p className="text-sm sm:text-base text-[#5A6275] mt-3 font-normal leading-relaxed">
-              Click on any advocate&apos;s photo card to reveal their full profile, credentials, and practice details.
-            </p>
-          </motion.div>
-
           {/* Continuous Auto-Moving Track of Partner Cards */}
           <div className="w-full relative overflow-hidden py-3 -mx-4 px-4 sm:-mx-6 sm:px-6 lg:-mx-8 lg:px-8 flex justify-center items-center">
             {/* Subtle Left & Right Edge Vignette Shadows */}
