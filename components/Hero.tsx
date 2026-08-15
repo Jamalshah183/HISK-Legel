@@ -22,7 +22,7 @@ export const Hero: React.FC<HeroProps> = ({ onNavigateToPractice }) => {
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       transition={{ duration: 0.8 }}
-      className="scroll-mt-24 relative overflow-hidden min-h-[85vh] sm:min-h-[88vh] flex items-center justify-center pt-16 sm:pt-20 lg:pt-24 pb-12 sm:pb-16 lg:pb-20 bg-[#0A1410] text-white"
+      className="scroll-mt-24 relative overflow-hidden min-h-[85vh] sm:min-h-[88vh] flex items-center justify-center pt-16 sm:pt-20 lg:pt-24 pb-12 sm:pb-16 lg:pb-20 bg-[#0B251C] text-white"
     >
       {/* Background Video */}
       <div className="absolute inset-0 w-full h-full overflow-hidden pointer-events-none z-0">
@@ -38,13 +38,13 @@ export const Hero: React.FC<HeroProps> = ({ onNavigateToPractice }) => {
         </video>
 
         {/* Multi-layered Vignette & Dark Overlay for Crisp Contrast */}
-        <div className="absolute inset-0 bg-gradient-to-b from-[#060D0A]/60 via-[#0A1813]/40 to-[#060D0A]/70 mix-blend-multiply" />
-        <div className="absolute inset-0 bg-black/20" />
+        <div className="absolute inset-0 bg-gradient-to-b from-[#061A13]/85 via-[#0B251C]/65 to-[#061A13]/90 mix-blend-multiply" />
+        <div className="absolute inset-0 bg-black/25" />
       </div>
 
       {/* Atmospheric Ambient Glows */}
-      <div className="absolute top-1/4 right-1/4 w-72 h-72 sm:w-[500px] sm:h-[500px] rounded-full bg-[#0F6B4C]/30 blur-3xl pointer-events-none z-0" />
-      <div className="absolute bottom-1/4 left-1/4 w-72 h-72 sm:w-[500px] sm:h-[500px] rounded-full bg-[#F5A623]/20 blur-3xl pointer-events-none z-0" />
+      <div className="absolute top-1/4 right-1/4 w-72 h-72 sm:w-[500px] sm:h-[500px] rounded-full bg-[#0F6B4C]/40 blur-3xl pointer-events-none z-0" />
+      <div className="absolute bottom-1/4 left-1/4 w-72 h-72 sm:w-[500px] sm:h-[500px] rounded-full bg-[#F5A623]/25 blur-3xl pointer-events-none z-0" />
 
       {/* Main Hero Content Container */}
       <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10 w-full flex flex-col items-center text-center space-y-6 sm:space-y-8">
@@ -56,8 +56,8 @@ export const Hero: React.FC<HeroProps> = ({ onNavigateToPractice }) => {
           transition={{ duration: 0.5, delay: 0.1 }}
           className="flex justify-center w-full"
         >
-          <div className="inline-flex items-center gap-2 bg-[#0F6B4C]/40 backdrop-blur-md border border-[#279B71]/40 px-4 py-1.5 rounded-full text-xs sm:text-sm font-semibold text-[#82E6C2] shadow-lg">
-            <ShieldCheck className="w-4 h-4 text-[#82E6C2]" />
+          <div className="inline-flex items-center gap-2 bg-[#0F6B4C]/50 backdrop-blur-md border border-[#0F6B4C] px-4 py-1.5 rounded-full text-xs sm:text-sm font-semibold text-[#F5A623] shadow-lg">
+            <ShieldCheck className="w-4 h-4 text-[#F5A623]" />
             <span>Trusted Advocacy Solutions Beyond Expectations</span>
           </div>
         </motion.div>
@@ -69,9 +69,9 @@ export const Hero: React.FC<HeroProps> = ({ onNavigateToPractice }) => {
           transition={{ duration: 0.6, delay: 0.2 }}
           className="font-heading font-extrabold text-3xl sm:text-4xl lg:text-5xl lg:leading-[1.18] text-white tracking-tight max-w-4xl text-center drop-shadow-md"
         >
-          <span className="text-[#3AD198]">Strategic Legal Representation</span>{' '}
+          <span className="text-transparent bg-clip-text bg-gradient-to-r from-[#F5A623] via-[#FFD07B] to-[#F5A623]">Strategic Legal Representation</span>{' '}
           For Individuals, Businesses &amp; Corporate Clients{' '}
-          <span className="text-[#3AD198]">Across Pakistan &amp; Beyond</span>
+          <span className="text-transparent bg-clip-text bg-gradient-to-r from-[#F5A623] via-[#FFD07B] to-[#F5A623]">Across Pakistan &amp; Beyond</span>
         </motion.h1>
 
         {/* Subheadline */}
@@ -79,7 +79,7 @@ export const Hero: React.FC<HeroProps> = ({ onNavigateToPractice }) => {
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.6, delay: 0.3 }}
-          className="text-sm sm:text-base lg:text-lg text-gray-200 font-normal leading-relaxed max-w-3xl text-center drop-shadow-sm"
+          className="text-sm sm:text-base lg:text-lg text-[#C2D8D0] font-normal leading-relaxed max-w-3xl text-center drop-shadow-sm"
         >
           <strong className="font-semibold text-white">20+ Years of Legal Excellence</strong> — Trusted advocates with over two decades of experience in civil, criminal, family, rent, corporate and tax litigation, successfully safeguarding the interests of 5,000+ businesses and high-net-worth clients under one roof.
         </motion.p>
@@ -107,9 +107,9 @@ export const Hero: React.FC<HeroProps> = ({ onNavigateToPractice }) => {
             <button
               onClick={onNavigateToPractice}
               type="button"
-              className="w-full sm:w-auto bg-white/10 hover:bg-white/20 backdrop-blur-md text-white border border-white/20 font-heading font-bold text-base px-6 py-4 rounded-xl sm:rounded-2xl transition-all inline-flex items-center justify-center gap-2"
+              className="w-full sm:w-auto bg-[#0F6B4C]/40 hover:bg-[#0F6B4C]/70 backdrop-blur-md text-white border border-[#0F6B4C]/70 hover:border-[#F5A623]/60 font-heading font-bold text-base px-6 py-4 rounded-xl sm:rounded-2xl transition-all inline-flex items-center justify-center gap-2"
             >
-              <Scale className="w-5 h-5 text-[#82E6C2]" />
+              <Scale className="w-5 h-5 text-[#F5A623]" />
               <span>Explore Practice Areas</span>
             </button>
           )}
@@ -120,24 +120,24 @@ export const Hero: React.FC<HeroProps> = ({ onNavigateToPractice }) => {
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.6, delay: 0.5 }}
-          className="mt-4 pt-4 sm:pt-6 w-full max-w-3xl bg-black/40 backdrop-blur-md rounded-2xl p-4 sm:p-5 border border-white/15 shadow-2xl grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-6 text-xs sm:text-sm text-gray-200 font-medium"
+          className="mt-4 pt-4 sm:pt-6 w-full max-w-3xl bg-[#0B251C]/80 backdrop-blur-md rounded-2xl p-4 sm:p-5 border border-[#0F6B4C]/50 shadow-2xl grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-6 text-xs sm:text-sm text-[#C2D8D0] font-medium"
         >
           <div className="flex items-center justify-center gap-2 py-1">
-            <CheckCircle2 className="w-4 h-4 text-[#3AD198] shrink-0" />
+            <CheckCircle2 className="w-4 h-4 text-[#F5A623] shrink-0" />
             <span>
               <strong className="text-white font-extrabold text-sm sm:text-base">{FIRM_METRICS.successfulCases}</strong> Successful Cases
             </span>
           </div>
 
-          <div className="flex items-center justify-center gap-2 py-1 border-t sm:border-t-0 sm:border-l border-white/10">
-            <Users className="w-4 h-4 text-[#3AD198] shrink-0" />
+          <div className="flex items-center justify-center gap-2 py-1 border-t sm:border-t-0 sm:border-l border-[#0F6B4C]/40">
+            <Users className="w-4 h-4 text-[#F5A623] shrink-0" />
             <span>
               <strong className="text-white font-extrabold text-sm sm:text-base">{FIRM_METRICS.clientsServed}</strong> Clients Served
             </span>
           </div>
 
-          <div className="flex items-center justify-center gap-2 py-1 border-t sm:border-t-0 sm:border-l border-white/10">
-            <Award className="w-4 h-4 text-[#3AD198] shrink-0" />
+          <div className="flex items-center justify-center gap-2 py-1 border-t sm:border-t-0 sm:border-l border-[#0F6B4C]/40">
+            <Award className="w-4 h-4 text-[#F5A623] shrink-0" />
             <span>
               <strong className="text-white font-extrabold text-sm sm:text-base">{FIRM_METRICS.totalTaxSaved}</strong> Tax Saved
             </span>
