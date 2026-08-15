@@ -5,12 +5,9 @@ import { motion } from 'motion/react';
 import {
   Star,
   ShieldCheck,
-  MessageCircle,
-  Quote,
-  ChevronRight
+  Quote
 } from 'lucide-react';
 import { TESTIMONIALS } from '@/data/lawFirmData';
-import { buildWhatsAppUrl } from '@/lib/whatsapp';
 
 export const ReviewsSection: React.FC = () => {
   return (
@@ -31,12 +28,8 @@ export const ReviewsSection: React.FC = () => {
           transition={{ duration: 0.6 }}
           className="text-center max-w-3xl mx-auto mb-6 sm:mb-8"
         >
-          <div className="inline-flex items-center gap-2 bg-[#E8F5F0] border border-[#0F6B4C]/20 px-4 py-1.5 rounded-full text-xs font-bold text-[#0F6B4C] mb-4">
-            <Star className="w-4 h-4 text-[#F5A623] fill-[#F5A623]" />
-            <span>Client Outcomes</span>
-          </div>
           <h2 className="font-heading font-extrabold text-3xl sm:text-4xl text-[#1A1A1A] tracking-tight mb-4">
-            Testimonials & Legal Victories
+            Testimonials &amp; Reviews
           </h2>
           <p className="text-base sm:text-lg text-[#5A6275] font-normal">
             Real outcomes negotiated before FBR Commissioners, Appellate Tribunals, and High Courts.
@@ -128,33 +121,6 @@ export const ReviewsSection: React.FC = () => {
             ))}
           </div>
         </div>
-
-        {/* Single Primary CTA Banner */}
-        <motion.div
-          initial={{ opacity: 0, y: 35, scale: 0.96 }}
-          whileInView={{ opacity: 1, y: 0, scale: 1 }}
-          viewport={{ once: false, amount: 0.2 }}
-          transition={{ duration: 0.7, ease: [0.22, 1, 0.36, 1] }}
-          className="bg-[#0F6B4C] text-[#FAFAF7] rounded-3xl p-10 sm:p-12 text-center max-w-3xl mx-auto shadow-xl relative overflow-hidden"
-        >
-          <h3 className="font-heading font-extrabold text-2xl sm:text-3xl text-white mb-3">
-            Facing an FBR Audit or Notice?
-          </h3>
-          <p className="text-sm sm:text-base text-emerald-100 max-w-xl mx-auto mb-8 font-normal">
-            Speak directly with a High Court Tax Advocate on WhatsApp. Confidential & privileged legal guidance.
-          </p>
-
-          <a
-            href={buildWhatsAppUrl({ topic: 'general' })}
-            target="_blank"
-            rel="noopener noreferrer"
-            id="reviews-cta-whatsapp-btn"
-            className="inline-flex items-center justify-center gap-2 bg-[#F5A623] hover:bg-[#E09415] text-[#1A1A1A] font-heading font-extrabold text-base py-4 px-8 rounded-2xl shadow-lg transition-all"
-          >
-            <MessageCircle className="w-5 h-5 fill-[#1A1A1A]" />
-            <span>Consult Advocate on WhatsApp</span>
-          </a>
-        </motion.div>
       </div>
     </motion.section>
   );

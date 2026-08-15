@@ -11,7 +11,6 @@ import {
   Home,
   CheckCircle,
   Info,
-  Sparkles,
   Percent,
   FileText
 } from 'lucide-react';
@@ -257,16 +256,9 @@ export const TaxCalculator: React.FC = () => {
           transition={{ duration: 0.6 }}
           className="text-center max-w-3xl mx-auto mb-6 sm:mb-8"
         >
-          <div className="inline-flex items-center gap-2 bg-[#E8F5F0] border border-[#0F6B4C]/20 px-4 py-1.5 rounded-full text-xs font-extrabold text-[#0F6B4C] mb-4 shadow-xs">
-            <Sparkles className="w-3.5 h-3.5 text-[#0F6B4C]" />
-            <span>Official Finance Act 2026 (Tax Year 2027)</span>
-          </div>
-          <h2 className="font-heading font-extrabold text-3xl sm:text-4xl lg:text-5xl text-[#1A1A1A] tracking-tight mb-4">
+          <h2 className="font-heading font-extrabold text-3xl sm:text-4xl lg:text-5xl text-[#1A1A1A] tracking-tight">
             Official FBR Tax Calculator
           </h2>
-          <p className="text-sm sm:text-base text-[#5A6275] font-normal leading-relaxed">
-            Verified against the official Gazette of Pakistan (Finance Act 2026, effective July 1, 2026). Calculate exact income tax, corporate liability, and property withholding tax.
-          </p>
         </motion.div>
 
         {/* Mode Switcher Tabs */}
