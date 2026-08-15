@@ -60,33 +60,37 @@ export const BlogSection: React.FC = () => {
           </h2>
         </motion.div>
 
-        {/* Slideshow Controls Bar */}
-        <div className="flex items-center justify-end mb-4 px-1">
-          <div className="flex items-center gap-2">
-            <button
-              onClick={handlePrevSlide}
-              id="blog-slideshow-prev-btn"
-              aria-label="Previous article"
-              className="p-2 rounded-full border border-gray-200 bg-[#FAFAF7] hover:bg-[#E8F5F0] hover:text-[#0F6B4C] text-[#1A1A1A] transition-all"
-            >
-              <ChevronLeft className="w-4 h-4" />
-            </button>
-            <button
-              onClick={handleNextSlide}
-              id="blog-slideshow-next-btn"
-              aria-label="Next article"
-              className="p-2 rounded-full border border-gray-200 bg-[#FAFAF7] hover:bg-[#E8F5F0] hover:text-[#0F6B4C] text-[#1A1A1A] transition-all"
-            >
-              <ChevronRight className="w-4 h-4" />
-            </button>
-          </div>
-        </div>
+        {/* Slideshow Carousel Wrapper with End-Positioned Left/Right Buttons */}
+        <div className="relative group">
+          {/* Subtle Left & Right Edge Vignette Fades */}
+          <div className="absolute left-0 top-0 bottom-0 w-10 sm:w-16 bg-gradient-to-r from-white via-white/80 to-transparent z-10 pointer-events-none rounded-l-3xl" />
+          <div className="absolute right-0 top-0 bottom-0 w-10 sm:w-16 bg-gradient-to-l from-white via-white/80 to-transparent z-10 pointer-events-none rounded-r-3xl" />
 
-        {/* Slideshow Carousel Container */}
-        <div
-          ref={carouselRef}
-          className="flex gap-5 overflow-x-auto no-scrollbar py-3 px-1 snap-x snap-mandatory scroll-smooth"
-        >
+          {/* Left End Navigation Button */}
+          <button
+            onClick={handlePrevSlide}
+            id="blog-slideshow-prev-btn"
+            aria-label="Previous article"
+            className="absolute left-1 sm:left-2 md:left-3 top-1/2 -translate-y-1/2 z-20 w-10 h-10 sm:w-12 sm:h-12 rounded-full bg-white/95 backdrop-blur-md border border-[#0F6B4C]/25 text-[#0F6B4C] shadow-lg hover:shadow-xl hover:bg-[#0F6B4C] hover:text-white transition-all flex items-center justify-center focus:outline-none focus:ring-2 focus:ring-[#0F6B4C] active:scale-95"
+          >
+            <ChevronLeft className="w-5 h-5 sm:w-6 sm:h-6" />
+          </button>
+
+          {/* Right End Navigation Button */}
+          <button
+            onClick={handleNextSlide}
+            id="blog-slideshow-next-btn"
+            aria-label="Next article"
+            className="absolute right-1 sm:right-2 md:right-3 top-1/2 -translate-y-1/2 z-20 w-10 h-10 sm:w-12 sm:h-12 rounded-full bg-white/95 backdrop-blur-md border border-[#0F6B4C]/25 text-[#0F6B4C] shadow-lg hover:shadow-xl hover:bg-[#0F6B4C] hover:text-white transition-all flex items-center justify-center focus:outline-none focus:ring-2 focus:ring-[#0F6B4C] active:scale-95"
+          >
+            <ChevronRight className="w-5 h-5 sm:w-6 sm:h-6" />
+          </button>
+
+          {/* Slideshow Carousel Container */}
+          <div
+            ref={carouselRef}
+            className="flex gap-5 overflow-x-auto no-scrollbar py-3 px-3 sm:px-6 snap-x snap-mandatory scroll-smooth"
+          >
           {highlightedPosts.map((post, index) => (
             <motion.article
               key={post.id}
@@ -132,6 +136,7 @@ export const BlogSection: React.FC = () => {
               </div>
             </motion.article>
           ))}
+          </div>
         </div>
       </div>
     </motion.section>
