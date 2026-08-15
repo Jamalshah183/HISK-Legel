@@ -7,9 +7,7 @@ import {
   Clock,
   ChevronRight,
   ChevronLeft,
-  BookOpen,
   BookMarked,
-  Sparkles,
   ExternalLink
 } from 'lucide-react';
 import { BLOG_POSTS } from '@/data/lawFirmData';
@@ -57,33 +55,13 @@ export const BlogSection: React.FC = () => {
             <span>FBR &amp; Legal Analysis</span>
           </div>
 
-          <h2 className="font-heading font-extrabold text-3xl sm:text-4xl text-[#1A1A1A] tracking-tight mb-3">
+          <h2 className="font-heading font-extrabold text-3xl sm:text-4xl text-[#1A1A1A] tracking-tight">
             Legal Insights &amp; Blog
           </h2>
-
-          <p className="text-base sm:text-lg text-[#5A6275] leading-relaxed">
-            In-depth High Court litigation updates, FBR income tax slabs, Section 7E property tax exemptions, and IT export proceeds compliance.
-          </p>
-
-          <div className="mt-5 flex items-center justify-center gap-3">
-            <Link
-              href="/insights"
-              id="view-all-articles-btn"
-              className="inline-flex items-center gap-2 bg-[#0F6B4C] hover:bg-[#0A4B35] text-white text-xs font-extrabold py-2.5 px-5 rounded-full shadow-md transition-all hover:shadow-lg"
-            >
-              <BookOpen className="w-4 h-4 text-[#F5A623]" />
-              <span>View All Articles Directory (Separate Page)</span>
-            </Link>
-          </div>
         </motion.div>
 
         {/* Slideshow Controls Bar */}
-        <div className="flex items-center justify-between mb-4 px-1">
-          <div className="flex items-center gap-2 text-xs font-bold text-[#0F6B4C]">
-            <Sparkles className="w-4 h-4 text-[#F5A623]" />
-            <span className="uppercase tracking-wider">10 Highlighted Briefings</span>
-          </div>
-
+        <div className="flex items-center justify-end mb-4 px-1">
           <div className="flex items-center gap-2">
             <button
               onClick={handlePrevSlide}
@@ -154,26 +132,6 @@ export const BlogSection: React.FC = () => {
               </div>
             </motion.article>
           ))}
-        </div>
-
-        {/* Separate Page CTA Bar at Bottom */}
-        <div className="mt-8 text-center bg-[#FAFAF7] rounded-2xl p-4 sm:p-6 border border-gray-200/80 flex flex-col sm:flex-row items-center justify-between gap-4">
-          <div className="text-left">
-            <div className="font-heading font-extrabold text-base text-[#1A1A1A]">
-              Looking for a specific legal briefing or tax ruling?
-            </div>
-            <div className="text-xs text-[#5A6275] mt-0.5">
-              Browse our complete archive of High Court writs, FBR notices, and corporate compliance guides on a single dedicated page.
-            </div>
-          </div>
-          <Link
-            href="/insights"
-            id="open-directory-page-btn"
-            className="shrink-0 bg-[#0F6B4C] hover:bg-[#0A4B35] text-white font-extrabold text-xs py-2.5 px-5 rounded-xl shadow-xs transition-all flex items-center gap-2"
-          >
-            <BookOpen className="w-4 h-4 text-[#F5A623]" />
-            <span>Open All Articles Page</span>
-          </Link>
         </div>
       </div>
     </motion.section>

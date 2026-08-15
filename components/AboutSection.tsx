@@ -159,12 +159,6 @@ export const AboutSection: React.FC = () => {
               transition={{ duration: 0.6 }}
               className="lg:col-span-6 space-y-7"
             >
-              <div className="inline-flex items-center gap-2 bg-[#0F6B4C]/40 border border-[#0F6B4C] px-4 py-1.5 rounded-full text-xs font-extrabold text-[#F5A623] backdrop-blur-md shadow-sm">
-                <span className="w-2 h-2 rounded-full bg-[#F5A623] animate-pulse" />
-                <Building2 className="w-4 h-4 text-[#F5A623]" />
-                <span className="uppercase tracking-wider">Commercial &amp; High Court Expertise</span>
-              </div>
-
               <h3 className="font-heading font-extrabold text-3xl sm:text-4xl lg:text-5xl text-white leading-[1.15] tracking-tight">
                 Why Corporate Leaders &amp; Taxpayers Trust <span className="text-transparent bg-clip-text bg-gradient-to-r from-[#F5A623] via-[#FFD07B] to-[#F5A623]">HISK LEGAL</span>
               </h3>
@@ -302,6 +296,18 @@ export const AboutSection: React.FC = () => {
 
         {/* Senior Attorney Roster - Moving Track */}
         <div className="max-w-6xl mx-auto">
+          <motion.div
+            initial={{ opacity: 0, y: 15 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: false, amount: 0.2 }}
+            transition={{ duration: 0.5 }}
+            className="text-center max-w-xl mx-auto mb-8"
+          >
+            <h3 className="font-heading font-extrabold text-3xl sm:text-4xl text-[#1A1A1A] tracking-tight">
+              Our Team
+            </h3>
+          </motion.div>
+
           {/* Continuous Auto-Moving Track of Partner Cards */}
           <div className="w-full relative overflow-hidden py-3 -mx-4 px-4 sm:-mx-6 sm:px-6 lg:-mx-8 lg:px-8 flex justify-center items-center">
             {/* Subtle Left & Right Edge Vignette Shadows */}
