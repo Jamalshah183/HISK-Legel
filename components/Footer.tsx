@@ -2,7 +2,7 @@
 
 import React from 'react';
 import Image from 'next/image';
-import { Shield, MessageCircle, Phone, MapPin, Clock, Lock, Mail, Facebook, Linkedin } from 'lucide-react';
+import { Phone, MapPin, Clock, Lock, Mail, Facebook, Linkedin } from 'lucide-react';
 import { buildWhatsAppUrl, DISPLAY_PHONE, LAWFIRM_EMAIL, LAWFIRM_ADDRESS, SOCIAL_LINKS } from '@/lib/whatsapp';
 import { SERVICES_DATA } from '@/components/ServicesSection';
 
@@ -44,7 +44,7 @@ export const Footer: React.FC<FooterProps> = ({ setActiveTab }) => {
           {/* Brand */}
           <div className="lg:col-span-2 space-y-4">
             <div className="flex items-center">
-              <div className="relative w-44 h-14 sm:w-52 sm:h-16 shrink-0">
+              <div className="relative w-52 h-16 sm:w-60 sm:h-18 lg:w-72 lg:h-22 shrink-0">
                 <Image
                   src="https://i.ibb.co/V02sjKtY/file-00000000549882089b03c95577e607a2.png"
                   alt="HISK LEGAL Logo"
@@ -78,19 +78,6 @@ export const Footer: React.FC<FooterProps> = ({ setActiveTab }) => {
                 className="w-8 h-8 rounded-full bg-emerald-800/80 hover:bg-[#F5A623] hover:text-[#1A1A1A] flex items-center justify-center transition-all text-white"
               >
                 <Linkedin className="w-4 h-4" />
-              </a>
-            </div>
-
-            <div className="pt-1">
-              <a
-                href={buildWhatsAppUrl({ topic: 'general' })}
-                target="_blank"
-                rel="noopener noreferrer"
-                id="footer-whatsapp-btn"
-                className="inline-flex items-center gap-2 bg-[#F5A623] hover:bg-[#E09415] text-[#1A1A1A] font-heading font-extrabold text-xs py-2.5 px-4 rounded-xl shadow-md transition-all"
-              >
-                <MessageCircle className="w-4 h-4 fill-[#1A1A1A]" />
-                <span>Talk to an Expert on WhatsApp</span>
               </a>
             </div>
           </div>
