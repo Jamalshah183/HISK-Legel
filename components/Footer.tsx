@@ -38,13 +38,13 @@ export const Footer: React.FC<FooterProps> = ({ setActiveTab }) => {
   };
 
   return (
-    <footer className="bg-[#0A4B35] text-[#FAFAF7] pt-5 pb-4 sm:pt-6 sm:pb-5 border-t border-emerald-800">
+    <footer className="bg-[#0A4B35] text-[#FAFAF7] py-8 sm:py-10 border-t border-emerald-800">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-5 sm:gap-6 pb-4 sm:pb-5 border-b border-emerald-800/80">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-8 lg:gap-10 pb-8 border-b border-emerald-800/80">
           {/* Brand */}
-          <div className="lg:col-span-2 space-y-2">
+          <div className="lg:col-span-2 space-y-4">
             <div className="flex items-center">
-              <div className="relative w-36 h-12 sm:w-44 sm:h-14 shrink-0">
+              <div className="relative w-44 h-14 sm:w-52 sm:h-16 shrink-0">
                 <Image
                   src="https://i.ibb.co/V02sjKtY/file-00000000549882089b03c95577e607a2.png"
                   alt="HISK LEGAL Logo"
@@ -56,40 +56,40 @@ export const Footer: React.FC<FooterProps> = ({ setActiveTab }) => {
               </div>
             </div>
 
-            <p className="text-xs sm:text-sm text-emerald-100/80 leading-snug max-w-md font-normal">
+            <p className="text-sm text-emerald-100/90 leading-relaxed max-w-md font-normal">
               Specialized High Court tax advocates representing taxpayers before FBR, Appellate Tribunals (ATIR), and High Courts in Pakistan. Direct advocate communication via WhatsApp.
             </p>
 
-            <div className="flex items-center gap-3 pt-0.5">
+            <div className="flex items-center gap-3">
               <a
                 href={SOCIAL_LINKS.facebook}
                 target="_blank"
                 rel="noopener noreferrer"
                 aria-label="HISK LEGAL Facebook Page"
-                className="w-7 h-7 rounded-full bg-emerald-800/80 hover:bg-[#F5A623] hover:text-[#1A1A1A] flex items-center justify-center transition-all text-white"
+                className="w-8 h-8 rounded-full bg-emerald-800/80 hover:bg-[#F5A623] hover:text-[#1A1A1A] flex items-center justify-center transition-all text-white"
               >
-                <Facebook className="w-3.5 h-3.5" />
+                <Facebook className="w-4 h-4" />
               </a>
               <a
                 href={SOCIAL_LINKS.linkedin}
                 target="_blank"
                 rel="noopener noreferrer"
                 aria-label="HISK LEGAL LinkedIn Profile"
-                className="w-7 h-7 rounded-full bg-emerald-800/80 hover:bg-[#F5A623] hover:text-[#1A1A1A] flex items-center justify-center transition-all text-white"
+                className="w-8 h-8 rounded-full bg-emerald-800/80 hover:bg-[#F5A623] hover:text-[#1A1A1A] flex items-center justify-center transition-all text-white"
               >
-                <Linkedin className="w-3.5 h-3.5" />
+                <Linkedin className="w-4 h-4" />
               </a>
             </div>
 
-            <div className="pt-0.5">
+            <div className="pt-1">
               <a
                 href={buildWhatsAppUrl({ topic: 'general' })}
                 target="_blank"
                 rel="noopener noreferrer"
                 id="footer-whatsapp-btn"
-                className="inline-flex items-center gap-2 bg-[#F5A623] hover:bg-[#E09415] text-[#1A1A1A] font-heading font-extrabold text-xs py-2 px-3.5 rounded-lg shadow-md transition-all"
+                className="inline-flex items-center gap-2 bg-[#F5A623] hover:bg-[#E09415] text-[#1A1A1A] font-heading font-extrabold text-xs py-2.5 px-4 rounded-xl shadow-md transition-all"
               >
-                <MessageCircle className="w-3.5 h-3.5 fill-[#1A1A1A]" />
+                <MessageCircle className="w-4 h-4 fill-[#1A1A1A]" />
                 <span>Talk to an Expert on WhatsApp</span>
               </a>
             </div>
@@ -97,10 +97,10 @@ export const Footer: React.FC<FooterProps> = ({ setActiveTab }) => {
 
           {/* Nav Links */}
           <div>
-            <h4 className="font-heading font-extrabold text-xs sm:text-sm text-[#F5A623] uppercase tracking-wider mb-1.5">
+            <h4 className="font-heading font-extrabold text-sm text-[#F5A623] uppercase tracking-wider mb-3">
               Navigation
             </h4>
-            <ul className="space-y-1 text-xs text-emerald-100">
+            <ul className="space-y-2 text-sm text-emerald-100">
               {[
                 { id: 'home', label: 'Home' },
                 { id: 'services', label: 'Services' },
@@ -123,10 +123,10 @@ export const Footer: React.FC<FooterProps> = ({ setActiveTab }) => {
 
           {/* Practice Areas */}
           <div>
-            <h4 className="font-heading font-extrabold text-xs sm:text-sm text-[#F5A623] uppercase tracking-wider mb-1.5">
+            <h4 className="font-heading font-extrabold text-sm text-[#F5A623] uppercase tracking-wider mb-3">
               Practices
             </h4>
-            <ul className="space-y-1 text-xs text-emerald-100">
+            <ul className="space-y-2 text-sm text-emerald-100">
               {SERVICES_DATA.slice(0, 5).map((s) => (
                 <li key={s.id}>
                   <a
@@ -144,16 +144,16 @@ export const Footer: React.FC<FooterProps> = ({ setActiveTab }) => {
 
           {/* Contact */}
           <div>
-            <h4 className="font-heading font-extrabold text-xs sm:text-sm text-[#F5A623] uppercase tracking-wider mb-1.5">
+            <h4 className="font-heading font-extrabold text-sm text-[#F5A623] uppercase tracking-wider mb-3">
               Contact & Offices
             </h4>
-            <div className="space-y-1.5 text-xs text-emerald-100">
+            <div className="space-y-2.5 text-sm text-emerald-100">
               <div className="flex items-start gap-2">
-                <MapPin className="w-3.5 h-3.5 text-[#F5A623] shrink-0 mt-0.5" />
-                <span>{LAWFIRM_ADDRESS}</span>
+                <MapPin className="w-4 h-4 text-[#F5A623] shrink-0 mt-0.5" />
+                <span className="leading-snug">{LAWFIRM_ADDRESS}</span>
               </div>
               <div className="flex items-center gap-2">
-                <Phone className="w-3.5 h-3.5 text-[#F5A623] shrink-0" />
+                <Phone className="w-4 h-4 text-[#F5A623] shrink-0" />
                 <a
                   href={buildWhatsAppUrl({ topic: 'general' })}
                   target="_blank"
@@ -164,7 +164,7 @@ export const Footer: React.FC<FooterProps> = ({ setActiveTab }) => {
                 </a>
               </div>
               <div className="flex items-center gap-2">
-                <Mail className="w-3.5 h-3.5 text-[#F5A623] shrink-0" />
+                <Mail className="w-4 h-4 text-[#F5A623] shrink-0" />
                 <a
                   href={`mailto:${LAWFIRM_EMAIL}`}
                   className="hover:text-[#F5A623] transition-colors"
@@ -173,11 +173,11 @@ export const Footer: React.FC<FooterProps> = ({ setActiveTab }) => {
                 </a>
               </div>
               <div className="flex items-center gap-2">
-                <Clock className="w-3.5 h-3.5 text-[#F5A623] shrink-0" />
+                <Clock className="w-4 h-4 text-[#F5A623] shrink-0" />
                 <span>WhatsApp Desk Active 24/7</span>
               </div>
               <div className="flex items-center gap-2 text-emerald-300 font-semibold">
-                <Lock className="w-3.5 h-3.5 text-[#F5A623] shrink-0" />
+                <Lock className="w-4 h-4 text-[#F5A623] shrink-0" />
                 <span>Advocate Privilege Applies</span>
               </div>
             </div>
@@ -185,11 +185,11 @@ export const Footer: React.FC<FooterProps> = ({ setActiveTab }) => {
         </div>
 
         {/* Copyright Footer */}
-        <div className="pt-2.5 text-[11px] text-emerald-200/60 leading-tight flex flex-col md:flex-row justify-between items-center gap-1.5 border-t border-emerald-800/60 mt-1.5">
-          <p className="text-emerald-100 font-semibold text-xs">
+        <div className="pt-4 text-xs text-emerald-200/70 leading-normal flex flex-col md:flex-row justify-between items-center gap-2 border-t border-emerald-800/60 mt-1">
+          <p className="text-emerald-100 font-semibold">
             &copy; {new Date().getFullYear()} HISK LEGAL. All rights reserved.
           </p>
-          <div className="text-emerald-200/80 text-[11px]">
+          <div className="text-emerald-200/80 text-xs">
             High Court Advocates &amp; Tax Practitioners • Islamabad, Pakistan
           </div>
         </div>
