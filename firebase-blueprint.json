@@ -39,6 +39,10 @@
     "clientCredentials": {
       "title": "Client Credentials",
       "description": "Client login accounts created by admin"
+    },
+    "practiceAreas": {
+      "title": "Practice Areas",
+      "description": "Legal practice areas, services, and defense domains offered by the firm"
     }
   }
 }

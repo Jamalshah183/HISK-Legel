@@ -184,3 +184,17 @@ export interface ClientCredential {
   createdAt: string;
 }
 
+export interface PracticeArea {
+  id: string;
+  title: string;
+  category: string;
+  shortDesc: string;
+  fullDesc: string;
+  subServices: string[];
+  keyHighlights: string[];
+  iconName: string;
+  badge?: string;
+  createdAt?: string;
+  updatedAt?: string;
+}
+

@@ -7,7 +7,8 @@ import {
   InternalNote,
   Invoice,
   NotificationLog,
-  HearingEvent
+  HearingEvent,
+  PracticeArea
 } from '@/types/portal';
 
 export const INITIAL_CLIENTS: Client[] = [
@@ -558,6 +559,156 @@ export const INITIAL_CLIENT_CREDENTIALS = [
     email: 'dr.sarah@clinic.pk',
     password: 'Password123!',
     createdAt: '2025-06-05'
+  }
+];
+
+export const INITIAL_PRACTICE_AREAS: PracticeArea[] = [
+  {
+    id: 'taxation-fbr-advisory',
+    title: 'Taxation & FBR Legal Defense',
+    category: 'Tax & Finance',
+    shortDesc: 'Complete direct & indirect tax legal counsel, FBR notice & audit defense, bookkeeping, and High Court tax litigation.',
+    fullDesc: 'End-to-end tax legal counsel for corporate entities and high earners across Pakistan. We handle income tax, sales tax (FBR, PRA, SRB, KPRA, BRA), withholding audits, international tax treaties, tax-compliant bookkeeping, and appellate tribunal representation before CIR-A, ATIR, and High Courts.',
+    subServices: [
+      'Direct & Indirect Taxation',
+      'FBR Notice & Audit Defense',
+      'High Court Tax Litigation',
+      'Bookkeeping & Financial Reporting'
+    ],
+    keyHighlights: [
+      'Income Tax & Sales Tax Return Filing & Audit Defense',
+      'Tax Planning, Structuring & Exemption Certificates',
+      'High Court Tax Writs & Appellate Tribunal Appeals',
+      'Computerized Ledger Maintenance & Tax-Compliant Reporting'
+    ],
+    iconName: 'FileText',
+    badge: 'Core Specialty'
+  },
+  {
+    id: 'corporate-secp-advisory',
+    title: 'Corporate, SECP & Business Advisory',
+    category: 'Corporate & Business',
+    shortDesc: 'SECP company formation, annual statutory compliance, HR consultancy, M&A transactions, and business strategy.',
+    fullDesc: 'Comprehensive corporate law advisory for startups, SMEs, and multinational enterprises. We handle company incorporation (Private Limited, SMC, LLP) with SECP, joint ventures, shareholder agreements, labor law/HR compliance, M&A transaction advisory, and company liquidation.',
+    subServices: [
+      'Company Formation & SECP Compliance',
+      'Human Resource & Labor Consultancy',
+      'M&A & Transaction Advisory',
+      'Corporate Liquidation & Exit'
+    ],
+    keyHighlights: [
+      'SECP Company Incorporation & Statutory Filings (Form A/29)',
+      'Mergers & Acquisitions (M&A) & Venture Capital Deals',
+      'Employment Contracts, Labor Law & EOBI/PESSI Compliance',
+      'Corporate Restructuring & Winding-Up / Exit Advisory'
+    ],
+    iconName: 'Building2',
+    badge: 'Corporate'
+  },
+  {
+    id: 'litigation-arbitration-white-collar',
+    title: 'Litigation, Arbitration & Accountability',
+    category: 'Litigation & Disputes',
+    shortDesc: 'Civil & commercial litigation, domestic/international arbitration, NAB/FIA white-collar crime defense, and banking recovery.',
+    fullDesc: 'Aggressive trial advocacy and dispute resolution before District Courts, Banking Courts, Special Tribunals, and High Courts. We specialize in commercial arbitration (ADR), defense in white-collar criminal investigations (NAB/FIA), and corporate banking debt recovery suits.',
+    subServices: [
+      'Civil & Commercial Litigation',
+      'Commercial Arbitration & ADR',
+      'White-Collar Crime (NAB & FIA)',
+      'Banking Court Recovery Defense'
+    ],
+    keyHighlights: [
+      'High Court Civil & Commercial Suits & Appeals',
+      'Domestic & International Commercial Arbitration (ADR)',
+      'White-Collar Crime & Accountability Trial Defense (NAB / FIA)',
+      'Banking Court Recovery Suits & Loan Restructuring'
+    ],
+    iconName: 'Gavel',
+    badge: 'High Court & Trial'
+  },
+  {
+    id: 'property-real-estate-construction',
+    title: 'Property, Real Estate & Construction Law',
+    category: 'Property & Real Estate',
+    shortDesc: 'Property title verification, Section 7E tax clearances, rent controller disputes, and construction/FIDIC contracts.',
+    fullDesc: 'Protecting real estate investments and developer projects across Pakistan. We manage title search reports, sale deed registration, Section 7E tax exemption certificates, landlord-tenant rent controller litigation, and Pakistan Engineering Council (PEC) / FIDIC construction contracts.',
+    subServices: [
+      'Property Title Search & Due Diligence',
+      'Rent Controller Eviction Suits',
+      'FBR Section 7E Exemption Certificates',
+      'Construction Contracts & FIDIC Arbitration'
+    ],
+    keyHighlights: [
+      'Property Title Verification, Registry & Power of Attorney Drafting',
+      'FBR Section 7E Deemed Income Tax Exemption Clearance',
+      'Commercial Lease Agreements & Rent Controller Eviction Suits',
+      'FIDIC Construction Contracts, PEC Permits & Delay Claims'
+    ],
+    iconName: 'Home',
+    badge: 'Real Estate'
+  },
+  {
+    id: 'constitutional-public-law',
+    title: 'Constitutional & Public Law',
+    category: 'Litigation & Disputes',
+    shortDesc: 'High Court constitutional writ petitions (Article 199), challenging unlawful SROs, and public procurement disputes.',
+    fullDesc: 'Defending fundamental constitutional rights and challenging arbitrary executive actions, illegal tax SROs, or statutory overreach under Article 199 before the High Courts of Pakistan. Also covers public tenders under PPRA rules.',
+    subServices: [
+      'High Court Writ Petitions (Art. 199)',
+      'Challenging Unlawful SROs & Circulars',
+      'Public Procurement (PPRA) Disputes',
+      'Administrative Injunctions & Stays'
+    ],
+    keyHighlights: [
+      'High Court Constitutional Writ Petitions under Article 199',
+      'Challenging Unlawful FBR SROs, Circulars & Excess of Authority',
+      'Public Procurement (PPRA) & Government Tender Disputes',
+      'Stay Orders Against Arbitrary Executive Enforcement'
+    ],
+    iconName: 'Scroll',
+    badge: 'High Court'
+  },
+  {
+    id: 'cyber-ip-tech-law',
+    title: 'Cyber, Intellectual Property & Tech Law',
+    category: 'Specialized Law',
+    shortDesc: 'FIA Cyber Crime Wing defense (PECA 2016), IPO trademark & patent registration, and e-commerce compliance.',
+    fullDesc: 'Specialized legal protection for technology firms, digital enterprises, and brand owners. We represent clients before the FIA Cyber Crime Wing, register trademarks and patents with IPO Pakistan, handle copyright protection, and structure software licensing agreements.',
+    subServices: [
+      'FIA Cyber Crime (PECA 2016) Defense',
+      'IPO Trademark & Patent Registration',
+      'Copyright & Brand Infringement',
+      'Data Privacy & E-Commerce Law'
+    ],
+    keyHighlights: [
+      'FIA Cyber Crime Wing Inquiries & Trial Defense under PECA 2016',
+      'Trademark, Logo & Patent Registration with IPO Pakistan',
+      'Data Privacy, Software Licensing & E-Commerce Compliance',
+      'IP Infringement Notice Issuance & Enforcement Litigation'
+    ],
+    iconName: 'Shield',
+    badge: 'Tech & IP'
+  },
+  {
+    id: 'family-estate-inheritance-law',
+    title: 'Family, Estate & Succession Law',
+    category: 'Specialized Law',
+    shortDesc: 'Succession certificates from High Court/Nadra, Islamic inheritance asset division, gift deeds, and family court representation.',
+    fullDesc: 'Confidential, sensitive, and legally sound estate and family law representation. We secure Letters of Administration and Succession Certificates, calculate Islamic inheritance distribution, draft gift deeds, and handle family court proceedings.',
+    subServices: [
+      'Succession Certificates (Nadra/Court)',
+      'Islamic Inheritance Asset Division',
+      'Family Gift Deeds & Settlements',
+      'Family Court & Custody Litigation'
+    ],
+    keyHighlights: [
+      'Succession Certificates & Letters of Administration',
+      'Islamic Inheritance Asset Calculation & Partition Deeds',
+      'Family Gift Deeds, Trust Formations & Asset Protection',
+      'Child Custody, Guardianship & Family Court Representation'
+    ],
+    iconName: 'Users',
+    badge: 'Personal Law'
   }
 ];
 

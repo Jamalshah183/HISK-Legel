@@ -48,7 +48,18 @@ import {
   Copy,
   MessageCircle,
   Lock,
-  LogOut
+  LogOut,
+  Scale,
+  Trash2,
+  Home as HomeIcon,
+  Landmark,
+  RefreshCw,
+  Check,
+  Layers,
+  Gavel,
+  Scroll,
+  Shield,
+  Building2
 } from 'lucide-react';
 import { usePortalStore } from '@/lib/portalStore';
 import { InvoicePdfModal } from '@/components/portal/InvoicePdfModal';
@@ -64,7 +75,8 @@ import {
   HearingEvent,
   LegalForum,
   CaseStatus,
-  RiskLevel
+  RiskLevel,
+  PracticeArea
 } from '@/types/portal';
 import { buildGoogleCalendarUrl } from '@/lib/googleCalendar';
 import { buildWhatsAppUrl } from '@/lib/whatsapp';
@@ -175,16 +187,43 @@ export const AdminPortal: React.FC = () => {
     addHearing,
     updateCaseHearing,
     updateHearing,
-    sendNotification
+    sendNotification,
+    practiceAreas,
+    addPracticeArea,
+    updatePracticeArea,
+    deletePracticeArea,
+    resetPracticeAreas
   } = usePortalStore();
 
   const [activeTab, setActiveTab] = useState<
-    'dashboard' | 'cases' | 'calendar' | 'documents' | 'tasks' | 'billing' | 'notifications'
+    'dashboard' | 'cases' | 'calendar' | 'documents' | 'tasks' | 'billing' | 'notifications' | 'practiceAreas'
   >('dashboard');
 
   // Calendar Month Navigation State
   const [calendarCurrentDate, setCalendarCurrentDate] = useState<Date>(() => new Date(2026, 7, 1));
   const [showClientPassword, setShowClientPassword] = useState(false);
+
+  // Practice Areas Search, Filters & Modal States
+  const [paSearchTerm, setPaSearchTerm] = useState('');
+  const [paCategoryFilter, setPaCategoryFilter] = useState('All');
+  const [showPracticeAreaModal, setShowPracticeAreaModal] = useState(false);
+  const [editingPracticeArea, setEditingPracticeArea] = useState<PracticeArea | null>(null);
+  const [deleteConfirmArea, setDeleteConfirmArea] = useState<PracticeArea | null>(null);
+  const [paActionSuccess, setPaActionSuccess] = useState<string | null>(null);
+
+  // Practice Area Form State
+  const [paFormData, setPaFormData] = useState({
+    title: '',
+    category: 'Tax & Finance',
+    badge: '',
+    iconName: 'Scale',
+    shortDesc: '',
+    fullDesc: '',
+    subServices: [] as string[],
+    keyHighlights: [] as string[]
+  });
+  const [newSubServiceInput, setNewSubServiceInput] = useState('');
+  const [newHighlightInput, setNewHighlightInput] = useState('');
 
   // Case Management Search & Filters
   const [searchTerm, setSearchTerm] = useState('');
@@ -412,6 +451,125 @@ export const AdminPortal: React.FC = () => {
 
     return matchesSearch && matchesType && matchesStatus;
   });
+
+  // Dynamic Practice Area Categories & Filtered List
+  const paCategories = Array.from(new Set((practiceAreas || []).map((p) => p.category).filter(Boolean)));
+  const filteredPracticeAreas = (practiceAreas || []).filter((pa) => {
+    const q = paSearchTerm.trim().toLowerCase();
+    const matchesSearch =
+      q === '' ||
+      pa.title.toLowerCase().includes(q) ||
+      pa.category.toLowerCase().includes(q) ||
+      pa.shortDesc.toLowerCase().includes(q) ||
+      pa.fullDesc.toLowerCase().includes(q) ||
+      (pa.badge && pa.badge.toLowerCase().includes(q)) ||
+      pa.subServices.some((s) => s.toLowerCase().includes(q)) ||
+      pa.keyHighlights.some((h) => h.toLowerCase().includes(q));
+
+    const matchesCategory = paCategoryFilter === 'All' || pa.category === paCategoryFilter;
+    return matchesSearch && matchesCategory;
+  });
+
+  const handleOpenAddPracticeArea = () => {
+    setEditingPracticeArea(null);
+    setPaFormData({
+      title: '',
+      category: 'Tax & Finance',
+      badge: '',
+      iconName: 'Scale',
+      shortDesc: '',
+      fullDesc: '',
+      subServices: [],
+      keyHighlights: []
+    });
+    setNewSubServiceInput('');
+    setNewHighlightInput('');
+    setShowPracticeAreaModal(true);
+  };
+
+  const handleOpenEditPracticeArea = (area: PracticeArea) => {
+    setEditingPracticeArea(area);
+    setPaFormData({
+      title: area.title,
+      category: area.category,
+      badge: area.badge || '',
+      iconName: area.iconName || 'Scale',
+      shortDesc: area.shortDesc,
+      fullDesc: area.fullDesc,
+      subServices: [...area.subServices],
+      keyHighlights: [...area.keyHighlights]
+    });
+    setNewSubServiceInput('');
+    setNewHighlightInput('');
+    setShowPracticeAreaModal(true);
+  };
+
+  const handleSavePracticeArea = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!paFormData.title.trim()) return;
+
+    if (editingPracticeArea) {
+      updatePracticeArea(editingPracticeArea.id, {
+        title: paFormData.title.trim(),
+        category: paFormData.category.trim(),
+        badge: paFormData.badge.trim() || undefined,
+        iconName: paFormData.iconName,
+        shortDesc: paFormData.shortDesc.trim(),
+        fullDesc: paFormData.fullDesc.trim(),
+        subServices: paFormData.subServices,
+        keyHighlights: paFormData.keyHighlights
+      });
+      setPaActionSuccess(`Successfully updated "${paFormData.title.trim()}".`);
+    } else {
+      addPracticeArea({
+        title: paFormData.title.trim(),
+        category: paFormData.category.trim(),
+        badge: paFormData.badge.trim() || undefined,
+        iconName: paFormData.iconName,
+        shortDesc: paFormData.shortDesc.trim(),
+        fullDesc: paFormData.fullDesc.trim(),
+        subServices: paFormData.subServices,
+        keyHighlights: paFormData.keyHighlights
+      });
+      setPaActionSuccess(`Successfully registered "${paFormData.title.trim()}" in practice areas.`);
+    }
+
+    setShowPracticeAreaModal(false);
+    setTimeout(() => setPaActionSuccess(null), 4000);
+  };
+
+  const handleDeletePracticeArea = (area: PracticeArea) => {
+    deletePracticeArea(area.id);
+    setDeleteConfirmArea(null);
+    setPaActionSuccess(`Removed practice area "${area.title}".`);
+    setTimeout(() => setPaActionSuccess(null), 4000);
+  };
+
+  const handleResetPracticeAreas = () => {
+    if (typeof window !== 'undefined' && window.confirm('Reset all practice areas to firm default services? Any custom practice areas will be replaced with the 7 core specialties.')) {
+      resetPracticeAreas();
+      setPaActionSuccess('Practice areas reset to standard firm defaults.');
+      setTimeout(() => setPaActionSuccess(null), 4000);
+    }
+  };
+
+  const renderPracticeAreaIcon = (iconName: string, className = "w-5 h-5") => {
+    switch (iconName) {
+      case 'FileText': return <FileText className={className} />;
+      case 'Building2':
+      case 'Building': return <Building2 className={className} />;
+      case 'Gavel': return <Gavel className={className} />;
+      case 'Home': return <HomeIcon className={className} />;
+      case 'Scroll': return <Scroll className={className} />;
+      case 'Shield': return <Shield className={className} />;
+      case 'Users': return <Users className={className} />;
+      case 'Landmark': return <Landmark className={className} />;
+      case 'Briefcase': return <Briefcase className={className} />;
+      case 'Scale':
+      default:
+        return <Scale className={className} />;
+    }
+  };
 
   // Calendar State
   const [selectedCalendarDate, setSelectedCalendarDate] = useState<string | null>(null);
@@ -1173,7 +1331,8 @@ export const AdminPortal: React.FC = () => {
               { id: 'documents', label: 'Document Vault', icon: FolderOpen },
               { id: 'tasks', label: 'Tasks & Internal Notes', icon: CheckSquare },
               { id: 'billing', label: 'Billing & Invoices', icon: CreditCard },
-              { id: 'notifications', label: 'WhatsApp / Email Alerts', icon: Send }
+              { id: 'notifications', label: 'WhatsApp / Email Alerts', icon: Send },
+              { id: 'practiceAreas', label: 'Practice Areas', icon: Scale, badge: practiceAreas?.length || 0 }
             ].map((item) => {
               const Icon = item.icon;
               const isActive = activeTab === item.id;
@@ -2524,6 +2683,270 @@ export const AdminPortal: React.FC = () => {
                 </div>
               )}
             </div>
+          </div>
+        )}
+
+        {/* --- TAB 10: PRACTICE AREAS MANAGEMENT --- */}
+        {activeTab === 'practiceAreas' && (
+          <div className="space-y-6">
+            {/* Header & Main Actions */}
+            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 bg-white p-6 rounded-3xl border border-[#0F6B4C]/15 shadow-sm">
+              <div>
+                <div className="flex items-center gap-2 mb-1">
+                  <span className="text-[10px] uppercase font-extrabold tracking-wider text-[#F5A623] bg-[#F5A623]/10 px-2.5 py-0.5 rounded-md border border-[#F5A623]/30">
+                    Content & Services CMS
+                  </span>
+                  <span className="text-[10px] font-extrabold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-200">
+                    Live Sync with Public Site
+                  </span>
+                </div>
+                <h1 className="text-2xl font-heading font-extrabold text-[#1A1A1A]">Practice Areas Management</h1>
+                <p className="text-xs text-[#5A6275]">
+                  Add, edit, or remove legal practice areas. Changes immediately sync to the homepage carousel, modal drawers, and footer.
+                </p>
+              </div>
+
+              <div className="flex items-center gap-2.5 w-full sm:w-auto">
+                <button
+                  type="button"
+                  onClick={handleResetPracticeAreas}
+                  title="Reset practice areas to original firm defaults"
+                  className="bg-[#FAFAF7] hover:bg-gray-100 text-gray-700 font-bold px-3.5 py-2.5 rounded-2xl text-xs flex items-center gap-2 border border-gray-200 transition-all cursor-pointer"
+                >
+                  <RefreshCw className="w-3.5 h-3.5 text-[#0F6B4C]" />
+                  <span className="hidden lg:inline">Restore Defaults</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={handleOpenAddPracticeArea}
+                  className="bg-[#0A4B35] hover:bg-[#0F6B4C] text-white font-extrabold px-5 py-2.5 rounded-2xl text-xs flex items-center gap-2 shadow-sm transition-all cursor-pointer"
+                >
+                  <Plus className="w-4 h-4 text-[#F5A623]" />
+                  <span>Add Practice Area</span>
+                </button>
+              </div>
+            </div>
+
+            {/* Action Success Alert Banner */}
+            {paActionSuccess && (
+              <div className="bg-emerald-50 border border-emerald-300 text-emerald-900 px-5 py-3.5 rounded-2xl flex items-center justify-between text-xs font-semibold shadow-sm animate-fadeIn">
+                <div className="flex items-center gap-2.5">
+                  <CheckCircle2 className="w-4 h-4 text-[#0F6B4C] shrink-0" />
+                  <span>{paActionSuccess}</span>
+                </div>
+                <button
+                  onClick={() => setPaActionSuccess(null)}
+                  className="text-emerald-700 hover:text-emerald-900 font-bold text-sm px-1.5"
+                >
+                  ✕
+                </button>
+              </div>
+            )}
+
+            {/* Practice Areas Search & Filter Bar */}
+            <div className="bg-white p-5 rounded-3xl border border-[#0F6B4C]/15 shadow-sm space-y-3">
+              <div className="flex flex-col md:flex-row items-stretch md:items-center justify-between gap-3">
+                {/* Search Input */}
+                <div className="relative flex-1">
+                  <Search className="w-4 h-4 text-[#5A6275] absolute left-3.5 top-1/2 -translate-y-1/2" />
+                  <input
+                    type="text"
+                    value={paSearchTerm}
+                    onChange={(e) => setPaSearchTerm(e.target.value)}
+                    placeholder="Search practice areas by title, category, description, sub-service, or badge..."
+                    className="w-full pl-10 pr-4 py-2.5 bg-[#FAFAF7] rounded-2xl border border-gray-200 text-xs focus:outline-none focus:border-[#0F6B4C]"
+                  />
+                  {paSearchTerm && (
+                    <button
+                      onClick={() => setPaSearchTerm('')}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 text-xs"
+                    >
+                      ✕
+                    </button>
+                  )}
+                </div>
+
+                {/* Filters */}
+                <div className="flex flex-wrap items-center gap-2">
+                  <div className="flex items-center gap-1.5 bg-[#FAFAF7] px-3 py-2 rounded-2xl border border-gray-200 text-xs">
+                    <Filter className="w-3.5 h-3.5 text-[#0F6B4C]" />
+                    <span className="font-bold text-[#5A6275]">Category:</span>
+                    <select
+                      value={paCategoryFilter}
+                      onChange={(e) => setPaCategoryFilter(e.target.value)}
+                      className="bg-transparent font-bold text-[#1A1A1A] focus:outline-none cursor-pointer"
+                    >
+                      <option value="All">All Categories ({(practiceAreas || []).length})</option>
+                      {paCategories.map((cat) => (
+                        <option key={cat} value={cat}>
+                          {cat}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  {(paSearchTerm || paCategoryFilter !== 'All') && (
+                    <button
+                      onClick={() => {
+                        setPaSearchTerm('');
+                        setPaCategoryFilter('All');
+                      }}
+                      className="bg-red-50 text-red-700 hover:bg-red-100 font-bold px-3 py-2 rounded-2xl text-xs transition-colors"
+                    >
+                      Clear Filters
+                    </button>
+                  )}
+                </div>
+              </div>
+
+              <div className="text-[11px] text-[#5A6275] font-semibold flex items-center justify-between px-1">
+                <span>Showing {filteredPracticeAreas.length} of {(practiceAreas || []).length} registered practice areas</span>
+                <span className="hidden sm:inline text-emerald-800">● Real-time database synced with Cloud Firestore</span>
+              </div>
+            </div>
+
+            {/* Practice Areas Grid */}
+            {filteredPracticeAreas.length === 0 ? (
+              <div className="p-12 text-center bg-white rounded-3xl border border-dashed border-gray-300 space-y-3">
+                <Scale className="w-12 h-12 text-gray-300 mx-auto" />
+                <h3 className="font-heading font-extrabold text-base text-[#1A1A1A]">No Practice Areas Found</h3>
+                <p className="text-xs text-gray-500 max-w-md mx-auto">
+                  {paSearchTerm || paCategoryFilter !== 'All'
+                    ? 'No practice areas matched your current search filters. Try clearing your filters or search terms.'
+                    : 'There are currently no practice areas defined. Click "Add Practice Area" or "Restore Defaults" to populate the firm services.'}
+                </p>
+                <div className="flex items-center justify-center gap-3 pt-2">
+                  {(paSearchTerm || paCategoryFilter !== 'All') && (
+                    <button
+                      onClick={() => {
+                        setPaSearchTerm('');
+                        setPaCategoryFilter('All');
+                      }}
+                      className="bg-gray-100 hover:bg-gray-200 text-gray-800 font-bold px-4 py-2 rounded-xl text-xs"
+                    >
+                      Clear Filters
+                    </button>
+                  )}
+                  <button
+                    onClick={handleOpenAddPracticeArea}
+                    className="bg-[#0A4B35] hover:bg-[#0F6B4C] text-white font-extrabold px-4 py-2 rounded-xl text-xs flex items-center gap-1.5"
+                  >
+                    <Plus className="w-3.5 h-3.5 text-[#F5A623]" />
+                    <span>Add New Practice Area</span>
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5">
+                {filteredPracticeAreas.map((area) => (
+                  <div
+                    key={area.id}
+                    className="bg-white rounded-3xl border border-[#0F6B4C]/15 p-5 shadow-sm hover:shadow-md transition-all flex flex-col justify-between group"
+                  >
+                    <div className="space-y-3.5">
+                      {/* Top Meta Bar */}
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="w-11 h-11 rounded-2xl bg-[#0F6B4C]/10 text-[#0F6B4C] flex items-center justify-center border border-[#0F6B4C]/20 shrink-0 group-hover:bg-[#0A4B35] group-hover:text-[#F5A623] transition-colors">
+                          {renderPracticeAreaIcon(area.iconName, "w-5 h-5")}
+                        </div>
+
+                        <div className="flex flex-wrap items-center justify-end gap-1.5">
+                          <span className="text-[10px] font-bold text-gray-700 bg-gray-100 px-2 py-0.5 rounded-md">
+                            {area.category}
+                          </span>
+                          {area.badge && (
+                            <span className="text-[10px] font-extrabold text-[#D98200] bg-[#F5A623]/15 px-2 py-0.5 rounded-md border border-[#F5A623]/30">
+                              {area.badge}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* Title & Short Description */}
+                      <div>
+                        <h3 className="font-heading font-extrabold text-[#1A1A1A] text-base leading-snug">
+                          {area.title}
+                        </h3>
+                        <p className="text-xs text-[#5A6275] line-clamp-3 mt-1.5 leading-relaxed">
+                          {area.shortDesc}
+                        </p>
+                      </div>
+
+                      {/* Sub Services */}
+                      {area.subServices && area.subServices.length > 0 && (
+                        <div className="space-y-1.5 pt-2 border-t border-gray-100">
+                          <span className="text-[10px] uppercase font-extrabold tracking-wider text-[#5A6275] block">
+                            Sub-Services ({area.subServices.length})
+                          </span>
+                          <div className="flex flex-wrap gap-1.5">
+                            {area.subServices.map((sub, i) => (
+                              <span
+                                key={i}
+                                className="text-[11px] font-medium bg-[#FAFAF7] text-gray-800 px-2.5 py-1 rounded-lg border border-gray-200"
+                              >
+                                {sub}
+                              </span>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Key Highlights */}
+                      {area.keyHighlights && area.keyHighlights.length > 0 && (
+                        <div className="space-y-1 pt-1.5">
+                          <span className="text-[10px] uppercase font-extrabold tracking-wider text-[#5A6275] block">
+                            Highlights ({area.keyHighlights.length})
+                          </span>
+                          <ul className="space-y-1">
+                            {area.keyHighlights.slice(0, 2).map((hl, i) => (
+                              <li key={i} className="text-[11px] text-gray-600 flex items-start gap-1.5">
+                                <Check className="w-3.5 h-3.5 text-[#0F6B4C] shrink-0 mt-0.5" />
+                                <span className="line-clamp-1">{hl}</span>
+                              </li>
+                            ))}
+                            {area.keyHighlights.length > 2 && (
+                              <li className="text-[10px] text-[#0F6B4C] font-bold pl-5">
+                                + {area.keyHighlights.length - 2} more highlight(s)
+                              </li>
+                            )}
+                          </ul>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Bottom Action Footer */}
+                    <div className="pt-4 mt-4 border-t border-gray-100 flex items-center justify-between gap-2">
+                      <div className="flex items-center gap-1.5 text-[10px] text-emerald-800 font-semibold">
+                        <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+                        <span>Live on Web</span>
+                      </div>
+
+                      <div className="flex items-center gap-1.5">
+                        <button
+                          type="button"
+                          onClick={() => handleOpenEditPracticeArea(area)}
+                          className="px-3 py-1.5 rounded-xl bg-gray-100 hover:bg-[#0A4B35] hover:text-white text-gray-700 text-xs font-bold transition-colors flex items-center gap-1.5 cursor-pointer"
+                        >
+                          <Edit3 className="w-3.5 h-3.5" />
+                          <span>Edit</span>
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={() => setDeleteConfirmArea(area)}
+                          className="px-2.5 py-1.5 rounded-xl bg-red-50 hover:bg-red-100 text-red-600 text-xs font-bold transition-colors flex items-center gap-1 cursor-pointer"
+                          title="Delete Practice Area"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                          <span className="hidden sm:inline">Delete</span>
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         )}
       </main>
@@ -4936,6 +5359,370 @@ export const AdminPortal: React.FC = () => {
                 className="bg-[#0A4B35] text-white font-extrabold px-6 py-2.5 rounded-2xl text-xs"
               >
                 Close Case File
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL: ADD / EDIT PRACTICE AREA */}
+      {showPracticeAreaModal && (
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-white rounded-3xl max-w-2xl w-full p-6 border border-[#0F6B4C]/20 shadow-2xl max-h-[92vh] overflow-y-auto">
+            <div className="flex justify-between items-center mb-5 border-b border-gray-100 pb-3">
+              <div>
+                <span className="text-[10px] font-extrabold text-[#F5A623] uppercase tracking-wider block">
+                  {editingPracticeArea ? 'Edit Legal Offering' : 'New Legal Offering'}
+                </span>
+                <h3 className="text-xl font-heading font-extrabold text-[#1A1A1A]">
+                  {editingPracticeArea ? `Edit: ${editingPracticeArea.title}` : 'Register New Practice Area'}
+                </h3>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowPracticeAreaModal(false)}
+                className="w-8 h-8 rounded-full bg-gray-100 hover:bg-gray-200 flex items-center justify-center text-gray-500 hover:text-black transition-colors"
+              >
+                ✕
+              </button>
+            </div>
+
+            <form onSubmit={handleSavePracticeArea} className="space-y-4 text-xs">
+              {/* Row 1: Title & Category */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label className="font-bold text-gray-700 block mb-1">
+                    Practice Area Title <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    placeholder="e.g. Banking Law & Financial Disputes"
+                    value={paFormData.title}
+                    onChange={(e) => setPaFormData({ ...paFormData, title: e.target.value })}
+                    className="w-full bg-[#FAFAF7] p-2.5 rounded-xl border border-gray-200 text-xs focus:outline-none focus:border-[#0F6B4C]"
+                  />
+                </div>
+
+                <div>
+                  <label className="font-bold text-gray-700 block mb-1">
+                    Category <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    list="category-suggestions"
+                    placeholder="e.g. Tax & Finance, Corporate & Business..."
+                    value={paFormData.category}
+                    onChange={(e) => setPaFormData({ ...paFormData, category: e.target.value })}
+                    className="w-full bg-[#FAFAF7] p-2.5 rounded-xl border border-gray-200 text-xs focus:outline-none focus:border-[#0F6B4C]"
+                  />
+                  <datalist id="category-suggestions">
+                    <option value="Tax & Finance" />
+                    <option value="Corporate & Business" />
+                    <option value="Litigation & Disputes" />
+                    <option value="Property & Real Estate" />
+                    <option value="Specialized Law" />
+                    <option value="Banking & Finance" />
+                    <option value="Criminal Defense" />
+                  </datalist>
+                </div>
+              </div>
+
+              {/* Row 2: Badge & Icon Selection */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label className="font-bold text-gray-700 block mb-1">
+                    Display Badge <span className="text-gray-400 font-normal">(Optional Tag)</span>
+                  </label>
+                  <input
+                    type="text"
+                    placeholder="e.g. Core Specialty, High Court, Trial, Corporate"
+                    value={paFormData.badge}
+                    onChange={(e) => setPaFormData({ ...paFormData, badge: e.target.value })}
+                    className="w-full bg-[#FAFAF7] p-2.5 rounded-xl border border-gray-200 text-xs focus:outline-none focus:border-[#0F6B4C]"
+                  />
+                </div>
+
+                <div>
+                  <label className="font-bold text-gray-700 block mb-1">
+                    Select Icon Symbol
+                  </label>
+                  <div className="grid grid-cols-5 gap-1.5 p-1.5 bg-[#FAFAF7] rounded-xl border border-gray-200">
+                    {[
+                      { name: 'Scale', label: 'Scale' },
+                      { name: 'FileText', label: 'File' },
+                      { name: 'Building2', label: 'Corp' },
+                      { name: 'Gavel', label: 'Court' },
+                      { name: 'Home', label: 'Property' },
+                      { name: 'Scroll', label: 'Scroll' },
+                      { name: 'Shield', label: 'Shield' },
+                      { name: 'Users', label: 'People' },
+                      { name: 'Landmark', label: 'Bank' },
+                      { name: 'Briefcase', label: 'Case' }
+                    ].map((ic) => {
+                      const isSelected = paFormData.iconName === ic.name;
+                      return (
+                        <button
+                          key={ic.name}
+                          type="button"
+                          onClick={() => setPaFormData({ ...paFormData, iconName: ic.name })}
+                          title={ic.name}
+                          className={`p-2 rounded-lg flex flex-col items-center justify-center transition-all cursor-pointer ${
+                            isSelected
+                              ? 'bg-[#0A4B35] text-[#F5A623] shadow-sm ring-2 ring-[#F5A623]'
+                              : 'text-gray-600 hover:bg-gray-200'
+                          }`}
+                        >
+                          {renderPracticeAreaIcon(ic.name, "w-4 h-4")}
+                          <span className="text-[9px] mt-0.5 font-bold truncate max-w-full">{ic.label}</span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              </div>
+
+              {/* Row 3: Short Description */}
+              <div>
+                <label className="font-bold text-gray-700 block mb-1">
+                  Card Short Summary <span className="text-red-500">*</span>{' '}
+                  <span className="text-gray-400 font-normal">(Visible on homepage card)</span>
+                </label>
+                <textarea
+                  required
+                  rows={2}
+                  placeholder="Concise 1-2 sentence overview of legal counsel, forum representation, and scope..."
+                  value={paFormData.shortDesc}
+                  onChange={(e) => setPaFormData({ ...paFormData, shortDesc: e.target.value })}
+                  className="w-full bg-[#FAFAF7] p-2.5 rounded-xl border border-gray-200 text-xs focus:outline-none focus:border-[#0F6B4C]"
+                />
+              </div>
+
+              {/* Row 4: Full In-Depth Description */}
+              <div>
+                <label className="font-bold text-gray-700 block mb-1">
+                  Detailed Legal Breakdown <span className="text-red-500">*</span>{' '}
+                  <span className="text-gray-400 font-normal">(Visible inside modal detail drawer)</span>
+                </label>
+                <textarea
+                  required
+                  rows={3}
+                  placeholder="In-depth analysis of services, statutory references, forums, appellate representation, and firm capabilities..."
+                  value={paFormData.fullDesc}
+                  onChange={(e) => setPaFormData({ ...paFormData, fullDesc: e.target.value })}
+                  className="w-full bg-[#FAFAF7] p-2.5 rounded-xl border border-gray-200 text-xs focus:outline-none focus:border-[#0F6B4C]"
+                />
+              </div>
+
+              {/* Row 5: Sub-Services Tag Manager */}
+              <div className="bg-[#FAFAF7] p-3.5 rounded-2xl border border-gray-200 space-y-2">
+                <div className="flex items-center justify-between">
+                  <label className="font-bold text-gray-800 block text-xs">
+                    Sub-Services Offerings ({paFormData.subServices.length})
+                  </label>
+                  <span className="text-[10px] text-gray-500">Type below and press Enter or click Add</span>
+                </div>
+
+                <div className="flex flex-wrap gap-1.5 min-h-[32px] p-2 bg-white rounded-xl border border-gray-200">
+                  {paFormData.subServices.length === 0 ? (
+                    <span className="text-[11px] text-gray-400 italic">No sub-services added yet.</span>
+                  ) : (
+                    paFormData.subServices.map((sub, index) => (
+                      <span
+                        key={index}
+                        className="inline-flex items-center gap-1.5 text-[11px] bg-[#0F6B4C]/10 text-[#0F6B4C] font-semibold px-2.5 py-1 rounded-lg border border-[#0F6B4C]/20"
+                      >
+                        <span>{sub}</span>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const updated = paFormData.subServices.filter((_, i) => i !== index);
+                            setPaFormData({ ...paFormData, subServices: updated });
+                          }}
+                          className="hover:text-red-600 font-bold ml-0.5 text-xs"
+                        >
+                          ✕
+                        </button>
+                      </span>
+                    ))
+                  )}
+                </div>
+
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    placeholder="e.g. Tax Planning & Advisory"
+                    value={newSubServiceInput}
+                    onChange={(e) => setNewSubServiceInput(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') {
+                        e.preventDefault();
+                        if (newSubServiceInput.trim()) {
+                          setPaFormData({
+                            ...paFormData,
+                            subServices: [...paFormData.subServices, newSubServiceInput.trim()]
+                          });
+                          setNewSubServiceInput('');
+                        }
+                      }
+                    }}
+                    className="flex-1 bg-white p-2 rounded-xl border border-gray-200 text-xs focus:outline-none focus:border-[#0F6B4C]"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (newSubServiceInput.trim()) {
+                        setPaFormData({
+                          ...paFormData,
+                          subServices: [...paFormData.subServices, newSubServiceInput.trim()]
+                        });
+                        setNewSubServiceInput('');
+                      }
+                    }}
+                    className="bg-[#0A4B35] text-white px-3 py-2 rounded-xl font-bold text-xs hover:bg-[#0F6B4C] transition-colors"
+                  >
+                    + Add
+                  </button>
+                </div>
+              </div>
+
+              {/* Row 6: Key Highlights Tag Manager */}
+              <div className="bg-[#FAFAF7] p-3.5 rounded-2xl border border-gray-200 space-y-2">
+                <div className="flex items-center justify-between">
+                  <label className="font-bold text-gray-800 block text-xs">
+                    Key Highlights & Deliverables ({paFormData.keyHighlights.length})
+                  </label>
+                  <span className="text-[10px] text-gray-500">Key bullet points with checkmarks</span>
+                </div>
+
+                <div className="flex flex-col gap-1.5 min-h-[32px] p-2 bg-white rounded-xl border border-gray-200">
+                  {paFormData.keyHighlights.length === 0 ? (
+                    <span className="text-[11px] text-gray-400 italic">No key highlights added yet.</span>
+                  ) : (
+                    paFormData.keyHighlights.map((hl, index) => (
+                      <div
+                        key={index}
+                        className="flex items-center justify-between gap-2 text-[11px] bg-gray-50 text-gray-800 px-2.5 py-1.5 rounded-lg border border-gray-200"
+                      >
+                        <div className="flex items-center gap-2">
+                          <Check className="w-3.5 h-3.5 text-[#0F6B4C] shrink-0" />
+                          <span>{hl}</span>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const updated = paFormData.keyHighlights.filter((_, i) => i !== index);
+                            setPaFormData({ ...paFormData, keyHighlights: updated });
+                          }}
+                          className="text-gray-400 hover:text-red-600 font-bold text-xs"
+                        >
+                          ✕
+                        </button>
+                      </div>
+                    ))
+                  )}
+                </div>
+
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    placeholder="e.g. Income Tax & Sales Tax Return Filing & Audit Defense"
+                    value={newHighlightInput}
+                    onChange={(e) => setNewHighlightInput(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') {
+                        e.preventDefault();
+                        if (newHighlightInput.trim()) {
+                          setPaFormData({
+                            ...paFormData,
+                            keyHighlights: [...paFormData.keyHighlights, newHighlightInput.trim()]
+                          });
+                          setNewHighlightInput('');
+                        }
+                      }
+                    }}
+                    className="flex-1 bg-white p-2 rounded-xl border border-gray-200 text-xs focus:outline-none focus:border-[#0F6B4C]"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (newHighlightInput.trim()) {
+                        setPaFormData({
+                          ...paFormData,
+                          keyHighlights: [...paFormData.keyHighlights, newHighlightInput.trim()]
+                        });
+                        setNewHighlightInput('');
+                      }
+                    }}
+                    className="bg-[#0A4B35] text-white px-3 py-2 rounded-xl font-bold text-xs hover:bg-[#0F6B4C] transition-colors"
+                  >
+                    + Add
+                  </button>
+                </div>
+              </div>
+
+              {/* Form Buttons */}
+              <div className="pt-4 border-t border-gray-100 flex items-center justify-end gap-3">
+                <button
+                  type="button"
+                  onClick={() => setShowPracticeAreaModal(false)}
+                  className="bg-gray-100 hover:bg-gray-200 text-gray-700 font-bold px-4 py-2.5 rounded-xl text-xs transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="bg-[#0A4B35] hover:bg-[#0F6B4C] text-white font-extrabold px-6 py-2.5 rounded-xl text-xs flex items-center gap-2 shadow-md transition-all cursor-pointer"
+                >
+                  <CheckCircle2 className="w-4 h-4 text-[#F5A623]" />
+                  <span>{editingPracticeArea ? 'Save Changes' : 'Create Practice Area'}</span>
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL: DELETE CONFIRMATION */}
+      {deleteConfirmArea && (
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-white rounded-3xl max-w-md w-full p-6 border border-red-200 shadow-2xl space-y-4">
+            <div className="flex items-center gap-3 text-red-600">
+              <div className="w-10 h-10 rounded-2xl bg-red-50 flex items-center justify-center shrink-0 border border-red-200">
+                <Trash2 className="w-5 h-5 text-red-600" />
+              </div>
+              <div>
+                <h3 className="text-base font-heading font-extrabold text-[#1A1A1A]">Delete Practice Area?</h3>
+                <p className="text-[11px] text-gray-500">This action will remove the service across all platforms.</p>
+              </div>
+            </div>
+
+            <div className="bg-red-50/50 p-4 rounded-2xl border border-red-100 text-xs text-gray-700 space-y-1.5">
+              <p>
+                Are you sure you want to permanently delete{' '}
+                <strong className="text-black font-extrabold">&quot;{deleteConfirmArea.title}&quot;</strong>?
+              </p>
+              <p className="text-[11px] text-red-700">
+                It will immediately disappear from the public website carousel, explore modal drawers, and footer service listings.
+              </p>
+            </div>
+
+            <div className="flex items-center justify-end gap-2.5 pt-2">
+              <button
+                type="button"
+                onClick={() => setDeleteConfirmArea(null)}
+                className="bg-gray-100 hover:bg-gray-200 text-gray-700 font-bold px-4 py-2 rounded-xl text-xs transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={() => handleDeletePracticeArea(deleteConfirmArea)}
+                className="bg-red-600 hover:bg-red-700 text-white font-extrabold px-4 py-2 rounded-xl text-xs flex items-center gap-1.5 transition-colors shadow-sm"
+              >
+                <Trash2 className="w-3.5 h-3.5" />
+                <span>Confirm Delete</span>
               </button>
             </div>
           </div>

@@ -14,7 +14,8 @@ import {
   CaseStatus,
   LegalForum,
   RiskLevel,
-  ClientCredential
+  ClientCredential,
+  PracticeArea
 } from '@/types/portal';
 import {
   INITIAL_CLIENTS,
@@ -26,10 +27,11 @@ import {
   INITIAL_INVOICES,
   INITIAL_HEARINGS,
   INITIAL_NOTIFICATIONS,
-  INITIAL_CLIENT_CREDENTIALS
+  INITIAL_CLIENT_CREDENTIALS,
+  INITIAL_PRACTICE_AREAS
 } from '@/data/portalSeedData';
 import { db } from './firebase';
-import { collection, onSnapshot, doc, setDoc } from 'firebase/firestore';
+import { collection, onSnapshot, doc, setDoc, deleteDoc } from 'firebase/firestore';
 
 const STORAGE_KEYS = {
   CLIENTS: 'hisk_portal_clients_v2',
@@ -41,7 +43,8 @@ const STORAGE_KEYS = {
   INVOICES: 'hisk_portal_invoices_v2',
   HEARINGS: 'hisk_portal_hearings_v2',
   NOTIFICATIONS: 'hisk_portal_notifications_v2',
-  CLIENT_CREDENTIALS: 'hisk_portal_client_credentials_v2'
+  CLIENT_CREDENTIALS: 'hisk_portal_client_credentials_v2',
+  PRACTICE_AREAS: 'hisk_portal_practice_areas_v2'
 };
 
 const createUniqueId = (prefix: string) => `${prefix}-${Date.now().toString().slice(-4)}`;
@@ -151,6 +154,16 @@ export function usePortalStore() {
     }
   });
 
+  const [practiceAreas, setPracticeAreas] = useState<PracticeArea[]>(() => {
+    if (typeof window === 'undefined') return INITIAL_PRACTICE_AREAS;
+    try {
+      const saved = localStorage.getItem(STORAGE_KEYS.PRACTICE_AREAS);
+      return saved ? JSON.parse(saved) : INITIAL_PRACTICE_AREAS;
+    } catch {
+      return INITIAL_PRACTICE_AREAS;
+    }
+  });
+
   const [isLoaded, setIsLoaded] = useState<boolean>(true);
 
   // Helper to sync to Firestore and local storage
@@ -167,6 +180,14 @@ export function usePortalStore() {
       await setDoc(doc(db, colName, id), data, { merge: true });
     } catch (err) {
       console.warn(`Firestore write error for ${colName}/${id}:`, err);
+    }
+  };
+
+  const deleteFromFirestoreDoc = async (colName: string, id: string) => {
+    try {
+      await deleteDoc(doc(db, colName, id));
+    } catch (err) {
+      console.warn(`Firestore delete error for ${colName}/${id}:`, err);
     }
   };
 
@@ -284,6 +305,17 @@ export function usePortalStore() {
       }
     }, (err) => console.warn('Client Credentials snapshot error:', err));
 
+    // 11. Practice Areas
+    const unsubPracticeAreas = onSnapshot(collection(db, 'practice_areas'), (snap) => {
+      if (snap.empty) {
+        INITIAL_PRACTICE_AREAS.forEach((pa) => saveToFirestoreDoc('practice_areas', pa.id, pa));
+      } else {
+        const items = snap.docs.map((d) => d.data() as PracticeArea);
+        setPracticeAreas(items);
+        saveToStorage(STORAGE_KEYS.PRACTICE_AREAS, items);
+      }
+    }, (err) => console.warn('Practice Areas snapshot error:', err));
+
     return () => {
       unsubClients();
       unsubCases();
@@ -295,6 +327,7 @@ export function usePortalStore() {
       unsubHearings();
       unsubNotifs();
       unsubCreds();
+      unsubPracticeAreas();
     };
   }, []);
 
@@ -876,6 +909,56 @@ export function usePortalStore() {
     return newNotif;
   };
 
+  // --- PRACTICE AREAS ACTIONS ---
+  const addPracticeArea = (pa: Omit<PracticeArea, 'id'> & { id?: string }) => {
+    const slugId = pa.id || pa.title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '') || createUniqueId('pa');
+    const newArea: PracticeArea = {
+      ...pa,
+      id: slugId,
+      createdAt: getTodayDateString(),
+      updatedAt: getTodayDateString()
+    };
+    const updated = [newArea, ...practiceAreas];
+    setPracticeAreas(updated);
+    saveToStorage(STORAGE_KEYS.PRACTICE_AREAS, updated);
+    saveToFirestoreDoc('practice_areas', newArea.id, newArea);
+    return newArea;
+  };
+
+  const updatePracticeArea = (id: string, updatedData: Partial<PracticeArea>) => {
+    let targetDoc: PracticeArea | null = null;
+    const updated = practiceAreas.map((pa) => {
+      if (pa.id === id) {
+        const obj: PracticeArea = {
+          ...pa,
+          ...updatedData,
+          updatedAt: getTodayDateString()
+        };
+        targetDoc = obj;
+        return obj;
+      }
+      return pa;
+    });
+    setPracticeAreas(updated);
+    saveToStorage(STORAGE_KEYS.PRACTICE_AREAS, updated);
+    if (targetDoc) {
+      saveToFirestoreDoc('practice_areas', id, targetDoc);
+    }
+  };
+
+  const deletePracticeArea = (id: string) => {
+    const updated = practiceAreas.filter((pa) => pa.id !== id);
+    setPracticeAreas(updated);
+    saveToStorage(STORAGE_KEYS.PRACTICE_AREAS, updated);
+    deleteFromFirestoreDoc('practice_areas', id);
+  };
+
+  const resetPracticeAreas = () => {
+    setPracticeAreas(INITIAL_PRACTICE_AREAS);
+    saveToStorage(STORAGE_KEYS.PRACTICE_AREAS, INITIAL_PRACTICE_AREAS);
+    INITIAL_PRACTICE_AREAS.forEach((pa) => saveToFirestoreDoc('practice_areas', pa.id, pa));
+  };
+
   return {
     isLoaded,
     clients,
@@ -888,6 +971,7 @@ export function usePortalStore() {
     hearings,
     notifications,
     clientCredentials,
+    practiceAreas,
     addClient,
     addClientCredential,
     addCase,
@@ -905,6 +989,10 @@ export function usePortalStore() {
     addHearing,
     updateCaseHearing,
     updateHearing,
-    sendNotification
+    sendNotification,
+    addPracticeArea,
+    updatePracticeArea,
+    deletePracticeArea,
+    resetPracticeAreas
   };
 }
