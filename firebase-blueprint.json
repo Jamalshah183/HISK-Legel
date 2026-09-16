@@ -47,6 +47,10 @@
     "teamMembers": {
       "title": "Team Members",
       "description": "Attorneys, advocates, and leadership team of HISK LEGAL"
+    },
+    "reviews": {
+      "title": "Client Reviews",
+      "description": "Client testimonials, ratings, tax savings, and case verification records"
     }
   }
 }

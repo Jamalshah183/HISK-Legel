@@ -9,9 +9,10 @@ import {
   NotificationLog,
   HearingEvent,
   PracticeArea,
-  TeamMember
+  TeamMember,
+  ReviewItem
 } from '@/types/portal';
-import { ATTORNEYS } from '@/data/lawFirmData';
+import { ATTORNEYS, TESTIMONIALS } from '@/data/lawFirmData';
 
 export const INITIAL_CLIENTS: Client[] = [
   {
@@ -719,4 +720,12 @@ export const INITIAL_TEAM_MEMBERS: TeamMember[] = ATTORNEYS.map((attorney, index
   order: index + 1,
   createdAt: '2025-01-01'
 }));
+
+export const INITIAL_REVIEWS: ReviewItem[] = TESTIMONIALS.map((rev) => ({
+  ...rev,
+  status: 'published',
+  featured: true,
+  createdAt: '2026-01-01'
+}));
+
 

@@ -60,7 +60,10 @@ import {
   Scroll,
   Shield,
   Building2,
-  Award
+  Award,
+  Star,
+  Quote,
+  MessageSquareQuote
 } from 'lucide-react';
 import { usePortalStore } from '@/lib/portalStore';
 import { InvoicePdfModal } from '@/components/portal/InvoicePdfModal';
@@ -78,7 +81,8 @@ import {
   CaseStatus,
   RiskLevel,
   PracticeArea,
-  TeamMember
+  TeamMember,
+  ReviewItem
 } from '@/types/portal';
 import { buildGoogleCalendarUrl } from '@/lib/googleCalendar';
 import { buildWhatsAppUrl } from '@/lib/whatsapp';
@@ -199,11 +203,16 @@ export const AdminPortal: React.FC = () => {
     addTeamMember,
     updateTeamMember,
     deleteTeamMember,
-    resetTeamMembers
+    resetTeamMembers,
+    reviews,
+    addReview,
+    updateReview,
+    deleteReview,
+    resetReviews
   } = usePortalStore();
 
   const [activeTab, setActiveTab] = useState<
-    'dashboard' | 'cases' | 'calendar' | 'documents' | 'tasks' | 'billing' | 'notifications' | 'practiceAreas' | 'team'
+    'dashboard' | 'cases' | 'calendar' | 'documents' | 'tasks' | 'billing' | 'notifications' | 'practiceAreas' | 'team' | 'reviews'
   >('dashboard');
 
   // Calendar Month Navigation State
@@ -248,6 +257,30 @@ export const AdminPortal: React.FC = () => {
     credentialsText: 'Advocate High Court, High Court Bar Association, Associate Counsel',
     image: 'https://i.postimg.cc/Qtsx9f0Q/advocate-high-court.jpg',
     isCeo: false
+  });
+
+  // Reviews Search, Filters & Modal States
+  const [reviewSearchTerm, setReviewSearchTerm] = useState('');
+  const [reviewRatingFilter, setReviewRatingFilter] = useState('All');
+  const [reviewStatusFilter, setReviewStatusFilter] = useState('All');
+  const [showReviewModal, setShowReviewModal] = useState(false);
+  const [editingReview, setEditingReview] = useState<ReviewItem | null>(null);
+  const [deleteConfirmReview, setDeleteConfirmReview] = useState<ReviewItem | null>(null);
+  const [reviewActionSuccess, setReviewActionSuccess] = useState<string | null>(null);
+
+  // Review Form State
+  const [reviewFormData, setReviewFormData] = useState({
+    clientInitials: '',
+    clientRole: 'CEO / Business Owner',
+    location: 'Islamabad, Pakistan',
+    caseType: 'Section 7E Property Tax & FBR Clearance',
+    dollarSaved: 'Rs. 2.5 Crore',
+    rating: 5,
+    reviewText: '',
+    verifiedBadge: true,
+    date: 'March 2026',
+    status: 'published' as 'published' | 'pending' | 'archived',
+    featured: true
   });
 
   // Case Management Search & Filters
@@ -722,6 +755,132 @@ export const AdminPortal: React.FC = () => {
       resetTeamMembers();
       setTeamActionSuccess('Restored founding attorneys roster.');
       setTimeout(() => setTeamActionSuccess(null), 4000);
+    }
+  };
+
+  // Reviews Filtering & Handlers
+  const filteredReviews = (reviews || []).filter((r) => {
+    const q = reviewSearchTerm.trim().toLowerCase();
+    const matchesSearch =
+      q === '' ||
+      r.clientInitials.toLowerCase().includes(q) ||
+      r.clientRole.toLowerCase().includes(q) ||
+      r.location.toLowerCase().includes(q) ||
+      r.caseType.toLowerCase().includes(q) ||
+      r.reviewText.toLowerCase().includes(q) ||
+      r.dollarSaved.toLowerCase().includes(q);
+
+    const matchesRating =
+      reviewRatingFilter === 'All' ||
+      r.rating === Number(reviewRatingFilter);
+
+    const matchesStatus =
+      reviewStatusFilter === 'All' ||
+      (reviewStatusFilter === 'published' && (r.status === 'published' || !r.status)) ||
+      r.status === reviewStatusFilter;
+
+    return matchesSearch && matchesRating && matchesStatus;
+  });
+
+  const handleOpenAddReview = () => {
+    setEditingReview(null);
+    setReviewFormData({
+      clientInitials: '',
+      clientRole: 'CEO / Business Owner',
+      location: 'Islamabad, Pakistan',
+      caseType: 'Section 7E Property Tax & FBR Clearance',
+      dollarSaved: 'Rs. 2.5 Crore',
+      rating: 5,
+      reviewText: '',
+      verifiedBadge: true,
+      date: new Date().toLocaleDateString('en-US', { month: 'long', year: 'numeric' }),
+      status: 'published',
+      featured: true
+    });
+    setShowReviewModal(true);
+  };
+
+  const handleOpenEditReview = (review: ReviewItem) => {
+    setEditingReview(review);
+    setReviewFormData({
+      clientInitials: review.clientInitials,
+      clientRole: review.clientRole,
+      location: review.location,
+      caseType: review.caseType,
+      dollarSaved: review.dollarSaved,
+      rating: review.rating || 5,
+      reviewText: review.reviewText,
+      verifiedBadge: !!review.verifiedBadge,
+      date: review.date || 'January 2026',
+      status: review.status || 'published',
+      featured: review.featured !== false
+    });
+    setShowReviewModal(true);
+  };
+
+  const handleSaveReview = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!reviewFormData.clientInitials.trim() || !reviewFormData.reviewText.trim()) return;
+
+    if (editingReview) {
+      updateReview(editingReview.id, {
+        clientInitials: reviewFormData.clientInitials.trim(),
+        clientRole: reviewFormData.clientRole.trim() || 'Client',
+        location: reviewFormData.location.trim() || 'Pakistan',
+        caseType: reviewFormData.caseType.trim() || 'Tax Defense & Litigation',
+        dollarSaved: reviewFormData.dollarSaved.trim() || 'Substantial Tax Relief',
+        rating: Number(reviewFormData.rating) || 5,
+        reviewText: reviewFormData.reviewText.trim(),
+        verifiedBadge: reviewFormData.verifiedBadge,
+        date: reviewFormData.date.trim() || 'Recent',
+        status: reviewFormData.status,
+        featured: reviewFormData.featured
+      });
+      setReviewActionSuccess(`Updated testimonial for "${reviewFormData.clientInitials.trim()}".`);
+    } else {
+      addReview({
+        clientInitials: reviewFormData.clientInitials.trim(),
+        clientRole: reviewFormData.clientRole.trim() || 'Client',
+        location: reviewFormData.location.trim() || 'Pakistan',
+        caseType: reviewFormData.caseType.trim() || 'Tax Defense & Litigation',
+        dollarSaved: reviewFormData.dollarSaved.trim() || 'Substantial Tax Relief',
+        rating: Number(reviewFormData.rating) || 5,
+        reviewText: reviewFormData.reviewText.trim(),
+        verifiedBadge: reviewFormData.verifiedBadge,
+        date: reviewFormData.date.trim() || 'Recent',
+        status: reviewFormData.status,
+        featured: reviewFormData.featured
+      });
+      setReviewActionSuccess(`Added new client review from "${reviewFormData.clientInitials.trim()}".`);
+    }
+
+    setShowReviewModal(false);
+    setTimeout(() => setReviewActionSuccess(null), 4000);
+  };
+
+  const handleDeleteReview = (review: ReviewItem) => {
+    deleteReview(review.id);
+    setDeleteConfirmReview(null);
+    setReviewActionSuccess(`Removed review from "${review.clientInitials}".`);
+    setTimeout(() => setReviewActionSuccess(null), 4000);
+  };
+
+  const handleToggleReviewStatus = (review: ReviewItem) => {
+    const nextStatus = review.status === 'archived' ? 'published' : 'archived';
+    updateReview(review.id, { status: nextStatus });
+    setReviewActionSuccess(
+      nextStatus === 'published'
+        ? `Published review from "${review.clientInitials}" to public website.`
+        : `Archived review from "${review.clientInitials}".`
+    );
+    setTimeout(() => setReviewActionSuccess(null), 4000);
+  };
+
+  const handleResetReviews = () => {
+    if (typeof window !== 'undefined' && window.confirm('Reset reviews to default firm testimonials?')) {
+      resetReviews();
+      setReviewActionSuccess('Restored standard client reviews.');
+      setTimeout(() => setReviewActionSuccess(null), 4000);
     }
   };
 
@@ -1487,7 +1646,8 @@ export const AdminPortal: React.FC = () => {
               { id: 'billing', label: 'Billing & Invoices', icon: CreditCard },
               { id: 'notifications', label: 'WhatsApp / Email Alerts', icon: Send },
               { id: 'practiceAreas', label: 'Practice Areas', icon: Scale, badge: practiceAreas?.length || 0 },
-              { id: 'team', label: 'Our Team', icon: Users, badge: teamMembers?.length || 0 }
+              { id: 'team', label: 'Our Team', icon: Users, badge: teamMembers?.length || 0 },
+              { id: 'reviews', label: 'Client Reviews', icon: MessageSquareQuote, badge: reviews?.length || 0 }
             ].map((item) => {
               const Icon = item.icon;
               const isActive = activeTab === item.id;
@@ -3248,6 +3408,336 @@ export const AdminPortal: React.FC = () => {
                   >
                     <RefreshCw className="w-3 h-3" />
                     <span>Restore default team roster</span>
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* TAB 12: CLIENT REVIEWS & TESTIMONIALS MANAGEMENT */}
+        {activeTab === 'reviews' && (
+          <div className="space-y-6">
+            {/* Action Success Alert */}
+            {reviewActionSuccess && (
+              <div className="bg-emerald-50 border border-emerald-200 text-emerald-800 px-4 py-3 rounded-2xl flex items-center justify-between text-xs font-medium shadow-sm animate-fade-in">
+                <div className="flex items-center gap-2">
+                  <CheckCircle2 className="w-4 h-4 text-[#0F6B4C]" />
+                  <span>{reviewActionSuccess}</span>
+                </div>
+                <button
+                  onClick={() => setReviewActionSuccess(null)}
+                  className="text-emerald-600 hover:text-emerald-900 font-bold ml-4 cursor-pointer"
+                >
+                  ✕
+                </button>
+              </div>
+            )}
+
+            {/* Top Header & Action */}
+            <div className="bg-white rounded-3xl p-6 border border-[#0F6B4C]/15 shadow-sm flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+              <div>
+                <div className="flex items-center gap-2 mb-1">
+                  <span className="bg-[#0F6B4C]/10 text-[#0F6B4C] text-[10px] font-extrabold px-2.5 py-0.5 rounded-full uppercase tracking-wider">
+                    Website Testimonials
+                  </span>
+                  <span className="text-gray-400 text-xs">•</span>
+                  <span className="text-xs text-gray-500 font-medium">Public Trust &amp; Marquee Stream</span>
+                </div>
+                <h2 className="text-2xl font-heading font-extrabold text-[#1A1A1A]">
+                  Client Reviews &amp; Testimonials
+                </h2>
+                <p className="text-xs text-[#5A6275] max-w-2xl mt-1">
+                  Manage client testimonials, tax relief numbers, ratings, and case verification badges shown in the continuous scrolling marquee on the public homepage.
+                </p>
+              </div>
+
+              <div className="flex items-center gap-2.5 shrink-0">
+                <button
+                  onClick={handleOpenAddReview}
+                  className="bg-[#0F6B4C] hover:bg-[#0A4B35] text-white px-4 py-2.5 rounded-2xl text-xs font-bold flex items-center gap-2 shadow-md transition-all cursor-pointer"
+                >
+                  <Plus className="w-4 h-4" />
+                  <span>Add New Review</span>
+                </button>
+              </div>
+            </div>
+
+            {/* Quick Metrics Bar */}
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3.5">
+              <div className="bg-white p-4 rounded-2xl border border-gray-100 shadow-sm">
+                <div className="text-[11px] font-bold text-gray-500 uppercase tracking-wider mb-1">
+                  Total Reviews
+                </div>
+                <div className="text-2xl font-heading font-extrabold text-[#1A1A1A]">
+                  {reviews.length}
+                </div>
+                <div className="text-[11px] text-gray-400 mt-0.5">
+                  {reviews.filter((r) => r.status !== 'archived').length} Active on Website
+                </div>
+              </div>
+
+              <div className="bg-white p-4 rounded-2xl border border-gray-100 shadow-sm">
+                <div className="text-[11px] font-bold text-gray-500 uppercase tracking-wider mb-1">
+                  Average Rating
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <div className="text-2xl font-heading font-extrabold text-[#1A1A1A]">
+                    {reviews.length > 0
+                      ? (reviews.reduce((acc, r) => acc + (Number(r.rating) || 5), 0) / reviews.length).toFixed(2)
+                      : '5.00'}
+                  </div>
+                  <div className="flex text-[#F5A623]">
+                    <Star className="w-4 h-4 fill-[#F5A623]" />
+                  </div>
+                </div>
+                <div className="text-[11px] text-emerald-700 font-medium mt-0.5">
+                  100% Positive Feedback
+                </div>
+              </div>
+
+              <div className="bg-white p-4 rounded-2xl border border-gray-100 shadow-sm">
+                <div className="text-[11px] font-bold text-gray-500 uppercase tracking-wider mb-1">
+                  Verified Cases
+                </div>
+                <div className="text-2xl font-heading font-extrabold text-[#0F6B4C]">
+                  {reviews.filter((r) => r.verifiedBadge).length}
+                </div>
+                <div className="text-[11px] text-gray-400 mt-0.5">
+                  With advocate privilege
+                </div>
+              </div>
+
+              <div className="bg-white p-4 rounded-2xl border border-gray-100 shadow-sm">
+                <div className="text-[11px] font-bold text-gray-500 uppercase tracking-wider mb-1">
+                  Featured Reviews
+                </div>
+                <div className="text-2xl font-heading font-extrabold text-[#F5A623]">
+                  {reviews.filter((r) => r.featured !== false).length}
+                </div>
+                <div className="text-[11px] text-gray-400 mt-0.5">
+                  Promoted in marquee
+                </div>
+              </div>
+            </div>
+
+            {/* Search and Filters Toolbar */}
+            <div className="bg-white p-4 rounded-3xl border border-[#0F6B4C]/15 shadow-sm space-y-3">
+              <div className="flex flex-col sm:flex-row gap-3">
+                <div className="relative flex-1">
+                  <Search className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400" />
+                  <input
+                    type="text"
+                    placeholder="Search testimonials by client initials, role, location, tax relief or review text..."
+                    value={reviewSearchTerm}
+                    onChange={(e) => setReviewSearchTerm(e.target.value)}
+                    className="w-full bg-[#FAFAF7] pl-10 pr-4 py-2.5 rounded-2xl border border-gray-200 text-xs focus:outline-none focus:border-[#0F6B4C]"
+                  />
+                  {reviewSearchTerm && (
+                    <button
+                      onClick={() => setReviewSearchTerm('')}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-black text-xs"
+                    >
+                      ✕
+                    </button>
+                  )}
+                </div>
+
+                <div className="flex gap-2">
+                  <select
+                    value={reviewRatingFilter}
+                    onChange={(e) => setReviewRatingFilter(e.target.value)}
+                    className="bg-[#FAFAF7] px-3 py-2.5 rounded-2xl border border-gray-200 text-xs font-medium text-gray-700 focus:outline-none focus:border-[#0F6B4C]"
+                  >
+                    <option value="All">All Ratings</option>
+                    <option value="5">5 Stars</option>
+                    <option value="4">4 Stars</option>
+                  </select>
+
+                  <select
+                    value={reviewStatusFilter}
+                    onChange={(e) => setReviewStatusFilter(e.target.value)}
+                    className="bg-[#FAFAF7] px-3 py-2.5 rounded-2xl border border-gray-200 text-xs font-medium text-gray-700 focus:outline-none focus:border-[#0F6B4C]"
+                  >
+                    <option value="All">All Statuses</option>
+                    <option value="published">Published</option>
+                    <option value="archived">Archived</option>
+                  </select>
+
+                  {(reviewSearchTerm || reviewRatingFilter !== 'All' || reviewStatusFilter !== 'All') && (
+                    <button
+                      onClick={() => {
+                        setReviewSearchTerm('');
+                        setReviewRatingFilter('All');
+                        setReviewStatusFilter('All');
+                      }}
+                      className="px-3 py-2.5 rounded-2xl bg-gray-100 hover:bg-gray-200 text-gray-700 text-xs font-bold transition-colors cursor-pointer"
+                    >
+                      Clear
+                    </button>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            {/* Testimonials List */}
+            {filteredReviews.length === 0 ? (
+              <div className="bg-white rounded-3xl p-12 text-center border border-dashed border-gray-200">
+                <MessageSquareQuote className="w-12 h-12 text-gray-300 mx-auto mb-3" />
+                <h3 className="font-heading font-extrabold text-base text-gray-800 mb-1">
+                  No Reviews Found
+                </h3>
+                <p className="text-xs text-gray-500 max-w-sm mx-auto mb-4">
+                  No testimonials match your current search criteria or filter options.
+                </p>
+                <button
+                  onClick={handleOpenAddReview}
+                  className="bg-[#0F6B4C] hover:bg-[#0A4B35] text-white px-4 py-2 rounded-xl text-xs font-bold inline-flex items-center gap-1.5 cursor-pointer"
+                >
+                  <Plus className="w-3.5 h-3.5" />
+                  <span>Add First Review</span>
+                </button>
+              </div>
+            ) : (
+              <div className="space-y-4">
+                {filteredReviews.map((review) => (
+                  <div
+                    key={review.id}
+                    className="bg-white rounded-3xl p-5 border border-[#0F6B4C]/15 shadow-sm hover:shadow-md transition-all relative overflow-hidden"
+                  >
+                    {/* Top Meta Row */}
+                    <div className="flex flex-wrap items-center justify-between gap-2 mb-3 pb-3 border-b border-gray-100">
+                      <div className="flex items-center gap-3">
+                        {/* Rating Stars */}
+                        <div className="flex gap-0.5">
+                          {[...Array(review.rating || 5)].map((_, i) => (
+                            <Star key={i} className="w-4 h-4 text-[#F5A623] fill-[#F5A623]" />
+                          ))}
+                        </div>
+
+                        {/* Verified Badge */}
+                        {review.verifiedBadge && (
+                          <span className="flex items-center gap-1 text-[11px] font-bold text-[#0F6B4C] bg-[#E8F5F0] px-2.5 py-0.5 rounded-full">
+                            <ShieldCheck className="w-3.5 h-3.5 text-[#0F6B4C]" />
+                            <span>Verified Case</span>
+                          </span>
+                        )}
+
+                        {/* Status Badge */}
+                        <span
+                          className={`text-[10px] font-extrabold px-2.5 py-0.5 rounded-full uppercase tracking-wider ${
+                            review.status === 'archived'
+                              ? 'bg-gray-100 text-gray-600'
+                              : 'bg-emerald-100 text-emerald-800'
+                          }`}
+                        >
+                          {review.status === 'archived' ? 'Archived' : 'Published on Site'}
+                        </span>
+                      </div>
+
+                      {/* Date & Tax Saved Highlight */}
+                      <div className="flex items-center gap-2.5">
+                        <span className="text-xs text-gray-400 font-medium">
+                          {review.date}
+                        </span>
+                        <span className="bg-[#FAF3E6] border border-[#F5A623]/30 text-[#8F5605] font-extrabold text-xs px-3 py-1 rounded-xl">
+                          Saved {review.dollarSaved}
+                        </span>
+                      </div>
+                    </div>
+
+                    {/* Review Text */}
+                    <div className="mb-4 relative">
+                      <Quote className="w-8 h-8 text-[#0F6B4C]/10 absolute -top-2 -left-1 pointer-events-none" />
+                      <p className="text-xs sm:text-sm text-gray-700 italic pl-5 leading-relaxed font-serif">
+                        &quot;{review.reviewText}&quot;
+                      </p>
+                    </div>
+
+                    {/* Case Domain Pill */}
+                    <div className="mb-4">
+                      <span className="inline-flex items-center gap-1.5 bg-[#FAFAF7] border border-gray-200 text-[#0F6B4C] text-[11px] font-bold px-3 py-1 rounded-xl">
+                        <Briefcase className="w-3 h-3 text-[#0F6B4C]" />
+                        <span>{review.caseType}</span>
+                      </span>
+                    </div>
+
+                    {/* Bottom Row: Client Profile & Actions */}
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-3 border-t border-gray-100">
+                      {/* Client info */}
+                      <div className="flex items-center gap-3">
+                        <div className="w-9 h-9 rounded-full bg-[#0F6B4C] text-white flex items-center justify-center font-heading font-extrabold text-xs shadow-sm">
+                          {review.clientInitials}
+                        </div>
+                        <div>
+                          <div className="text-xs font-extrabold text-[#1A1A1A]">
+                            {review.clientInitials}
+                          </div>
+                          <div className="text-[11px] text-gray-500">
+                            {review.clientRole} • {review.location}
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Action buttons */}
+                      <div className="flex items-center gap-2 self-end sm:self-auto">
+                        <button
+                          type="button"
+                          onClick={() => handleToggleReviewStatus(review)}
+                          className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-colors flex items-center gap-1 cursor-pointer ${
+                            review.status === 'archived'
+                              ? 'bg-emerald-50 hover:bg-emerald-100 text-emerald-700'
+                              : 'bg-gray-100 hover:bg-gray-200 text-gray-700'
+                          }`}
+                          title={review.status === 'archived' ? 'Publish to Website' : 'Archive from Website'}
+                        >
+                          {review.status === 'archived' ? (
+                            <>
+                              <Eye className="w-3.5 h-3.5" />
+                              <span>Publish</span>
+                            </>
+                          ) : (
+                            <>
+                              <Lock className="w-3.5 h-3.5" />
+                              <span>Archive</span>
+                            </>
+                          )}
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={() => handleOpenEditReview(review)}
+                          className="px-3 py-1.5 rounded-xl bg-gray-100 hover:bg-gray-200 text-gray-700 text-xs font-bold transition-colors flex items-center gap-1 cursor-pointer"
+                          title="Edit Review Details"
+                        >
+                          <Edit3 className="w-3.5 h-3.5" />
+                          <span>Edit</span>
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={() => setDeleteConfirmReview(review)}
+                          className="px-3 py-1.5 rounded-xl bg-red-50 hover:bg-red-100 text-red-600 text-xs font-bold transition-colors flex items-center gap-1 cursor-pointer"
+                          title="Delete Review"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                          <span>Delete</span>
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+
+                {/* Reset link at bottom */}
+                <div className="pt-4 flex items-center justify-between text-xs text-gray-400 px-2">
+                  <span>Showing {filteredReviews.length} client reviews</span>
+                  <button
+                    type="button"
+                    onClick={handleResetReviews}
+                    className="hover:text-gray-600 underline flex items-center gap-1 text-[11px] cursor-pointer"
+                  >
+                    <RefreshCw className="w-3 h-3" />
+                    <span>Restore default testimonials</span>
                   </button>
                 </div>
               </div>
@@ -6118,6 +6608,300 @@ export const AdminPortal: React.FC = () => {
               >
                 <Trash2 className="w-3.5 h-3.5" />
                 <span>Confirm Removal</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL: ADD / EDIT CLIENT REVIEW */}
+      {showReviewModal && (
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-white rounded-3xl max-w-xl w-full p-6 border border-[#0F6B4C]/20 shadow-2xl max-h-[92vh] overflow-y-auto">
+            {/* Header */}
+            <div className="flex justify-between items-center mb-4 border-b pb-3">
+              <div>
+                <span className="text-[10px] font-bold text-[#F5A623] uppercase tracking-wider block">
+                  Website Reviews
+                </span>
+                <h3 className="text-lg font-heading font-extrabold text-[#1A1A1A]">
+                  {editingReview ? 'Edit Client Review' : 'Add New Client Review'}
+                </h3>
+                <p className="text-[11px] text-gray-500">
+                  {editingReview
+                    ? 'Update testimonial text, case metrics, and display status.'
+                    : 'Add a client testimonial to appear in the homepage continuous review marquee.'}
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowReviewModal(false)}
+                className="text-gray-400 hover:text-black font-bold text-lg p-1 cursor-pointer"
+              >
+                ✕
+              </button>
+            </div>
+
+            {/* Form */}
+            <form onSubmit={handleSaveReview} className="space-y-4 text-xs">
+              {/* Field 1: Client Initials & Role */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="font-bold text-gray-800 block mb-1">
+                    Client Name or Initials <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    placeholder="e.g. T. R. or Tariq Rehman"
+                    value={reviewFormData.clientInitials}
+                    onChange={(e) => setReviewFormData({ ...reviewFormData, clientInitials: e.target.value })}
+                    className="w-full bg-[#FAFAF7] px-3 py-2.5 rounded-xl border border-gray-200 text-xs focus:outline-none focus:border-[#0F6B4C]"
+                  />
+                </div>
+
+                <div>
+                  <label className="font-bold text-gray-800 block mb-1">
+                    Designation / Role
+                  </label>
+                  <input
+                    type="text"
+                    placeholder="e.g. CEO, Tech Software House"
+                    value={reviewFormData.clientRole}
+                    onChange={(e) => setReviewFormData({ ...reviewFormData, clientRole: e.target.value })}
+                    className="w-full bg-[#FAFAF7] px-3 py-2.5 rounded-xl border border-gray-200 text-xs focus:outline-none focus:border-[#0F6B4C]"
+                  />
+                </div>
+              </div>
+
+              {/* Field 2: Location & Date */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="font-bold text-gray-800 block mb-1">
+                    City / Location
+                  </label>
+                  <input
+                    type="text"
+                    placeholder="e.g. Islamabad, Pakistan"
+                    value={reviewFormData.location}
+                    onChange={(e) => setReviewFormData({ ...reviewFormData, location: e.target.value })}
+                    className="w-full bg-[#FAFAF7] px-3 py-2.5 rounded-xl border border-gray-200 text-xs focus:outline-none focus:border-[#0F6B4C]"
+                  />
+                </div>
+
+                <div>
+                  <label className="font-bold text-gray-800 block mb-1">
+                    Date / Month
+                  </label>
+                  <input
+                    type="text"
+                    placeholder="e.g. March 2026"
+                    value={reviewFormData.date}
+                    onChange={(e) => setReviewFormData({ ...reviewFormData, date: e.target.value })}
+                    className="w-full bg-[#FAFAF7] px-3 py-2.5 rounded-xl border border-gray-200 text-xs focus:outline-none focus:border-[#0F6B4C]"
+                  />
+                </div>
+              </div>
+
+              {/* Field 3: Case Type / Domain with Quick Suggestions */}
+              <div>
+                <label className="font-bold text-gray-800 block mb-1">
+                  Case Type / Legal Domain
+                </label>
+                <input
+                  type="text"
+                  placeholder="e.g. Section 7E Property Tax & FBR Clearance"
+                  value={reviewFormData.caseType}
+                  onChange={(e) => setReviewFormData({ ...reviewFormData, caseType: e.target.value })}
+                  className="w-full bg-[#FAFAF7] px-3 py-2.5 rounded-xl border border-gray-200 text-xs focus:outline-none focus:border-[#0F6B4C]"
+                />
+                <div className="flex flex-wrap gap-1.5 mt-1.5">
+                  {[
+                    'Section 7E Property Tax & FBR Clearance',
+                    'FBR Section 154A IT Export Audit',
+                    'Sales Tax Disallowance Appeal',
+                    'High Court Constitutional Tax Writ',
+                    'Corporate Tax Dispute & Stay'
+                  ].map((sugg) => (
+                    <button
+                      key={sugg}
+                      type="button"
+                      onClick={() => setReviewFormData({ ...reviewFormData, caseType: sugg })}
+                      className="text-[10px] bg-gray-100 hover:bg-[#0F6B4C]/10 text-gray-700 hover:text-[#0F6B4C] px-2 py-0.5 rounded-lg transition-colors cursor-pointer"
+                    >
+                      + {sugg}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Field 4: Tax Relief / Dollar Saved & Star Rating */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 items-center">
+                <div>
+                  <label className="font-bold text-gray-800 block mb-1">
+                    Tax Relief / Amount Saved
+                  </label>
+                  <input
+                    type="text"
+                    placeholder="e.g. Rs. 2.5 Crore or Rs. 80 Lakh"
+                    value={reviewFormData.dollarSaved}
+                    onChange={(e) => setReviewFormData({ ...reviewFormData, dollarSaved: e.target.value })}
+                    className="w-full bg-[#FAFAF7] px-3 py-2.5 rounded-xl border border-gray-200 text-xs focus:outline-none focus:border-[#0F6B4C]"
+                  />
+                </div>
+
+                <div>
+                  <label className="font-bold text-gray-800 block mb-1">
+                    Client Rating
+                  </label>
+                  <div className="flex items-center gap-2 bg-[#FAFAF7] p-2 rounded-xl border border-gray-200">
+                    <div className="flex gap-1">
+                      {[1, 2, 3, 4, 5].map((star) => (
+                        <button
+                          key={star}
+                          type="button"
+                          onClick={() => setReviewFormData({ ...reviewFormData, rating: star })}
+                          className="cursor-pointer p-0.5 hover:scale-110 transition-transform"
+                        >
+                          <Star
+                            className={`w-5 h-5 ${
+                              star <= reviewFormData.rating
+                                ? 'text-[#F5A623] fill-[#F5A623]'
+                                : 'text-gray-300'
+                            }`}
+                          />
+                        </button>
+                      ))}
+                    </div>
+                    <span className="font-bold text-[#1A1A1A] ml-2">
+                      {reviewFormData.rating} / 5 Stars
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Field 5: Review Text */}
+              <div>
+                <label className="font-bold text-gray-800 block mb-1">
+                  Testimonial / Review Quote <span className="text-red-500">*</span>
+                </label>
+                <textarea
+                  rows={4}
+                  required
+                  placeholder="Share the client's detailed feedback regarding HISK LEGAL's advocacy, counsel, tribunal representation, or tax resolution..."
+                  value={reviewFormData.reviewText}
+                  onChange={(e) => setReviewFormData({ ...reviewFormData, reviewText: e.target.value })}
+                  className="w-full bg-[#FAFAF7] p-3 rounded-xl border border-gray-200 text-xs focus:outline-none focus:border-[#0F6B4C] leading-relaxed"
+                />
+              </div>
+
+              {/* Field 6: Verification & Status Toggles */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
+                <label className="flex items-center gap-2 cursor-pointer bg-[#FAFAF7] p-3 rounded-xl border border-gray-200 hover:border-[#0F6B4C]">
+                  <input
+                    type="checkbox"
+                    checked={reviewFormData.verifiedBadge}
+                    onChange={(e) => setReviewFormData({ ...reviewFormData, verifiedBadge: e.target.checked })}
+                    className="w-4 h-4 text-[#0F6B4C] rounded border-gray-300 focus:ring-[#0F6B4C] cursor-pointer"
+                  />
+                  <div>
+                    <span className="font-bold text-gray-800 text-[11px] block flex items-center gap-1">
+                      <ShieldCheck className="w-3.5 h-3.5 text-[#0F6B4C]" />
+                      Verified Case Badge
+                    </span>
+                    <span className="text-[10px] text-gray-500">
+                      Displays green verification badge
+                    </span>
+                  </div>
+                </label>
+
+                <label className="flex items-center gap-2 cursor-pointer bg-[#FAFAF7] p-3 rounded-xl border border-gray-200 hover:border-[#0F6B4C]">
+                  <input
+                    type="checkbox"
+                    checked={reviewFormData.status === 'published'}
+                    onChange={(e) =>
+                      setReviewFormData({
+                        ...reviewFormData,
+                        status: e.target.checked ? 'published' : 'archived'
+                      })
+                    }
+                    className="w-4 h-4 text-[#0F6B4C] rounded border-gray-300 focus:ring-[#0F6B4C] cursor-pointer"
+                  />
+                  <div>
+                    <span className="font-bold text-gray-800 text-[11px] block">
+                      Published on Public Site
+                    </span>
+                    <span className="text-[10px] text-gray-500">
+                      Active in homepage review stream
+                    </span>
+                  </div>
+                </label>
+              </div>
+
+              {/* Form Buttons */}
+              <div className="flex items-center justify-end gap-2.5 pt-4 border-t border-gray-100">
+                <button
+                  type="button"
+                  onClick={() => setShowReviewModal(false)}
+                  className="bg-gray-100 hover:bg-gray-200 text-gray-700 font-bold px-4 py-2.5 rounded-xl text-xs transition-colors cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="bg-[#0F6B4C] hover:bg-[#0A4B35] text-white font-extrabold px-5 py-2.5 rounded-xl text-xs flex items-center gap-1.5 transition-colors shadow-md cursor-pointer"
+                >
+                  <Check className="w-4 h-4" />
+                  <span>{editingReview ? 'Save Changes' : 'Publish Review'}</span>
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL: DELETE REVIEW CONFIRMATION */}
+      {deleteConfirmReview && (
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-white rounded-3xl max-w-md w-full p-6 border border-red-200 shadow-2xl space-y-4">
+            <div className="flex items-center gap-3 text-red-600">
+              <div className="w-10 h-10 rounded-2xl bg-red-100 flex items-center justify-center shrink-0">
+                <AlertTriangle className="w-5 h-5 text-red-600" />
+              </div>
+              <div>
+                <h3 className="text-base font-heading font-extrabold text-[#1A1A1A]">Delete Review?</h3>
+                <p className="text-[11px] text-gray-500">This testimonial will be permanently removed.</p>
+              </div>
+            </div>
+
+            <div className="bg-red-50/50 p-4 rounded-2xl border border-red-100 text-xs text-gray-700 space-y-1.5">
+              <p>
+                Are you sure you want to remove the review from{' '}
+                <strong className="text-black font-extrabold">&quot;{deleteConfirmReview.clientInitials}&quot;</strong>?
+              </p>
+              <p className="text-[11px] text-gray-500 italic">
+                &quot;{deleteConfirmReview.reviewText.slice(0, 100)}...&quot;
+              </p>
+              <p className="text-[11px] text-red-700 font-medium">
+                It will immediately be removed from the public website testimonial marquee.
+              </p>
+            </div>
+
+            <div className="flex items-center justify-end gap-2.5 pt-2">
+              <button
+                type="button"
+                onClick={() => setDeleteConfirmReview(null)}
+                className="bg-gray-100 hover:bg-gray-200 text-gray-700 font-bold px-4 py-2 rounded-xl text-xs transition-colors cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={() => handleDeleteReview(deleteConfirmReview)}
+                className="bg-red-600 hover:bg-red-700 text-white font-extrabold px-4 py-2 rounded-xl text-xs flex items-center gap-1.5 transition-colors shadow-sm cursor-pointer"
+              >
+                <Trash2 className="w-3.5 h-3.5" />
+                <span>Confirm Delete</span>
               </button>
             </div>
           </div>

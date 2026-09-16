@@ -8,8 +8,24 @@ import {
   Quote
 } from 'lucide-react';
 import { TESTIMONIALS } from '@/data/lawFirmData';
+import { usePortalStore } from '@/lib/portalStore';
 
 export const ReviewsSection: React.FC = () => {
+  const { reviews } = usePortalStore();
+  const activeReviews = reviews && reviews.length > 0
+    ? reviews.filter((r) => r.status !== 'archived')
+    : TESTIMONIALS;
+  const displayReviews = activeReviews.length > 0 ? activeReviews : TESTIMONIALS;
+
+  // Calculate dynamic average rating
+  const avgRating = (
+    displayReviews.reduce((acc, r) => acc + (Number(r.rating) || 5), 0) / displayReviews.length
+  ).toFixed(2);
+
+  // Determine marquee list (repeat enough times for seamless continuous horizontal scroll)
+  const repeatCount = Math.max(2, Math.ceil(8 / displayReviews.length));
+  const marqueeItems = Array(repeatCount).fill(displayReviews).flat();
+
   return (
     <motion.section
       initial={{ opacity: 0, y: 30 }}
@@ -50,7 +66,7 @@ export const ReviewsSection: React.FC = () => {
                 <Star key={i} className="w-5 h-5 text-[#F5A623] fill-[#F5A623]" />
               ))}
             </div>
-            <div className="font-heading font-extrabold text-3xl text-[#1A1A1A]">4.98 / 5.0</div>
+            <div className="font-heading font-extrabold text-3xl text-[#1A1A1A]">{avgRating} / 5.0</div>
             <div className="text-xs text-[#5A6275] font-medium mt-1">Client Rating</div>
           </div>
 
@@ -73,7 +89,7 @@ export const ReviewsSection: React.FC = () => {
 
           {/* Marquee Track */}
           <div className="flex gap-4 sm:gap-6 lg:gap-8 animate-marquee-rtl group-hover:[animation-play-state:paused] w-max">
-            {[...TESTIMONIALS, ...TESTIMONIALS, ...TESTIMONIALS, ...TESTIMONIALS].map((review, idx) => (
+            {marqueeItems.map((review, idx) => (
               <div
                 key={`${review.id}-${idx}`}
                 className="w-[85vw] sm:w-[380px] md:w-[420px] lg:w-[460px] shrink-0 bg-white rounded-3xl p-6 sm:p-8 border border-[#0F6B4C]/15 shadow-sm hover:shadow-md transition-all duration-300 flex flex-col justify-between relative group/card"

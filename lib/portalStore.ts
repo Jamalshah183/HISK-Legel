@@ -16,7 +16,8 @@ import {
   RiskLevel,
   ClientCredential,
   PracticeArea,
-  TeamMember
+  TeamMember,
+  ReviewItem
 } from '@/types/portal';
 import {
   INITIAL_CLIENTS,
@@ -30,7 +31,8 @@ import {
   INITIAL_NOTIFICATIONS,
   INITIAL_CLIENT_CREDENTIALS,
   INITIAL_PRACTICE_AREAS,
-  INITIAL_TEAM_MEMBERS
+  INITIAL_TEAM_MEMBERS,
+  INITIAL_REVIEWS
 } from '@/data/portalSeedData';
 import { db } from './firebase';
 import { collection, onSnapshot, doc, setDoc, deleteDoc } from 'firebase/firestore';
@@ -47,7 +49,8 @@ const STORAGE_KEYS = {
   NOTIFICATIONS: 'hisk_portal_notifications_v2',
   CLIENT_CREDENTIALS: 'hisk_portal_client_credentials_v2',
   PRACTICE_AREAS: 'hisk_portal_practice_areas_v2',
-  TEAM_MEMBERS: 'hisk_portal_team_members_v2'
+  TEAM_MEMBERS: 'hisk_portal_team_members_v2',
+  REVIEWS: 'hisk_portal_reviews_v2'
 };
 
 const createUniqueId = (prefix: string) => `${prefix}-${Date.now().toString().slice(-4)}`;
@@ -174,6 +177,16 @@ export function usePortalStore() {
       return saved ? JSON.parse(saved) : INITIAL_TEAM_MEMBERS;
     } catch {
       return INITIAL_TEAM_MEMBERS;
+    }
+  });
+
+  const [reviews, setReviews] = useState<ReviewItem[]>(() => {
+    if (typeof window === 'undefined') return INITIAL_REVIEWS;
+    try {
+      const saved = localStorage.getItem(STORAGE_KEYS.REVIEWS);
+      return saved ? JSON.parse(saved) : INITIAL_REVIEWS;
+    } catch {
+      return INITIAL_REVIEWS;
     }
   });
 
@@ -346,6 +359,17 @@ export function usePortalStore() {
       }
     }, (err) => console.warn('Team Members snapshot error:', err));
 
+    // 13. Client Reviews & Testimonials
+    const unsubReviews = onSnapshot(collection(db, 'client_reviews'), (snap) => {
+      if (snap.empty) {
+        INITIAL_REVIEWS.forEach((r) => saveToFirestoreDoc('client_reviews', r.id, r));
+      } else {
+        const items = snap.docs.map((d) => d.data() as ReviewItem);
+        setReviews(items);
+        saveToStorage(STORAGE_KEYS.REVIEWS, items);
+      }
+    }, (err) => console.warn('Client Reviews snapshot error:', err));
+
     return () => {
       unsubClients();
       unsubCases();
@@ -359,6 +383,7 @@ export function usePortalStore() {
       unsubCreds();
       unsubPracticeAreas();
       unsubTeam();
+      unsubReviews();
     };
   }, []);
 
@@ -1038,6 +1063,52 @@ export function usePortalStore() {
     INITIAL_TEAM_MEMBERS.forEach((m) => saveToFirestoreDoc('team_members', m.id, m));
   };
 
+  // --- REVIEWS & TESTIMONIALS ACTIONS ---
+  const addReview = (reviewData: Omit<ReviewItem, 'id' | 'createdAt'>) => {
+    const newId = createUniqueId('rev');
+    const newReview: ReviewItem = {
+      ...reviewData,
+      id: newId,
+      status: reviewData.status || 'published',
+      createdAt: getTodayDateString(),
+      updatedAt: getTodayDateString()
+    };
+    const updated = [newReview, ...reviews];
+    setReviews(updated);
+    saveToStorage(STORAGE_KEYS.REVIEWS, updated);
+    saveToFirestoreDoc('client_reviews', newId, newReview);
+    return newReview;
+  };
+
+  const updateReview = (id: string, updates: Partial<ReviewItem>) => {
+    let targetDoc: ReviewItem | null = null;
+    const updated = reviews.map((r) => {
+      if (r.id === id) {
+        targetDoc = { ...r, ...updates, updatedAt: getTodayDateString() };
+        return targetDoc;
+      }
+      return r;
+    });
+    setReviews(updated);
+    saveToStorage(STORAGE_KEYS.REVIEWS, updated);
+    if (targetDoc) {
+      saveToFirestoreDoc('client_reviews', id, targetDoc);
+    }
+  };
+
+  const deleteReview = (id: string) => {
+    const updated = reviews.filter((r) => r.id !== id);
+    setReviews(updated);
+    saveToStorage(STORAGE_KEYS.REVIEWS, updated);
+    deleteFromFirestoreDoc('client_reviews', id);
+  };
+
+  const resetReviews = () => {
+    setReviews(INITIAL_REVIEWS);
+    saveToStorage(STORAGE_KEYS.REVIEWS, INITIAL_REVIEWS);
+    INITIAL_REVIEWS.forEach((r) => saveToFirestoreDoc('client_reviews', r.id, r));
+  };
+
   return {
     isLoaded,
     clients,
@@ -1052,6 +1123,7 @@ export function usePortalStore() {
     clientCredentials,
     practiceAreas,
     teamMembers,
+    reviews,
     addClient,
     addClientCredential,
     addCase,
@@ -1077,6 +1149,10 @@ export function usePortalStore() {
     addTeamMember,
     updateTeamMember,
     deleteTeamMember,
-    resetTeamMembers
+    resetTeamMembers,
+    addReview,
+    updateReview,
+    deleteReview,
+    resetReviews
   };
 }

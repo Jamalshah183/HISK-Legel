@@ -215,3 +215,21 @@ export interface TeamMember {
   updatedAt?: string;
 }
 
+export interface ReviewItem {
+  id: string;
+  clientInitials: string;
+  clientRole: string;
+  location: string;
+  caseType: string;
+  dollarSaved: string;
+  rating: number;
+  reviewText: string;
+  verifiedBadge: boolean;
+  date: string;
+  status?: 'published' | 'pending' | 'archived';
+  featured?: boolean;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+
