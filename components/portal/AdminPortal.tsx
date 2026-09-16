@@ -59,7 +59,8 @@ import {
   Gavel,
   Scroll,
   Shield,
-  Building2
+  Building2,
+  Award
 } from 'lucide-react';
 import { usePortalStore } from '@/lib/portalStore';
 import { InvoicePdfModal } from '@/components/portal/InvoicePdfModal';
@@ -76,7 +77,8 @@ import {
   LegalForum,
   CaseStatus,
   RiskLevel,
-  PracticeArea
+  PracticeArea,
+  TeamMember
 } from '@/types/portal';
 import { buildGoogleCalendarUrl } from '@/lib/googleCalendar';
 import { buildWhatsAppUrl } from '@/lib/whatsapp';
@@ -192,11 +194,16 @@ export const AdminPortal: React.FC = () => {
     addPracticeArea,
     updatePracticeArea,
     deletePracticeArea,
-    resetPracticeAreas
+    resetPracticeAreas,
+    teamMembers,
+    addTeamMember,
+    updateTeamMember,
+    deleteTeamMember,
+    resetTeamMembers
   } = usePortalStore();
 
   const [activeTab, setActiveTab] = useState<
-    'dashboard' | 'cases' | 'calendar' | 'documents' | 'tasks' | 'billing' | 'notifications' | 'practiceAreas'
+    'dashboard' | 'cases' | 'calendar' | 'documents' | 'tasks' | 'billing' | 'notifications' | 'practiceAreas' | 'team'
   >('dashboard');
 
   // Calendar Month Navigation State
@@ -219,6 +226,28 @@ export const AdminPortal: React.FC = () => {
     iconName: 'Scale',
     shortDesc: '',
     subServicesText: ''
+  });
+
+  // Team Members Search, Filters & Modal States
+  const [teamSearchTerm, setTeamSearchTerm] = useState('');
+  const [teamRoleFilter, setTeamRoleFilter] = useState('All');
+  const [showTeamModal, setShowTeamModal] = useState(false);
+  const [editingTeamMember, setEditingTeamMember] = useState<TeamMember | null>(null);
+  const [deleteConfirmMember, setDeleteConfirmMember] = useState<TeamMember | null>(null);
+  const [teamActionSuccess, setTeamActionSuccess] = useState<string | null>(null);
+
+  // Simple Team Member Form State
+  const [teamFormData, setTeamFormData] = useState({
+    name: '',
+    title: 'Advocate High Court | Associate Counsel',
+    roleCategory: 'Associate Counsel',
+    experienceYears: 10,
+    specialty: 'Civil, Criminal, Corporate & High Court Litigation',
+    bio: '',
+    keyWin: 'Successfully represented corporate and private clients before High Court benches.',
+    credentialsText: 'Advocate High Court, High Court Bar Association, Associate Counsel',
+    image: 'https://i.postimg.cc/Qtsx9f0Q/advocate-high-court.jpg',
+    isCeo: false
   });
 
   // Case Management Search & Filters
@@ -572,6 +601,127 @@ export const AdminPortal: React.FC = () => {
       case 'Scale':
       default:
         return <Scale className={className} />;
+    }
+  };
+
+  // Team Members Filtering & Handlers
+  const filteredTeamMembers = (teamMembers || []).filter((m) => {
+    const q = teamSearchTerm.trim().toLowerCase();
+    const matchesSearch =
+      q === '' ||
+      m.name.toLowerCase().includes(q) ||
+      m.title.toLowerCase().includes(q) ||
+      m.specialty.toLowerCase().includes(q) ||
+      m.bio.toLowerCase().includes(q) ||
+      (m.credentials && m.credentials.some((c) => c.toLowerCase().includes(q)));
+
+    const matchesRole =
+      teamRoleFilter === 'All' ||
+      (teamRoleFilter === 'CEO' && m.isCeo) ||
+      (teamRoleFilter === 'Associate' && !m.isCeo);
+
+    return matchesSearch && matchesRole;
+  });
+
+  const handleOpenAddTeamMember = () => {
+    setEditingTeamMember(null);
+    setTeamFormData({
+      name: '',
+      title: 'Advocate High Court | Associate Counsel',
+      roleCategory: 'Associate Counsel',
+      experienceYears: 10,
+      specialty: 'Civil, Criminal, Corporate & High Court Litigation',
+      bio: '',
+      keyWin: 'Successfully represented corporate and private clients before High Court benches.',
+      credentialsText: 'Advocate High Court, High Court Bar Association, Associate Counsel',
+      image: 'https://i.postimg.cc/Qtsx9f0Q/advocate-high-court.jpg',
+      isCeo: false
+    });
+    setShowTeamModal(true);
+  };
+
+  const handleOpenEditTeamMember = (member: TeamMember) => {
+    setEditingTeamMember(member);
+    setTeamFormData({
+      name: member.name,
+      title: member.title,
+      roleCategory: member.isCeo ? 'Founder & CEO' : 'Associate Counsel',
+      experienceYears: member.experienceYears || 10,
+      specialty: member.specialty || '',
+      bio: member.bio || '',
+      keyWin: member.keyWin || '',
+      credentialsText: (member.credentials || []).join(', '),
+      image: member.image || 'https://i.postimg.cc/Qtsx9f0Q/advocate-high-court.jpg',
+      isCeo: !!member.isCeo
+    });
+    setShowTeamModal(true);
+  };
+
+  const handleSaveTeamMember = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!teamFormData.name.trim()) return;
+
+    const credsList = teamFormData.credentialsText
+      ? teamFormData.credentialsText
+          .split(/[\n,]+/)
+          .map((c) => c.trim())
+          .filter(Boolean)
+      : ['Advocate High Court'];
+
+    const bioText =
+      teamFormData.bio.trim() ||
+      `${teamFormData.name.trim()} is an experienced advocate at HISK LEGAL specializing in ${teamFormData.specialty.trim() || 'legal advisory, appellate defense, and court representation'}.`;
+
+    const keyWinText =
+      teamFormData.keyWin.trim() ||
+      'Consistently secured favorable legal relief and stay orders for clients across appellate forums.';
+
+    if (editingTeamMember) {
+      updateTeamMember(editingTeamMember.id, {
+        name: teamFormData.name.trim(),
+        title: teamFormData.title.trim(),
+        experienceYears: Number(teamFormData.experienceYears) || 5,
+        specialty: teamFormData.specialty.trim() || 'Appellate & Corporate Law',
+        bio: bioText,
+        fullBio: [bioText],
+        credentials: credsList,
+        keyWin: keyWinText,
+        image: teamFormData.image.trim() || 'https://i.postimg.cc/Qtsx9f0Q/advocate-high-court.jpg',
+        isCeo: teamFormData.isCeo
+      });
+      setTeamActionSuccess(`Updated team member "${teamFormData.name.trim()}" successfully.`);
+    } else {
+      addTeamMember({
+        name: teamFormData.name.trim(),
+        title: teamFormData.title.trim(),
+        experienceYears: Number(teamFormData.experienceYears) || 5,
+        specialty: teamFormData.specialty.trim() || 'Appellate & Corporate Law',
+        bio: bioText,
+        fullBio: [bioText],
+        credentials: credsList,
+        keyWin: keyWinText,
+        image: teamFormData.image.trim() || 'https://i.postimg.cc/Qtsx9f0Q/advocate-high-court.jpg',
+        isCeo: teamFormData.isCeo
+      });
+      setTeamActionSuccess(`Added "${teamFormData.name.trim()}" to the firm roster.`);
+    }
+
+    setShowTeamModal(false);
+    setTimeout(() => setTeamActionSuccess(null), 4000);
+  };
+
+  const handleDeleteTeamMember = (member: TeamMember) => {
+    deleteTeamMember(member.id);
+    setDeleteConfirmMember(null);
+    setTeamActionSuccess(`Removed team member "${member.name}".`);
+    setTimeout(() => setTeamActionSuccess(null), 4000);
+  };
+
+  const handleResetTeamMembers = () => {
+    if (typeof window !== 'undefined' && window.confirm('Reset team roster to original founding counsel members?')) {
+      resetTeamMembers();
+      setTeamActionSuccess('Restored founding attorneys roster.');
+      setTimeout(() => setTeamActionSuccess(null), 4000);
     }
   };
 
@@ -1336,7 +1486,8 @@ export const AdminPortal: React.FC = () => {
               { id: 'tasks', label: 'Tasks & Internal Notes', icon: CheckSquare },
               { id: 'billing', label: 'Billing & Invoices', icon: CreditCard },
               { id: 'notifications', label: 'WhatsApp / Email Alerts', icon: Send },
-              { id: 'practiceAreas', label: 'Practice Areas', icon: Scale, badge: practiceAreas?.length || 0 }
+              { id: 'practiceAreas', label: 'Practice Areas', icon: Scale, badge: practiceAreas?.length || 0 },
+              { id: 'team', label: 'Our Team', icon: Users, badge: teamMembers?.length || 0 }
             ].map((item) => {
               const Icon = item.icon;
               const isActive = activeTab === item.id;
@@ -2885,6 +3036,218 @@ export const AdminPortal: React.FC = () => {
                   >
                     <RefreshCw className="w-3 h-3" />
                     <span>Restore default services</span>
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* --- TAB 11: OUR TEAM MANAGEMENT (SIMPLIFIED) --- */}
+        {activeTab === 'team' && (
+          <div className="space-y-6">
+            {/* Header */}
+            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 bg-white p-6 rounded-3xl border border-[#0F6B4C]/15 shadow-sm">
+              <div>
+                <h1 className="text-2xl font-heading font-extrabold text-[#1A1A1A]">Our Team</h1>
+                <p className="text-xs text-[#5A6275] mt-0.5">
+                  Manage the attorneys, partners, and legal counsel displayed on your public website.
+                </p>
+              </div>
+
+              <button
+                type="button"
+                onClick={handleOpenAddTeamMember}
+                className="bg-[#0A4B35] hover:bg-[#0F6B4C] text-white font-extrabold px-5 py-2.5 rounded-2xl text-xs flex items-center gap-2 shadow-sm transition-all cursor-pointer shrink-0"
+              >
+                <Plus className="w-4 h-4 text-[#F5A623]" />
+                <span>Add Team Member</span>
+              </button>
+            </div>
+
+            {/* Success Alert */}
+            {teamActionSuccess && (
+              <div className="bg-emerald-50 border border-emerald-300 text-emerald-900 px-5 py-3 rounded-2xl flex items-center justify-between text-xs font-semibold shadow-sm">
+                <div className="flex items-center gap-2">
+                  <CheckCircle2 className="w-4 h-4 text-[#0F6B4C] shrink-0" />
+                  <span>{teamActionSuccess}</span>
+                </div>
+                <button
+                  onClick={() => setTeamActionSuccess(null)}
+                  className="text-emerald-700 hover:text-emerald-900 font-bold"
+                >
+                  ✕
+                </button>
+              </div>
+            )}
+
+            {/* Search & Filter Bar */}
+            <div className="bg-white p-4 rounded-3xl border border-[#0F6B4C]/15 shadow-sm flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
+              <div className="relative flex-1">
+                <Search className="w-4 h-4 text-[#5A6275] absolute left-3.5 top-1/2 -translate-y-1/2" />
+                <input
+                  type="text"
+                  value={teamSearchTerm}
+                  onChange={(e) => setTeamSearchTerm(e.target.value)}
+                  placeholder="Search by advocate name, specialty, title, or credential..."
+                  className="w-full pl-10 pr-8 py-2 bg-[#FAFAF7] rounded-xl border border-gray-200 text-xs focus:outline-none focus:border-[#0F6B4C]"
+                />
+                {teamSearchTerm && (
+                  <button
+                    onClick={() => setTeamSearchTerm('')}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 text-xs"
+                  >
+                    ✕
+                  </button>
+                )}
+              </div>
+
+              <div className="flex items-center gap-2 shrink-0">
+                <div className="flex items-center gap-1.5 text-xs text-gray-600 bg-[#FAFAF7] px-3 py-1.5 rounded-xl border border-gray-200">
+                  <Filter className="w-3.5 h-3.5 text-gray-400" />
+                  <span className="text-[11px] font-bold">Role:</span>
+                  <select
+                    value={teamRoleFilter}
+                    onChange={(e) => setTeamRoleFilter(e.target.value)}
+                    className="bg-transparent text-xs font-bold text-[#0F6B4C] focus:outline-none cursor-pointer"
+                  >
+                    <option value="All">All Members ({teamMembers?.length || 0})</option>
+                    <option value="CEO">Leadership / CEO</option>
+                    <option value="Associate">Associate Counsel</option>
+                  </select>
+                </div>
+
+                <div className="text-xs font-bold text-gray-500 bg-gray-100 px-3 py-2 rounded-xl">
+                  {filteredTeamMembers.length} {filteredTeamMembers.length === 1 ? 'member' : 'members'}
+                </div>
+              </div>
+            </div>
+
+            {/* List of Team Members */}
+            {filteredTeamMembers.length === 0 ? (
+              <div className="bg-white rounded-3xl p-12 text-center border border-gray-200 space-y-3">
+                <div className="w-12 h-12 rounded-full bg-gray-100 text-gray-400 flex items-center justify-center mx-auto">
+                  <Users className="w-6 h-6" />
+                </div>
+                <h3 className="font-bold text-gray-700 text-sm">No team members match your search</h3>
+                <p className="text-xs text-gray-400 max-w-sm mx-auto">
+                  Try clearing your search query or reset the filter to view all advocates and partners.
+                </p>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setTeamSearchTerm('');
+                    setTeamRoleFilter('All');
+                  }}
+                  className="px-4 py-2 bg-gray-100 hover:bg-gray-200 text-xs font-bold rounded-xl text-gray-700 transition-colors cursor-pointer"
+                >
+                  Clear Filters
+                </button>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {filteredTeamMembers.map((member) => (
+                  <div
+                    key={member.id}
+                    className="bg-white rounded-2xl border border-[#0F6B4C]/15 p-4 sm:p-5 shadow-sm hover:shadow-md transition-all flex flex-col md:flex-row md:items-center justify-between gap-4"
+                  >
+                    {/* Left: Avatar, Name, Role & Details */}
+                    <div className="flex items-start gap-4 flex-1 min-w-0">
+                      <div className="relative w-14 h-14 sm:w-16 sm:h-16 rounded-2xl overflow-hidden shrink-0 border-2 border-[#0F6B4C]/20 bg-emerald-950 shadow-sm">
+                        <Image
+                          src={member.image || 'https://i.postimg.cc/Qtsx9f0Q/advocate-high-court.jpg'}
+                          alt={member.name}
+                          fill
+                          unoptimized
+                          className="object-cover object-top"
+                          referrerPolicy="no-referrer"
+                        />
+                        {member.isCeo && (
+                          <div className="absolute top-0 right-0 bg-[#F5A623] text-black p-0.5 rounded-bl-lg shadow-sm" title="Founder & CEO">
+                            <Award className="w-3 h-3" />
+                          </div>
+                        )}
+                      </div>
+
+                      <div className="space-y-1 min-w-0 flex-1">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <h3 className="font-heading font-extrabold text-[#1A1A1A] text-sm sm:text-base">
+                            {member.name}
+                          </h3>
+                          {member.isCeo && (
+                            <span className="text-[10px] font-extrabold text-[#D98200] bg-[#F5A623]/15 px-2 py-0.5 rounded-md border border-[#F5A623]/30 flex items-center gap-1">
+                              <Award className="w-3 h-3 text-[#D98200]" />
+                              <span>Founder &amp; CEO</span>
+                            </span>
+                          )}
+                          <span className="text-[10px] font-bold text-emerald-800 bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-200">
+                            {member.experienceYears || 10}+ Years Exp
+                          </span>
+                        </div>
+
+                        <div className="text-xs font-semibold text-[#0F6B4C]">
+                          {member.title}
+                        </div>
+
+                        <p className="text-xs text-[#5A6275] line-clamp-2 leading-relaxed">
+                          {member.bio}
+                        </p>
+
+                        <div className="flex flex-wrap items-center gap-1.5 pt-1">
+                          <span className="text-[10px] font-bold text-gray-400">Credentials:</span>
+                          {(member.credentials || []).map((cred, i) => (
+                            <span
+                              key={i}
+                              className="text-[10px] font-medium bg-[#FAFAF7] text-gray-700 px-2 py-0.5 rounded border border-gray-200"
+                            >
+                              {cred}
+                            </span>
+                          ))}
+                        </div>
+
+                        {member.specialty && (
+                          <div className="text-[11px] text-gray-600 font-medium pt-0.5">
+                            <span className="font-bold text-[#0F6B4C]">Focus: </span>
+                            {member.specialty}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Right: Action Buttons */}
+                    <div className="flex items-center gap-2 pt-2 md:pt-0 border-t md:border-t-0 border-gray-100 shrink-0 justify-end">
+                      <button
+                        type="button"
+                        onClick={() => handleOpenEditTeamMember(member)}
+                        className="px-3.5 py-2 rounded-xl bg-gray-100 hover:bg-[#0A4B35] hover:text-white text-gray-700 text-xs font-bold transition-colors flex items-center gap-1.5 cursor-pointer"
+                      >
+                        <Edit3 className="w-3.5 h-3.5" />
+                        <span>Edit</span>
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => setDeleteConfirmMember(member)}
+                        className="px-3.5 py-2 rounded-xl bg-red-50 hover:bg-red-100 text-red-600 text-xs font-bold transition-colors flex items-center gap-1.5 cursor-pointer"
+                        title="Delete Team Member"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                        <span>Delete</span>
+                      </button>
+                    </div>
+                  </div>
+                ))}
+
+                {/* Reset link at bottom */}
+                <div className="pt-4 flex items-center justify-between text-xs text-gray-400 px-2">
+                  <span>Showing {filteredTeamMembers.length} team members</span>
+                  <button
+                    type="button"
+                    onClick={handleResetTeamMembers}
+                    className="hover:text-gray-600 underline flex items-center gap-1 text-[11px] cursor-pointer"
+                  >
+                    <RefreshCw className="w-3 h-3" />
+                    <span>Restore default team roster</span>
                   </button>
                 </div>
               </div>
@@ -5496,6 +5859,265 @@ export const AdminPortal: React.FC = () => {
               >
                 <Trash2 className="w-3.5 h-3.5" />
                 <span>Confirm Delete</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL: ADD / EDIT TEAM MEMBER */}
+      {showTeamModal && (
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-white rounded-3xl max-w-xl w-full p-6 border border-[#0F6B4C]/20 shadow-2xl max-h-[92vh] overflow-y-auto space-y-4">
+            {/* Header */}
+            <div className="flex justify-between items-center border-b border-gray-100 pb-3">
+              <div>
+                <span className="text-[10px] font-bold text-[#F5A623] uppercase tracking-wider block">
+                  Firm Leadership & Counsel
+                </span>
+                <h3 className="text-lg font-heading font-extrabold text-[#1A1A1A]">
+                  {editingTeamMember ? 'Edit Team Member' : 'Add New Team Member'}
+                </h3>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowTeamModal(false)}
+                className="text-gray-400 hover:text-black font-bold p-1"
+              >
+                ✕
+              </button>
+            </div>
+
+            {/* Form */}
+            <form onSubmit={handleSaveTeamMember} className="space-y-4 text-xs">
+              {/* Field 1: Full Name */}
+              <div>
+                <label className="font-bold text-gray-800 block mb-1">
+                  Full Name <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="text"
+                  required
+                  placeholder="e.g. Hafiz Irfan Shabber Kayani"
+                  value={teamFormData.name}
+                  onChange={(e) => setTeamFormData({ ...teamFormData, name: e.target.value })}
+                  className="w-full bg-[#FAFAF7] px-3 py-2.5 rounded-xl border border-gray-200 text-xs focus:outline-none focus:border-[#0F6B4C]"
+                />
+              </div>
+
+              {/* Field 2: Designation / Title */}
+              <div>
+                <label className="font-bold text-gray-800 block mb-1">
+                  Designation / Role Title <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="text"
+                  required
+                  placeholder="e.g. Advocate High Court | Associate Counsel"
+                  value={teamFormData.title}
+                  onChange={(e) => setTeamFormData({ ...teamFormData, title: e.target.value })}
+                  className="w-full bg-[#FAFAF7] px-3 py-2.5 rounded-xl border border-gray-200 text-xs focus:outline-none focus:border-[#0F6B4C]"
+                />
+              </div>
+
+              {/* Field 3: Experience & CEO Toggle */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 items-center">
+                <div>
+                  <label className="font-bold text-gray-800 block mb-1">
+                    Years of Experience
+                  </label>
+                  <input
+                    type="number"
+                    min={1}
+                    max={60}
+                    value={teamFormData.experienceYears}
+                    onChange={(e) => setTeamFormData({ ...teamFormData, experienceYears: Number(e.target.value) || 1 })}
+                    className="w-full bg-[#FAFAF7] px-3 py-2 rounded-xl border border-gray-200 text-xs focus:outline-none focus:border-[#0F6B4C]"
+                  />
+                </div>
+
+                <div className="pt-2 sm:pt-4">
+                  <label className="flex items-center gap-2 cursor-pointer bg-[#FAFAF7] p-2.5 rounded-xl border border-gray-200 hover:border-[#0F6B4C]">
+                    <input
+                      type="checkbox"
+                      checked={teamFormData.isCeo}
+                      onChange={(e) => setTeamFormData({ ...teamFormData, isCeo: e.target.checked })}
+                      className="w-4 h-4 text-[#0F6B4C] rounded border-gray-300 focus:ring-[#0F6B4C] cursor-pointer"
+                    />
+                    <span className="font-bold text-gray-800 text-[11px] flex items-center gap-1">
+                      <Award className="w-3.5 h-3.5 text-[#F5A623]" />
+                      Founder &amp; Chief Executive Officer
+                    </span>
+                  </label>
+                </div>
+              </div>
+
+              {/* Field 4: Practice Scope / Specialty */}
+              <div>
+                <label className="font-bold text-gray-800 block mb-1">
+                  Primary Practice Scope / Specialty
+                </label>
+                <input
+                  type="text"
+                  placeholder="e.g. Civil, Criminal, Corporate & High Court Litigation"
+                  value={teamFormData.specialty}
+                  onChange={(e) => setTeamFormData({ ...teamFormData, specialty: e.target.value })}
+                  className="w-full bg-[#FAFAF7] px-3 py-2 rounded-xl border border-gray-200 text-xs focus:outline-none focus:border-[#0F6B4C]"
+                />
+              </div>
+
+              {/* Field 5: Credentials */}
+              <div>
+                <div className="flex items-center justify-between mb-1">
+                  <label className="font-bold text-gray-800">
+                    Professional Credentials
+                  </label>
+                  <span className="text-[10px] text-gray-400">Separate with commas</span>
+                </div>
+                <input
+                  type="text"
+                  placeholder="e.g. Advocate High Court, High Court Bar Association, Associate Counsel"
+                  value={teamFormData.credentialsText}
+                  onChange={(e) => setTeamFormData({ ...teamFormData, credentialsText: e.target.value })}
+                  className="w-full bg-[#FAFAF7] px-3 py-2 rounded-xl border border-gray-200 text-xs focus:outline-none focus:border-[#0F6B4C]"
+                />
+              </div>
+
+              {/* Field 6: Biography */}
+              <div>
+                <label className="font-bold text-gray-800 block mb-1">
+                  Professional Biography
+                </label>
+                <textarea
+                  rows={3}
+                  placeholder="Brief summary of advocate's legal background, qualifications, and domain practice..."
+                  value={teamFormData.bio}
+                  onChange={(e) => setTeamFormData({ ...teamFormData, bio: e.target.value })}
+                  className="w-full bg-[#FAFAF7] p-2.5 rounded-xl border border-gray-200 text-xs focus:outline-none focus:border-[#0F6B4C] leading-relaxed"
+                />
+              </div>
+
+              {/* Field 7: Key Strategic Win */}
+              <div>
+                <label className="font-bold text-gray-800 block mb-1">
+                  Notable Case / Strategic Achievement
+                </label>
+                <input
+                  type="text"
+                  placeholder="e.g. Secured landmark stay order against Rs. 450M demand in High Court"
+                  value={teamFormData.keyWin}
+                  onChange={(e) => setTeamFormData({ ...teamFormData, keyWin: e.target.value })}
+                  className="w-full bg-[#FAFAF7] px-3 py-2 rounded-xl border border-gray-200 text-xs focus:outline-none focus:border-[#0F6B4C]"
+                />
+              </div>
+
+              {/* Field 8: Photo URL & Quick Presets */}
+              <div className="space-y-2">
+                <label className="font-bold text-gray-800 block">
+                  Profile Photo URL
+                </label>
+                <div className="flex items-center gap-3">
+                  <div className="relative w-12 h-12 rounded-xl overflow-hidden shrink-0 border border-gray-300 bg-gray-100">
+                    <Image
+                      src={teamFormData.image || 'https://i.postimg.cc/Qtsx9f0Q/advocate-high-court.jpg'}
+                      alt="Preview"
+                      fill
+                      unoptimized
+                      className="object-cover object-top"
+                      referrerPolicy="no-referrer"
+                    />
+                  </div>
+                  <input
+                    type="url"
+                    placeholder="https://..."
+                    value={teamFormData.image}
+                    onChange={(e) => setTeamFormData({ ...teamFormData, image: e.target.value })}
+                    className="flex-1 bg-[#FAFAF7] px-3 py-2 rounded-xl border border-gray-200 text-xs focus:outline-none focus:border-[#0F6B4C]"
+                  />
+                </div>
+
+                {/* Portrait presets */}
+                <div className="flex flex-wrap items-center gap-1.5 pt-1">
+                  <span className="text-[10px] text-gray-400 font-bold">Quick Presets:</span>
+                  {[
+                    { label: 'CEO Portrait', url: 'https://i.postimg.cc/VvWYYzzW/CEO.jpg' },
+                    { label: 'Associate 1', url: 'https://i.postimg.cc/yY6Km4V5/Associate-1.jpg' },
+                    { label: 'Associate 2', url: 'https://i.postimg.cc/Qtsx9f0Q/advocate-high-court.jpg' },
+                    { label: 'Associate 3', url: 'https://i.postimg.cc/qRCSrr8s/associate-3.jpg' }
+                  ].map((preset) => (
+                    <button
+                      key={preset.label}
+                      type="button"
+                      onClick={() => setTeamFormData({ ...teamFormData, image: preset.url })}
+                      className="text-[10px] font-semibold bg-gray-100 hover:bg-[#0A4B35] hover:text-white px-2 py-0.5 rounded-md transition-colors cursor-pointer"
+                    >
+                      {preset.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Form Buttons */}
+              <div className="pt-3 border-t border-gray-100 flex items-center justify-end gap-2.5">
+                <button
+                  type="button"
+                  onClick={() => setShowTeamModal(false)}
+                  className="bg-gray-100 hover:bg-gray-200 text-gray-700 font-bold px-4 py-2 rounded-xl text-xs transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="bg-[#0A4B35] hover:bg-[#0F6B4C] text-white font-extrabold px-5 py-2 rounded-xl text-xs flex items-center gap-1.5 shadow-sm transition-all cursor-pointer"
+                >
+                  <CheckCircle2 className="w-3.5 h-3.5 text-[#F5A623]" />
+                  <span>{editingTeamMember ? 'Save Changes' : 'Add Team Member'}</span>
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL: DELETE TEAM MEMBER CONFIRMATION */}
+      {deleteConfirmMember && (
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-white rounded-3xl max-w-md w-full p-6 border border-red-200 shadow-2xl space-y-4">
+            <div className="flex items-center gap-3 text-red-600">
+              <div className="w-10 h-10 rounded-2xl bg-red-50 flex items-center justify-center shrink-0 border border-red-200">
+                <Trash2 className="w-5 h-5 text-red-600" />
+              </div>
+              <div>
+                <h3 className="text-base font-heading font-extrabold text-[#1A1A1A]">Remove Team Member?</h3>
+                <p className="text-[11px] text-gray-500">This action will remove the advocate from the firm roster.</p>
+              </div>
+            </div>
+
+            <div className="bg-red-50/50 p-4 rounded-2xl border border-red-100 text-xs text-gray-700 space-y-1.5">
+              <p>
+                Are you sure you want to remove{' '}
+                <strong className="text-black font-extrabold">&quot;{deleteConfirmMember.name}&quot;</strong> ({deleteConfirmMember.title})?
+              </p>
+              <p className="text-[11px] text-red-700">
+                They will immediately disappear from the public website carousel, attorney roster, and direct consultation links.
+              </p>
+            </div>
+
+            <div className="flex items-center justify-end gap-2.5 pt-2">
+              <button
+                type="button"
+                onClick={() => setDeleteConfirmMember(null)}
+                className="bg-gray-100 hover:bg-gray-200 text-gray-700 font-bold px-4 py-2 rounded-xl text-xs transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={() => handleDeleteTeamMember(deleteConfirmMember)}
+                className="bg-red-600 hover:bg-red-700 text-white font-extrabold px-4 py-2 rounded-xl text-xs flex items-center gap-1.5 transition-colors shadow-sm"
+              >
+                <Trash2 className="w-3.5 h-3.5" />
+                <span>Confirm Removal</span>
               </button>
             </div>
           </div>

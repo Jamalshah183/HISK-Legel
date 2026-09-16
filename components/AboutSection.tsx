@@ -24,14 +24,19 @@ import {
   TrendingUp
 } from 'lucide-react';
 import { ATTORNEYS, FIRM_METRICS, Attorney } from '@/data/lawFirmData';
+import { usePortalStore } from '@/lib/portalStore';
+import { TeamMember } from '@/types/portal';
 import { buildWhatsAppUrl } from '@/lib/whatsapp';
 import ceoPortrait from '@/src/assets/images/ceo_kayani_portrait_1784780278642.jpg';
 
 export const AboutSection: React.FC = () => {
-  const [selectedAttorney, setSelectedAttorney] = useState<Attorney | null>(null);
+  const { teamMembers } = usePortalStore();
+  const [selectedAttorney, setSelectedAttorney] = useState<Attorney | TeamMember | null>(null);
   const [attorneyImages, setAttorneyImages] = useState<Record<string, string>>({});
   const [isHovered, setIsHovered] = useState(false);
   const teamScrollRef = useRef<HTMLDivElement>(null);
+
+  const activeAttorneys = teamMembers && teamMembers.length > 0 ? teamMembers : ATTORNEYS;
 
   const handleImageError = (attorneyId: string, currentSrc: string) => {
     if (attorneyId === 'hafiz-irfan-shabber-kayani') {
@@ -41,10 +46,9 @@ export const AboutSection: React.FC = () => {
     }
   };
 
-  const displayAttorneys = [
-    ...ATTORNEYS,
-    ...ATTORNEYS
-  ];
+  const displayAttorneys = activeAttorneys.length < 5
+    ? [...activeAttorneys, ...activeAttorneys]
+    : activeAttorneys;
 
   const handleManualScroll = (direction: 'left' | 'right') => {
     if (teamScrollRef.current) {

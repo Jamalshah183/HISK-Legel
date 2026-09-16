@@ -8,8 +8,10 @@ import {
   Invoice,
   NotificationLog,
   HearingEvent,
-  PracticeArea
+  PracticeArea,
+  TeamMember
 } from '@/types/portal';
+import { ATTORNEYS } from '@/data/lawFirmData';
 
 export const INITIAL_CLIENTS: Client[] = [
   {
@@ -711,4 +713,10 @@ export const INITIAL_PRACTICE_AREAS: PracticeArea[] = [
     badge: 'Personal Law'
   }
 ];
+
+export const INITIAL_TEAM_MEMBERS: TeamMember[] = ATTORNEYS.map((attorney, index) => ({
+  ...attorney,
+  order: index + 1,
+  createdAt: '2025-01-01'
+}));
 

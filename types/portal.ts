@@ -198,3 +198,20 @@ export interface PracticeArea {
   updatedAt?: string;
 }
 
+export interface TeamMember {
+  id: string;
+  name: string;
+  title: string;
+  credentials: string[];
+  experienceYears: number;
+  specialty: string;
+  bio: string;
+  fullBio?: string[];
+  image: string;
+  keyWin: string;
+  isCeo?: boolean;
+  order?: number;
+  createdAt?: string;
+  updatedAt?: string;
+}
+

@@ -15,7 +15,8 @@ import {
   LegalForum,
   RiskLevel,
   ClientCredential,
-  PracticeArea
+  PracticeArea,
+  TeamMember
 } from '@/types/portal';
 import {
   INITIAL_CLIENTS,
@@ -28,7 +29,8 @@ import {
   INITIAL_HEARINGS,
   INITIAL_NOTIFICATIONS,
   INITIAL_CLIENT_CREDENTIALS,
-  INITIAL_PRACTICE_AREAS
+  INITIAL_PRACTICE_AREAS,
+  INITIAL_TEAM_MEMBERS
 } from '@/data/portalSeedData';
 import { db } from './firebase';
 import { collection, onSnapshot, doc, setDoc, deleteDoc } from 'firebase/firestore';
@@ -44,7 +46,8 @@ const STORAGE_KEYS = {
   HEARINGS: 'hisk_portal_hearings_v2',
   NOTIFICATIONS: 'hisk_portal_notifications_v2',
   CLIENT_CREDENTIALS: 'hisk_portal_client_credentials_v2',
-  PRACTICE_AREAS: 'hisk_portal_practice_areas_v2'
+  PRACTICE_AREAS: 'hisk_portal_practice_areas_v2',
+  TEAM_MEMBERS: 'hisk_portal_team_members_v2'
 };
 
 const createUniqueId = (prefix: string) => `${prefix}-${Date.now().toString().slice(-4)}`;
@@ -161,6 +164,16 @@ export function usePortalStore() {
       return saved ? JSON.parse(saved) : INITIAL_PRACTICE_AREAS;
     } catch {
       return INITIAL_PRACTICE_AREAS;
+    }
+  });
+
+  const [teamMembers, setTeamMembers] = useState<TeamMember[]>(() => {
+    if (typeof window === 'undefined') return INITIAL_TEAM_MEMBERS;
+    try {
+      const saved = localStorage.getItem(STORAGE_KEYS.TEAM_MEMBERS);
+      return saved ? JSON.parse(saved) : INITIAL_TEAM_MEMBERS;
+    } catch {
+      return INITIAL_TEAM_MEMBERS;
     }
   });
 
@@ -316,6 +329,23 @@ export function usePortalStore() {
       }
     }, (err) => console.warn('Practice Areas snapshot error:', err));
 
+    // 12. Team Members
+    const unsubTeam = onSnapshot(collection(db, 'team_members'), (snap) => {
+      if (snap.empty) {
+        INITIAL_TEAM_MEMBERS.forEach((m) => saveToFirestoreDoc('team_members', m.id, m));
+      } else {
+        const items = snap.docs.map((d) => d.data() as TeamMember);
+        // Sort by order or ceo first
+        items.sort((a, b) => {
+          if (a.isCeo && !b.isCeo) return -1;
+          if (!a.isCeo && b.isCeo) return 1;
+          return (a.order || 99) - (b.order || 99);
+        });
+        setTeamMembers(items);
+        saveToStorage(STORAGE_KEYS.TEAM_MEMBERS, items);
+      }
+    }, (err) => console.warn('Team Members snapshot error:', err));
+
     return () => {
       unsubClients();
       unsubCases();
@@ -328,6 +358,7 @@ export function usePortalStore() {
       unsubNotifs();
       unsubCreds();
       unsubPracticeAreas();
+      unsubTeam();
     };
   }, []);
 
@@ -959,6 +990,54 @@ export function usePortalStore() {
     INITIAL_PRACTICE_AREAS.forEach((pa) => saveToFirestoreDoc('practice_areas', pa.id, pa));
   };
 
+  const addTeamMember = (memberData: Omit<TeamMember, 'id' | 'createdAt'>) => {
+    const id = memberData.name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '') || `team-${Date.now()}`;
+    const newMember: TeamMember = {
+      ...memberData,
+      id,
+      createdAt: getTodayDateString(),
+      order: teamMembers.length + 1
+    };
+    const updated = [...teamMembers, newMember];
+    setTeamMembers(updated);
+    saveToStorage(STORAGE_KEYS.TEAM_MEMBERS, updated);
+    saveToFirestoreDoc('team_members', id, newMember);
+  };
+
+  const updateTeamMember = (id: string, updatedData: Partial<TeamMember>) => {
+    let targetDoc: TeamMember | null = null;
+    const updated = teamMembers.map((m) => {
+      if (m.id === id) {
+        const obj: TeamMember = {
+          ...m,
+          ...updatedData,
+          updatedAt: getTodayDateString()
+        };
+        targetDoc = obj;
+        return obj;
+      }
+      return m;
+    });
+    setTeamMembers(updated);
+    saveToStorage(STORAGE_KEYS.TEAM_MEMBERS, updated);
+    if (targetDoc) {
+      saveToFirestoreDoc('team_members', id, targetDoc);
+    }
+  };
+
+  const deleteTeamMember = (id: string) => {
+    const updated = teamMembers.filter((m) => m.id !== id);
+    setTeamMembers(updated);
+    saveToStorage(STORAGE_KEYS.TEAM_MEMBERS, updated);
+    deleteFromFirestoreDoc('team_members', id);
+  };
+
+  const resetTeamMembers = () => {
+    setTeamMembers(INITIAL_TEAM_MEMBERS);
+    saveToStorage(STORAGE_KEYS.TEAM_MEMBERS, INITIAL_TEAM_MEMBERS);
+    INITIAL_TEAM_MEMBERS.forEach((m) => saveToFirestoreDoc('team_members', m.id, m));
+  };
+
   return {
     isLoaded,
     clients,
@@ -972,6 +1051,7 @@ export function usePortalStore() {
     notifications,
     clientCredentials,
     practiceAreas,
+    teamMembers,
     addClient,
     addClientCredential,
     addCase,
@@ -993,6 +1073,10 @@ export function usePortalStore() {
     addPracticeArea,
     updatePracticeArea,
     deletePracticeArea,
-    resetPracticeAreas
+    resetPracticeAreas,
+    addTeamMember,
+    updateTeamMember,
+    deleteTeamMember,
+    resetTeamMembers
   };
 }

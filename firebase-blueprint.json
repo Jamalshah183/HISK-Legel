@@ -43,6 +43,10 @@
     "practiceAreas": {
       "title": "Practice Areas",
       "description": "Legal practice areas, services, and defense domains offered by the firm"
+    },
+    "teamMembers": {
+      "title": "Team Members",
+      "description": "Attorneys, advocates, and leadership team of HISK LEGAL"
     }
   }
 }
