@@ -7,7 +7,6 @@ import {
   Clock,
   ChevronRight,
   ChevronLeft,
-  BookMarked,
   ExternalLink
 } from 'lucide-react';
 import { BLOG_POSTS } from '@/data/lawFirmData';
@@ -48,16 +47,22 @@ export const BlogSection: React.FC = () => {
           whileInView={{ opacity: 1, y: 0, filter: 'blur(0px)' }}
           viewport={{ once: false, amount: 0.2 }}
           transition={{ duration: 0.6 }}
-          className="text-center max-w-3xl mx-auto mb-8 sm:mb-10"
+          className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-8 sm:mb-10"
         >
-          <div className="inline-flex items-center gap-2 bg-[#E8F5F0] border border-[#0F6B4C]/20 px-4 py-1.5 rounded-full text-xs font-extrabold text-[#0F6B4C] mb-3">
-            <BookMarked className="w-4 h-4 text-[#F5A623]" />
-            <span>FBR &amp; Legal Analysis</span>
+          <div>
+            <h2 className="font-heading font-extrabold text-3xl sm:text-4xl text-[#1A1A1A] tracking-tight">
+              Legal Insights &amp; Blog
+            </h2>
           </div>
 
-          <h2 className="font-heading font-extrabold text-3xl sm:text-4xl text-[#1A1A1A] tracking-tight">
-            Legal Insights &amp; Blog
-          </h2>
+          <Link
+            href="/insights"
+            id="view-all-insights-btn"
+            className="inline-flex items-center gap-2 bg-[#0F6B4C] hover:bg-[#0A4B35] text-white font-heading font-bold text-xs sm:text-sm py-2.5 px-4 sm:px-5 rounded-xl shadow-xs hover:shadow-md transition-all self-start sm:self-auto shrink-0 cursor-pointer"
+          >
+            <span>See All Insights</span>
+            <ChevronRight className="w-4 h-4 text-[#F5A623]" />
+          </Link>
         </motion.div>
 
         {/* Slideshow Carousel Wrapper with End-Positioned Left/Right Buttons */}
