@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import Image from 'next/image';
 import { motion, AnimatePresence } from 'motion/react';
 import {
@@ -8,6 +8,7 @@ import {
   Lock,
   GraduationCap,
   MessageCircle,
+  ChevronLeft,
   ChevronRight,
   ArrowRight,
   X,
@@ -29,6 +30,8 @@ import ceoPortrait from '@/src/assets/images/ceo_kayani_portrait_1784780278642.j
 export const AboutSection: React.FC = () => {
   const [selectedAttorney, setSelectedAttorney] = useState<Attorney | null>(null);
   const [attorneyImages, setAttorneyImages] = useState<Record<string, string>>({});
+  const [isHovered, setIsHovered] = useState(false);
+  const teamScrollRef = useRef<HTMLDivElement>(null);
 
   const handleImageError = (attorneyId: string, currentSrc: string) => {
     if (attorneyId === 'hafiz-irfan-shabber-kayani') {
@@ -40,10 +43,43 @@ export const AboutSection: React.FC = () => {
 
   const displayAttorneys = [
     ...ATTORNEYS,
-    ...ATTORNEYS,
-    ...ATTORNEYS,
     ...ATTORNEYS
   ];
+
+  const handleManualScroll = (direction: 'left' | 'right') => {
+    if (teamScrollRef.current) {
+      const { scrollLeft, scrollWidth, clientWidth } = teamScrollRef.current;
+      const cardWidth = 340;
+      if (direction === 'right') {
+        if (scrollLeft + clientWidth >= scrollWidth - 15) {
+          teamScrollRef.current.scrollTo({ left: 0, behavior: 'smooth' });
+        } else {
+          teamScrollRef.current.scrollBy({ left: cardWidth, behavior: 'smooth' });
+        }
+      } else {
+        if (scrollLeft <= 15) {
+          teamScrollRef.current.scrollTo({ left: scrollWidth - clientWidth, behavior: 'smooth' });
+        } else {
+          teamScrollRef.current.scrollBy({ left: -cardWidth, behavior: 'smooth' });
+        }
+      }
+    }
+  };
+
+  useEffect(() => {
+    if (isHovered) return;
+    const timer = setInterval(() => {
+      if (teamScrollRef.current) {
+        const { scrollLeft, scrollWidth, clientWidth } = teamScrollRef.current;
+        if (scrollLeft + clientWidth >= scrollWidth - 15) {
+          teamScrollRef.current.scrollTo({ left: 0, behavior: 'smooth' });
+        } else {
+          teamScrollRef.current.scrollBy({ left: 340, behavior: 'smooth' });
+        }
+      }
+    }, 4500);
+    return () => clearInterval(timer);
+  }, [isHovered]);
 
   return (
     <motion.section
@@ -308,13 +344,43 @@ export const AboutSection: React.FC = () => {
             </h3>
           </motion.div>
 
-          {/* Continuous Auto-Moving Track of Partner Cards */}
-          <div className="w-full relative overflow-hidden py-3 -mx-4 px-4 sm:-mx-6 sm:px-6 lg:-mx-8 lg:px-8 flex justify-center items-center">
+          {/* Senior Attorney Roster - Carousel with Left and Right Navigation Arrows */}
+          <div
+            className="w-full relative group py-2"
+            onMouseEnter={() => setIsHovered(true)}
+            onMouseLeave={() => setIsHovered(false)}
+          >
             {/* Subtle Left & Right Edge Vignette Shadows */}
-            <div className="absolute left-0 top-0 bottom-0 w-8 sm:w-16 bg-gradient-to-r from-[#FAFAF7] to-transparent z-10 pointer-events-none" />
-            <div className="absolute right-0 top-0 bottom-0 w-8 sm:w-16 bg-gradient-to-l from-[#FAFAF7] to-transparent z-10 pointer-events-none" />
+            <div className="absolute left-0 top-0 bottom-0 w-8 sm:w-16 bg-gradient-to-r from-[#FAFAF7] via-[#FAFAF7]/80 to-transparent z-10 pointer-events-none" />
+            <div className="absolute right-0 top-0 bottom-0 w-8 sm:w-16 bg-gradient-to-l from-[#FAFAF7] via-[#FAFAF7]/80 to-transparent z-10 pointer-events-none" />
 
-            <div className="animate-marquee-ltr flex gap-4 sm:gap-6 w-max py-2">
+            {/* Left Navigation Arrow */}
+            <button
+              type="button"
+              onClick={() => handleManualScroll('left')}
+              id="team-carousel-prev-btn"
+              aria-label="Previous team member"
+              className="absolute left-1 sm:left-2 md:left-3 top-1/2 -translate-y-1/2 z-20 w-11 h-11 sm:w-12 sm:h-12 rounded-full bg-white/95 backdrop-blur-md border border-[#0F6B4C]/25 text-[#0F6B4C] shadow-lg hover:shadow-xl hover:bg-[#0F6B4C] hover:text-white transition-all flex items-center justify-center focus:outline-none focus:ring-2 focus:ring-[#0F6B4C] active:scale-95 cursor-pointer"
+            >
+              <ChevronLeft className="w-5 h-5 sm:w-6 sm:h-6" />
+            </button>
+
+            {/* Right Navigation Arrow */}
+            <button
+              type="button"
+              onClick={() => handleManualScroll('right')}
+              id="team-carousel-next-btn"
+              aria-label="Next team member"
+              className="absolute right-1 sm:right-2 md:right-3 top-1/2 -translate-y-1/2 z-20 w-11 h-11 sm:w-12 sm:h-12 rounded-full bg-white/95 backdrop-blur-md border border-[#0F6B4C]/25 text-[#0F6B4C] shadow-lg hover:shadow-xl hover:bg-[#0F6B4C] hover:text-white transition-all flex items-center justify-center focus:outline-none focus:ring-2 focus:ring-[#0F6B4C] active:scale-95 cursor-pointer"
+            >
+              <ChevronRight className="w-5 h-5 sm:w-6 sm:h-6" />
+            </button>
+
+            {/* Scrollable Cards Track */}
+            <div
+              ref={teamScrollRef}
+              className="flex gap-4 sm:gap-6 overflow-x-auto no-scrollbar py-3 px-10 sm:px-14 md:px-16 snap-x snap-mandatory scroll-smooth"
+            >
               {displayAttorneys.map((attorney, idx) => {
                 const imageSrc = attorneyImages[attorney.id] || attorney.image;
                 const isCeo = attorney.isCeo;
@@ -322,8 +388,9 @@ export const AboutSection: React.FC = () => {
                 return (
                   <div
                     key={`${attorney.id}-${idx}`}
+                    id={`team-card-${attorney.id}-${idx}`}
                     onClick={() => setSelectedAttorney(attorney)}
-                    className={`group relative w-[280px] sm:w-[320px] md:w-[340px] shrink-0 h-[420px] rounded-3xl overflow-hidden border shadow-md hover:shadow-2xl transition-all duration-300 cursor-pointer flex flex-col justify-end bg-slate-900 ${
+                    className={`group/card relative w-[280px] sm:w-[320px] md:w-[340px] shrink-0 h-[420px] rounded-3xl overflow-hidden border shadow-md hover:shadow-2xl transition-all duration-300 cursor-pointer flex flex-col justify-end bg-slate-900 snap-start ${
                       isCeo
                         ? 'border-[#0F6B4C]/40 ring-2 ring-[#0F6B4C]/25'
                         : 'border-[#0F6B4C]/15 hover:border-[#0F6B4C]/50'
@@ -335,7 +402,7 @@ export const AboutSection: React.FC = () => {
                       alt={attorney.name}
                       fill
                       unoptimized
-                      className="object-cover object-top transition-transform duration-700 group-hover:scale-105"
+                      className="object-cover object-top transition-transform duration-700 group-hover/card:scale-105"
                       referrerPolicy="no-referrer"
                       onError={() => handleImageError(attorney.id, imageSrc)}
                     />
@@ -349,8 +416,8 @@ export const AboutSection: React.FC = () => {
                     )}
 
                     {/* Hover Overlay Hint */}
-                    <div className="absolute inset-0 bg-[#0F6B4C]/20 opacity-0 group-hover:opacity-100 transition-opacity duration-300 z-10 flex items-center justify-center p-4">
-                      <div className="bg-white/95 backdrop-blur-xs text-[#0F6B4C] font-extrabold text-xs px-4 py-2.5 rounded-full shadow-xl flex items-center gap-2 transform translate-y-3 group-hover:translate-y-0 transition-transform duration-300">
+                    <div className="absolute inset-0 bg-[#0F6B4C]/20 opacity-0 group-hover/card:opacity-100 transition-opacity duration-300 z-10 flex items-center justify-center p-4">
+                      <div className="bg-white/95 backdrop-blur-xs text-[#0F6B4C] font-extrabold text-xs px-4 py-2.5 rounded-full shadow-xl flex items-center gap-2 transform translate-y-3 group-hover/card:translate-y-0 transition-transform duration-300">
                         <Eye className="w-4 h-4 text-[#F5A623]" />
                         <span>Click to Reveal Full Details</span>
                       </div>
@@ -361,7 +428,7 @@ export const AboutSection: React.FC = () => {
                       <div className="text-[11px] text-[#F5A623] font-extrabold uppercase tracking-wider">
                         {isCeo ? 'Founder & Chief Executive Officer' : 'Associate Counsel'}
                       </div>
-                      <h4 className="font-heading font-extrabold text-lg sm:text-xl text-white leading-tight group-hover:text-[#F5A623] transition-colors">
+                      <h4 className="font-heading font-extrabold text-lg sm:text-xl text-white leading-tight group-hover/card:text-[#F5A623] transition-colors">
                         {attorney.name}
                       </h4>
                       <p className="text-xs text-gray-300 line-clamp-1 font-medium">
@@ -369,7 +436,7 @@ export const AboutSection: React.FC = () => {
                       </p>
 
                       <div className="pt-2">
-                        <div className="w-full bg-[#0F6B4C] group-hover:bg-[#0A4B35] text-white text-xs font-bold py-2.5 px-3 rounded-xl flex items-center justify-center gap-2 transition-colors shadow-sm">
+                        <div className="w-full bg-[#0F6B4C] group-hover/card:bg-[#0A4B35] text-white text-xs font-bold py-2.5 px-3 rounded-xl flex items-center justify-center gap-2 transition-colors shadow-sm">
                           <span>Click to Reveal Details</span>
                           <ChevronRight className="w-4 h-4 text-[#F5A623]" />
                         </div>
