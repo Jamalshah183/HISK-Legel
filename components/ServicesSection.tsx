@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { motion } from 'motion/react';
 import {
   FileText,
@@ -184,6 +184,7 @@ export const SERVICES_DATA: ServiceItem[] = [
 export const ServicesSection: React.FC = () => {
   const [modalService, setModalService] = useState<ServiceItem | null>(null);
   const [selectedCategory, setSelectedCategory] = useState<string>('All');
+  const [isHovered, setIsHovered] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
 
   const CATEGORIES = ['All', 'Tax & Finance', 'Corporate & Business', 'Litigation & Disputes', 'Property & Real Estate', 'Specialized Law'];
@@ -191,10 +192,6 @@ export const ServicesSection: React.FC = () => {
   const filteredServices = selectedCategory === 'All'
     ? SERVICES_DATA
     : SERVICES_DATA.filter(service => service.category === selectedCategory);
-
-  const displayServices = filteredServices.length < 4
-    ? [...filteredServices, ...filteredServices, ...filteredServices, ...filteredServices]
-    : [...filteredServices, ...filteredServices];
 
   // Helper to render icon with text-current so group-hover transition works smoothly
   const getServiceIcon = (iconName: string) => {
@@ -220,10 +217,46 @@ export const ServicesSection: React.FC = () => {
 
   const handleManualScroll = (direction: 'left' | 'right') => {
     if (scrollRef.current) {
-      const scrollAmount = direction === 'left' ? -380 : 380;
-      scrollRef.current.scrollBy({ left: scrollAmount, behavior: 'smooth' });
+      const { scrollLeft, scrollWidth, clientWidth } = scrollRef.current;
+      const cardWidth = 380;
+      if (direction === 'right') {
+        if (scrollLeft + clientWidth >= scrollWidth - 15) {
+          scrollRef.current.scrollTo({ left: 0, behavior: 'smooth' });
+        } else {
+          scrollRef.current.scrollBy({ left: cardWidth, behavior: 'smooth' });
+        }
+      } else {
+        if (scrollLeft <= 15) {
+          scrollRef.current.scrollTo({ left: scrollWidth - clientWidth, behavior: 'smooth' });
+        } else {
+          scrollRef.current.scrollBy({ left: -cardWidth, behavior: 'smooth' });
+        }
+      }
     }
   };
+
+  // Reset scroll when category filter changes
+  useEffect(() => {
+    if (scrollRef.current) {
+      scrollRef.current.scrollTo({ left: 0, behavior: 'smooth' });
+    }
+  }, [selectedCategory]);
+
+  // Subtle auto-advance when not hovered
+  useEffect(() => {
+    if (isHovered) return;
+    const timer = setInterval(() => {
+      if (scrollRef.current) {
+        const { scrollLeft, scrollWidth, clientWidth } = scrollRef.current;
+        if (scrollLeft + clientWidth >= scrollWidth - 15) {
+          scrollRef.current.scrollTo({ left: 0, behavior: 'smooth' });
+        } else {
+          scrollRef.current.scrollBy({ left: 380, behavior: 'smooth' });
+        }
+      }
+    }, 4500);
+    return () => clearInterval(timer);
+  }, [isHovered, selectedCategory]);
 
   return (
     <motion.section
@@ -275,18 +308,48 @@ export const ServicesSection: React.FC = () => {
           </motion.div>
         </div>
 
-        {/* Continuous Auto-Moving Track of Cards (Left to Right) */}
-        <div className="w-full relative overflow-hidden py-3 -mx-4 px-4 sm:-mx-6 sm:px-6 lg:-mx-8 lg:px-8 flex justify-center items-center">
+        {/* Major Practice Areas Carousel with Left and Right Navigation Arrows */}
+        <div
+          className="w-full relative group py-2"
+          onMouseEnter={() => setIsHovered(true)}
+          onMouseLeave={() => setIsHovered(false)}
+        >
           {/* Subtle Left & Right Edge Vignette Shadows */}
-          <div className="absolute left-0 top-0 bottom-0 w-8 sm:w-16 bg-gradient-to-r from-[#FAFAF7] to-transparent z-10 pointer-events-none" />
-          <div className="absolute right-0 top-0 bottom-0 w-8 sm:w-16 bg-gradient-to-l from-[#FAFAF7] to-transparent z-10 pointer-events-none" />
+          <div className="absolute left-0 top-0 bottom-0 w-8 sm:w-16 bg-gradient-to-r from-[#FAFAF7] via-[#FAFAF7]/80 to-transparent z-10 pointer-events-none" />
+          <div className="absolute right-0 top-0 bottom-0 w-8 sm:w-16 bg-gradient-to-l from-[#FAFAF7] via-[#FAFAF7]/80 to-transparent z-10 pointer-events-none" />
 
-          <div className="animate-marquee-ltr flex gap-4 sm:gap-6 w-max py-2">
-            {displayServices.map((service, idx) => (
+          {/* Left Navigation Arrow */}
+          <button
+            type="button"
+            onClick={() => handleManualScroll('left')}
+            id="services-carousel-prev-btn"
+            aria-label="Previous practice area"
+            className="absolute left-1 sm:left-2 md:left-3 top-1/2 -translate-y-1/2 z-20 w-11 h-11 sm:w-12 sm:h-12 rounded-full bg-white/95 backdrop-blur-md border border-[#0F6B4C]/25 text-[#0F6B4C] shadow-lg hover:shadow-xl hover:bg-[#0F6B4C] hover:text-white transition-all flex items-center justify-center focus:outline-none focus:ring-2 focus:ring-[#0F6B4C] active:scale-95 cursor-pointer"
+          >
+            <ChevronLeft className="w-5 h-5 sm:w-6 sm:h-6" />
+          </button>
+
+          {/* Right Navigation Arrow */}
+          <button
+            type="button"
+            onClick={() => handleManualScroll('right')}
+            id="services-carousel-next-btn"
+            aria-label="Next practice area"
+            className="absolute right-1 sm:right-2 md:right-3 top-1/2 -translate-y-1/2 z-20 w-11 h-11 sm:w-12 sm:h-12 rounded-full bg-white/95 backdrop-blur-md border border-[#0F6B4C]/25 text-[#0F6B4C] shadow-lg hover:shadow-xl hover:bg-[#0F6B4C] hover:text-white transition-all flex items-center justify-center focus:outline-none focus:ring-2 focus:ring-[#0F6B4C] active:scale-95 cursor-pointer"
+          >
+            <ChevronRight className="w-5 h-5 sm:w-6 sm:h-6" />
+          </button>
+
+          {/* Scrollable Cards Track */}
+          <div
+            ref={scrollRef}
+            className="flex gap-4 sm:gap-6 overflow-x-auto no-scrollbar py-3 px-10 sm:px-14 md:px-16 snap-x snap-mandatory scroll-smooth"
+          >
+            {filteredServices.map((service, idx) => (
               <div
                 key={`${service.id}-${idx}`}
                 id={`service-card-${service.id}-${idx}`}
-                className="w-[82vw] max-w-[340px] sm:w-[320px] md:w-[350px] lg:w-[380px] shrink-0 bg-white rounded-2xl p-5 sm:p-7 border border-[#0F6B4C]/15 shadow-xs hover:shadow-lg transition-all duration-300 hover:border-[#0F6B4C]/50 hover:-translate-y-1 flex flex-col justify-between group cursor-pointer"
+                className="w-[82vw] max-w-[340px] sm:w-[320px] md:w-[350px] lg:w-[380px] shrink-0 snap-start bg-white rounded-2xl p-5 sm:p-7 border border-[#0F6B4C]/15 shadow-xs hover:shadow-lg transition-all duration-300 hover:border-[#0F6B4C]/50 hover:-translate-y-1 flex flex-col justify-between group cursor-pointer text-left"
                 onClick={() => setModalService(service)}
               >
                 <div>

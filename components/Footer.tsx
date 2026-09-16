@@ -17,7 +17,7 @@ export const Footer: React.FC<FooterProps> = ({ setActiveTab }) => {
     }
     if (id === 'home') {
       if (window.location.pathname !== '/') {
-        window.location.href = '/';
+        window.location.assign('/');
       } else {
         window.scrollTo({ top: 0, behavior: 'smooth' });
       }
@@ -33,7 +33,7 @@ export const Footer: React.FC<FooterProps> = ({ setActiveTab }) => {
         behavior: 'smooth'
       });
     } else {
-      window.location.href = `/#${id}`;
+      window.location.assign(`/#${id}`);
     }
   };
 
