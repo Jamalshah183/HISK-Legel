@@ -29,10 +29,10 @@ export const ReviewsSection: React.FC = () => {
           className="text-center max-w-3xl mx-auto mb-6 sm:mb-8"
         >
           <h2 className="font-heading font-extrabold text-3xl sm:text-4xl text-[#1A1A1A] tracking-tight mb-4">
-            Testimonials &amp; Reviews
+            Testimonials &amp; client experiences
           </h2>
           <p className="text-base sm:text-lg text-[#5A6275] font-normal">
-            Real outcomes negotiated before FBR Commissioners, Appellate Tribunals, and High Courts.
+            Hear from individuals and businesses who have entrusted HISK LEGAL with their most important legal matters.
           </p>
         </motion.div>
 
