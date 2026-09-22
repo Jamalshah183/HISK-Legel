@@ -232,4 +232,25 @@ export interface ReviewItem {
   updatedAt?: string;
 }
 
+export interface LegalInsightItem {
+  id: string;
+  title: string;
+  slug: string;
+  category: string;
+  date: string;
+  readTime: string;
+  excerpt: string;
+  author: {
+    name: string;
+    role: string;
+    avatar: string;
+  };
+  keyTakeaways: string[];
+  content: string[];
+  featured?: boolean;
+  status?: 'published' | 'draft' | 'archived';
+  createdAt?: string;
+  updatedAt?: string;
+}
+
 

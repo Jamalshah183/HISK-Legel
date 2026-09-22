@@ -124,16 +124,23 @@ export const Navbar: React.FC<NavbarProps> = ({ activeTab, setActiveTab, onOpenP
           {/* Logo */}
           <button
             onClick={() => handleNavClick('home')}
-            className="flex items-center text-left focus:outline-none"
+            className="flex items-center text-left focus:outline-none cursor-pointer group"
             id="nav-logo-btn"
           >
-            <div className="relative w-52 h-16 sm:w-60 sm:h-18 lg:w-72 lg:h-22 shrink-0">
+            <div
+              className={`relative shrink-0 transition-all duration-300 ${
+                isScrolled
+                  ? 'h-[66px] w-[72px] sm:h-[78px] sm:w-[84px] md:h-[86px] md:w-[92px] lg:h-[94px] lg:w-[102px]'
+                  : 'h-[80px] w-[86px] sm:h-[96px] sm:w-[104px] md:h-[108px] md:w-[116px] lg:h-[120px] lg:w-[130px]'
+              }`}
+            >
               <Image
                 src="https://i.ibb.co/V02sjKtY/file-00000000549882089b03c95577e607a2.png"
                 alt="HISK LEGAL Logo"
                 fill
                 unoptimized
-                className="object-contain object-left"
+                priority
+                className="object-contain object-left transition-transform duration-300 group-hover:scale-105"
                 referrerPolicy="no-referrer"
               />
             </div>

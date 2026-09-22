@@ -63,7 +63,9 @@ import {
   Award,
   Star,
   Quote,
-  MessageSquareQuote
+  MessageSquareQuote,
+  BookOpen,
+  Newspaper
 } from 'lucide-react';
 import { usePortalStore } from '@/lib/portalStore';
 import { InvoicePdfModal } from '@/components/portal/InvoicePdfModal';
@@ -82,7 +84,8 @@ import {
   RiskLevel,
   PracticeArea,
   TeamMember,
-  ReviewItem
+  ReviewItem,
+  LegalInsightItem
 } from '@/types/portal';
 import { buildGoogleCalendarUrl } from '@/lib/googleCalendar';
 import { buildWhatsAppUrl } from '@/lib/whatsapp';
@@ -208,11 +211,16 @@ export const AdminPortal: React.FC = () => {
     addReview,
     updateReview,
     deleteReview,
-    resetReviews
+    resetReviews,
+    insights,
+    addInsight,
+    updateInsight,
+    deleteInsight,
+    resetInsights
   } = usePortalStore();
 
   const [activeTab, setActiveTab] = useState<
-    'dashboard' | 'cases' | 'calendar' | 'documents' | 'tasks' | 'billing' | 'notifications' | 'practiceAreas' | 'team' | 'reviews'
+    'dashboard' | 'cases' | 'calendar' | 'documents' | 'tasks' | 'billing' | 'notifications' | 'practiceAreas' | 'team' | 'reviews' | 'insights'
   >('dashboard');
 
   // Calendar Month Navigation State
@@ -280,6 +288,31 @@ export const AdminPortal: React.FC = () => {
     verifiedBadge: true,
     date: 'March 2026',
     status: 'published' as 'published' | 'pending' | 'archived',
+    featured: true
+  });
+
+  // Legal Insights Search, Filters & Modal States
+  const [insightSearchTerm, setInsightSearchTerm] = useState('');
+  const [insightCategoryFilter, setInsightCategoryFilter] = useState('All');
+  const [insightStatusFilter, setInsightStatusFilter] = useState('All');
+  const [showInsightModal, setShowInsightModal] = useState(false);
+  const [editingInsight, setEditingInsight] = useState<LegalInsightItem | null>(null);
+  const [deleteConfirmInsight, setDeleteConfirmInsight] = useState<LegalInsightItem | null>(null);
+  const [insightActionSuccess, setInsightActionSuccess] = useState<string | null>(null);
+
+  // Legal Insight Form State
+  const [insightFormData, setInsightFormData] = useState({
+    title: '',
+    slug: '',
+    category: 'FBR Notice Defense',
+    author: 'Hafiz Irfan Shabber Kayani',
+    authorRole: 'Advocate High Court | Managing Partner',
+    date: 'March 2026',
+    readTime: '6 min read',
+    excerpt: '',
+    keyTakeawaysText: '',
+    fullContentText: '',
+    status: 'published' as 'published' | 'draft' | 'archived',
     featured: true
   });
 
@@ -881,6 +914,159 @@ export const AdminPortal: React.FC = () => {
       resetReviews();
       setReviewActionSuccess('Restored standard client reviews.');
       setTimeout(() => setReviewActionSuccess(null), 4000);
+    }
+  };
+
+  // Legal Insights Filtering & Handlers
+  const filteredInsights = (insights || []).filter((item) => {
+    const q = insightSearchTerm.trim().toLowerCase();
+    const authorName = typeof item.author === 'object' && item.author !== null ? item.author.name : String(item.author || '');
+    const matchesSearch =
+      q === '' ||
+      item.title.toLowerCase().includes(q) ||
+      item.excerpt.toLowerCase().includes(q) ||
+      item.category.toLowerCase().includes(q) ||
+      authorName.toLowerCase().includes(q) ||
+      (item.keyTakeaways && item.keyTakeaways.some((t) => t.toLowerCase().includes(q)));
+
+    const matchesCategory =
+      insightCategoryFilter === 'All' || item.category === insightCategoryFilter;
+
+    const matchesStatus =
+      insightStatusFilter === 'All' ||
+      (insightStatusFilter === 'published' && (item.status === 'published' || !item.status)) ||
+      item.status === insightStatusFilter;
+
+    return matchesSearch && matchesCategory && matchesStatus;
+  });
+
+  const handleOpenAddInsight = () => {
+    setEditingInsight(null);
+    setInsightFormData({
+      title: '',
+      slug: '',
+      category: 'FBR Notice Defense',
+      author: 'Hafiz Irfan Shabber Kayani',
+      authorRole: 'Advocate High Court | Managing Partner',
+      date: new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' }),
+      readTime: '6 min read',
+      excerpt: '',
+      keyTakeawaysText: '',
+      fullContentText: '',
+      status: 'published',
+      featured: true
+    });
+    setShowInsightModal(true);
+  };
+
+  const handleOpenEditInsight = (insight: LegalInsightItem) => {
+    setEditingInsight(insight);
+    const authorName = typeof insight.author === 'object' && insight.author !== null ? insight.author.name : String(insight.author || 'Hafiz Irfan Shabber Kayani');
+    const authorRole = typeof insight.author === 'object' && insight.author !== null ? insight.author.role : 'Advocate High Court';
+    setInsightFormData({
+      title: insight.title,
+      slug: insight.slug,
+      category: insight.category,
+      author: authorName,
+      authorRole: authorRole,
+      date: insight.date,
+      readTime: insight.readTime || '5 min read',
+      excerpt: insight.excerpt,
+      keyTakeawaysText: (insight.keyTakeaways || []).join('\n'),
+      fullContentText: (insight.content || []).join('\n\n'),
+      status: insight.status || 'published',
+      featured: insight.featured !== false
+    });
+    setShowInsightModal(true);
+  };
+
+  const handleSaveInsight = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!insightFormData.title.trim()) return;
+
+    const parsedKeyTakeaways = insightFormData.keyTakeawaysText
+      ? insightFormData.keyTakeawaysText
+          .split('\n')
+          .map((t) => t.trim())
+          .filter(Boolean)
+      : [insightFormData.title.trim()];
+
+    const parsedFullContent = insightFormData.fullContentText
+      ? insightFormData.fullContentText
+          .split(/\n\n+/)
+          .map((p) => p.trim())
+          .filter(Boolean)
+      : [insightFormData.excerpt.trim() || insightFormData.title.trim()];
+
+    const generatedSlug =
+      insightFormData.slug.trim() ||
+      insightFormData.title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
+
+    const authorPayload = {
+      name: insightFormData.author.trim() || 'Hafiz Irfan Shabber Kayani',
+      role: insightFormData.authorRole.trim() || 'Advocate High Court | Managing Partner',
+      avatar: 'https://images.unsplash.com/photo-1556157382-97eda2d62296?auto=format&fit=crop&q=80&w=400'
+    };
+
+    if (editingInsight) {
+      updateInsight(editingInsight.id, {
+        title: insightFormData.title.trim(),
+        slug: generatedSlug,
+        category: insightFormData.category.trim() || 'FBR Notice Defense',
+        author: authorPayload,
+        date: insightFormData.date.trim() || 'March 2026',
+        readTime: insightFormData.readTime.trim() || '5 min read',
+        excerpt: insightFormData.excerpt.trim() || 'Legal brief and compliance advisory.',
+        keyTakeaways: parsedKeyTakeaways,
+        content: parsedFullContent,
+        status: insightFormData.status,
+        featured: insightFormData.featured
+      });
+      setInsightActionSuccess(`Updated article "${insightFormData.title.trim()}".`);
+    } else {
+      addInsight({
+        title: insightFormData.title.trim(),
+        slug: generatedSlug,
+        category: insightFormData.category.trim() || 'FBR Notice Defense',
+        author: authorPayload,
+        date: insightFormData.date.trim() || 'March 2026',
+        readTime: insightFormData.readTime.trim() || '5 min read',
+        excerpt: insightFormData.excerpt.trim() || 'Legal brief and compliance advisory.',
+        keyTakeaways: parsedKeyTakeaways,
+        content: parsedFullContent,
+        status: insightFormData.status,
+        featured: insightFormData.featured
+      });
+      setInsightActionSuccess(`Added new legal insight "${insightFormData.title.trim()}".`);
+    }
+
+    setShowInsightModal(false);
+    setTimeout(() => setInsightActionSuccess(null), 4000);
+  };
+
+  const handleDeleteInsight = (insight: LegalInsightItem) => {
+    deleteInsight(insight.id);
+    setDeleteConfirmInsight(null);
+    setInsightActionSuccess(`Deleted article "${insight.title}".`);
+    setTimeout(() => setInsightActionSuccess(null), 4000);
+  };
+
+  const handleToggleInsightStatus = (insight: LegalInsightItem) => {
+    const nextStatus = insight.status === 'archived' ? 'published' : 'archived';
+    updateInsight(insight.id, { status: nextStatus });
+    setInsightActionSuccess(
+      nextStatus === 'published'
+        ? `Published "${insight.title}" to public blog and insights feed.`
+        : `Archived "${insight.title}".`
+    );
+    setTimeout(() => setInsightActionSuccess(null), 4000);
+  };
+
+  const handleResetInsights = () => {
+    if (typeof window !== 'undefined' && window.confirm('Reset legal insights to default firm publication articles?')) {
+      resetInsights();
+      setInsightActionSuccess('Restored standard firm legal publications.');
+      setTimeout(() => setInsightActionSuccess(null), 4000);
     }
   };
 
@@ -1563,7 +1749,7 @@ export const AdminPortal: React.FC = () => {
       <div className="min-h-screen bg-[#FAFAF7] text-[#1A1A1A] p-4 sm:p-6 lg:p-8 flex items-center justify-center">
         <div className="max-w-md w-full bg-white rounded-3xl border border-[#0F6B4C]/20 shadow-2xl p-6 sm:p-8 space-y-6">
           <div className="text-center space-y-3">
-            <div className="relative w-48 h-16 mx-auto">
+            <div className="relative w-[240px] h-[75px] mx-auto">
               <Image
                 src="https://i.ibb.co/wh9Gb1br/20260723-032202-0000.png"
                 alt="HISK LEGAL Logo"
@@ -1647,7 +1833,8 @@ export const AdminPortal: React.FC = () => {
               { id: 'notifications', label: 'WhatsApp / Email Alerts', icon: Send },
               { id: 'practiceAreas', label: 'Practice Areas', icon: Scale, badge: practiceAreas?.length || 0 },
               { id: 'team', label: 'Our Team', icon: Users, badge: teamMembers?.length || 0 },
-              { id: 'reviews', label: 'Client Reviews', icon: MessageSquareQuote, badge: reviews?.length || 0 }
+              { id: 'reviews', label: 'Client Reviews', icon: MessageSquareQuote, badge: reviews?.length || 0 },
+              { id: 'insights', label: 'Legal Insights', icon: BookOpen, badge: insights?.length || 0 }
             ].map((item) => {
               const Icon = item.icon;
               const isActive = activeTab === item.id;
@@ -3738,6 +3925,370 @@ export const AdminPortal: React.FC = () => {
                   >
                     <RefreshCw className="w-3 h-3" />
                     <span>Restore default testimonials</span>
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* --- TAB 11: LEGAL INSIGHTS & BLOG MANAGEMENT --- */}
+        {activeTab === 'insights' && (
+          <div className="space-y-6">
+            {/* Header & Quick Action Toolbar */}
+            <div className="bg-white p-6 rounded-3xl border border-[#0F6B4C]/15 shadow-sm space-y-4">
+              <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+                <div>
+                  <span className="text-[10px] font-extrabold text-[#F5A623] uppercase tracking-wider block">
+                    Firm Publications &amp; Thought Leadership
+                  </span>
+                  <h1 className="text-2xl font-heading font-extrabold text-[#1A1A1A]">
+                    Legal Insights &amp; Briefings Management
+                  </h1>
+                  <p className="text-xs text-[#5A6275]">
+                    Publish and manage tax law updates, High Court writ analyses, FBR compliance guides, and corporate alerts.
+                  </p>
+                </div>
+
+                <div className="flex items-center gap-2 flex-wrap">
+                  <button
+                    type="button"
+                    onClick={handleOpenAddInsight}
+                    className="bg-[#F5A623] hover:bg-[#E09415] text-[#1A1A1A] font-extrabold px-4 py-2.5 rounded-2xl text-xs flex items-center gap-1.5 shadow-sm transition-all cursor-pointer"
+                  >
+                    <Plus className="w-4 h-4" />
+                    <span>New Legal Briefing</span>
+                  </button>
+
+                  <a
+                    href="/insights"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="bg-[#0A4B35] hover:bg-[#0F6B4C] text-white font-extrabold px-4 py-2.5 rounded-2xl text-xs flex items-center gap-1.5 shadow-sm transition-all cursor-pointer"
+                  >
+                    <ExternalLink className="w-4 h-4 text-[#F5A623]" />
+                    <span>View Public Insights</span>
+                  </a>
+
+                  <button
+                    type="button"
+                    onClick={handleResetInsights}
+                    className="bg-gray-100 hover:bg-gray-200 text-gray-700 font-bold px-3 py-2.5 rounded-2xl text-xs flex items-center gap-1 transition-all cursor-pointer"
+                    title="Restore default legal publications"
+                  >
+                    <RefreshCw className="w-3.5 h-3.5" />
+                    <span>Reset</span>
+                  </button>
+                </div>
+              </div>
+
+              {/* Action Success Alert Banner */}
+              {insightActionSuccess && (
+                <div className="bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs px-4 py-2.5 rounded-2xl flex items-center gap-2">
+                  <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+                  <span className="font-semibold">{insightActionSuccess}</span>
+                </div>
+              )}
+            </div>
+
+            {/* Quick Metrics Bar */}
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+              <div className="bg-white p-4 rounded-2xl border border-gray-100 shadow-sm">
+                <div className="text-[11px] font-bold text-gray-500 uppercase tracking-wider mb-1">
+                  Total Briefings
+                </div>
+                <div className="text-2xl font-heading font-extrabold text-[#1A1A1A]">
+                  {insights.length}
+                </div>
+                <div className="text-[11px] text-gray-400 mt-0.5">
+                  Authored publications
+                </div>
+              </div>
+
+              <div className="bg-white p-4 rounded-2xl border border-gray-100 shadow-sm">
+                <div className="text-[11px] font-bold text-gray-500 uppercase tracking-wider mb-1">
+                  Live on Website
+                </div>
+                <div className="text-2xl font-heading font-extrabold text-[#0F6B4C]">
+                  {insights.filter((i) => i.status === 'published' || !i.status).length}
+                </div>
+                <div className="text-[11px] text-gray-400 mt-0.5">
+                  Published articles
+                </div>
+              </div>
+
+              <div className="bg-white p-4 rounded-2xl border border-gray-100 shadow-sm">
+                <div className="text-[11px] font-bold text-gray-500 uppercase tracking-wider mb-1">
+                  Featured Articles
+                </div>
+                <div className="text-2xl font-heading font-extrabold text-[#F5A623]">
+                  {insights.filter((i) => i.featured !== false).length}
+                </div>
+                <div className="text-[11px] text-gray-400 mt-0.5">
+                  Homepage marquee feed
+                </div>
+              </div>
+
+              <div className="bg-white p-4 rounded-2xl border border-gray-100 shadow-sm">
+                <div className="text-[11px] font-bold text-gray-500 uppercase tracking-wider mb-1">
+                  Practice Topics
+                </div>
+                <div className="text-2xl font-heading font-extrabold text-[#0A4B35]">
+                  {new Set(insights.map((i) => i.category)).size}
+                </div>
+                <div className="text-[11px] text-gray-400 mt-0.5">
+                  Distinct legal categories
+                </div>
+              </div>
+            </div>
+
+            {/* Search and Filters Toolbar */}
+            <div className="bg-white p-4 rounded-3xl border border-[#0F6B4C]/15 shadow-sm space-y-3">
+              <div className="flex flex-col sm:flex-row gap-3">
+                <div className="relative flex-1">
+                  <Search className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400" />
+                  <input
+                    type="text"
+                    placeholder="Search insights by title, category, author, keywords, or takeaways..."
+                    value={insightSearchTerm}
+                    onChange={(e) => setInsightSearchTerm(e.target.value)}
+                    className="w-full bg-[#FAFAF7] pl-10 pr-4 py-2.5 rounded-2xl border border-gray-200 text-xs focus:outline-none focus:border-[#0F6B4C]"
+                  />
+                  {insightSearchTerm && (
+                    <button
+                      onClick={() => setInsightSearchTerm('')}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-black text-xs"
+                    >
+                      ✕
+                    </button>
+                  )}
+                </div>
+
+                <div className="flex gap-2 flex-wrap sm:flex-nowrap">
+                  <select
+                    value={insightCategoryFilter}
+                    onChange={(e) => setInsightCategoryFilter(e.target.value)}
+                    className="bg-[#FAFAF7] px-3 py-2.5 rounded-2xl border border-gray-200 text-xs font-medium text-gray-700 focus:outline-none focus:border-[#0F6B4C]"
+                  >
+                    <option value="All">All Categories</option>
+                    {Array.from(new Set(insights.map((i) => i.category))).map((cat) => (
+                      <option key={cat} value={cat}>
+                        {cat}
+                      </option>
+                    ))}
+                  </select>
+
+                  <select
+                    value={insightStatusFilter}
+                    onChange={(e) => setInsightStatusFilter(e.target.value)}
+                    className="bg-[#FAFAF7] px-3 py-2.5 rounded-2xl border border-gray-200 text-xs font-medium text-gray-700 focus:outline-none focus:border-[#0F6B4C]"
+                  >
+                    <option value="All">All Statuses</option>
+                    <option value="published">Published</option>
+                    <option value="draft">Draft</option>
+                    <option value="archived">Archived</option>
+                  </select>
+
+                  {(insightSearchTerm || insightCategoryFilter !== 'All' || insightStatusFilter !== 'All') && (
+                    <button
+                      onClick={() => {
+                        setInsightSearchTerm('');
+                        setInsightCategoryFilter('All');
+                        setInsightStatusFilter('All');
+                      }}
+                      className="px-3 py-2.5 rounded-2xl bg-gray-100 hover:bg-gray-200 text-gray-700 text-xs font-bold transition-colors cursor-pointer"
+                    >
+                      Clear
+                    </button>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            {/* Legal Insights List */}
+            {filteredInsights.length === 0 ? (
+              <div className="bg-white rounded-3xl p-12 text-center border border-dashed border-gray-200">
+                <BookOpen className="w-12 h-12 text-gray-300 mx-auto mb-3" />
+                <h3 className="font-heading font-extrabold text-base text-gray-800 mb-1">
+                  No Legal Insights Found
+                </h3>
+                <p className="text-xs text-gray-500 max-w-sm mx-auto mb-4">
+                  No articles or briefings match your search criteria or category filters.
+                </p>
+                <button
+                  onClick={handleOpenAddInsight}
+                  className="bg-[#0F6B4C] hover:bg-[#0A4B35] text-white px-4 py-2 rounded-xl text-xs font-bold inline-flex items-center gap-1.5 cursor-pointer"
+                >
+                  <Plus className="w-3.5 h-3.5" />
+                  <span>Write First Legal Briefing</span>
+                </button>
+              </div>
+            ) : (
+              <div className="space-y-4">
+                {filteredInsights.map((item) => (
+                  <div
+                    key={item.id}
+                    className="bg-white rounded-3xl p-5 border border-[#0F6B4C]/15 shadow-sm hover:shadow-md transition-all relative overflow-hidden space-y-4"
+                  >
+                    {/* Top Row: Category, Badges, Status & Date */}
+                    <div className="flex flex-wrap items-center justify-between gap-2 pb-3 border-b border-gray-100">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className="bg-[#0F6B4C]/10 text-[#0F6B4C] text-[11px] font-extrabold px-3 py-1 rounded-full flex items-center gap-1.5">
+                          <Scale className="w-3 h-3 text-[#0F6B4C]" />
+                          <span>{item.category}</span>
+                        </span>
+
+                        {item.featured !== false && (
+                          <span className="flex items-center gap-1 text-[10px] font-bold text-[#8F5605] bg-[#FAF3E6] border border-[#F5A623]/30 px-2.5 py-0.5 rounded-full">
+                            <Star className="w-3 h-3 text-[#F5A623] fill-[#F5A623]" />
+                            <span>Featured</span>
+                          </span>
+                        )}
+
+                        <span
+                          className={`text-[10px] font-extrabold px-2.5 py-0.5 rounded-full uppercase tracking-wider ${
+                            item.status === 'archived'
+                              ? 'bg-gray-100 text-gray-600'
+                              : item.status === 'draft'
+                              ? 'bg-amber-100 text-amber-800'
+                              : 'bg-emerald-100 text-emerald-800'
+                          }`}
+                        >
+                          {item.status === 'archived'
+                            ? 'Archived'
+                            : item.status === 'draft'
+                            ? 'Draft'
+                            : 'Published on Site'}
+                        </span>
+                      </div>
+
+                      <div className="flex items-center gap-3 text-xs text-gray-400">
+                        <span className="flex items-center gap-1">
+                          <Clock className="w-3.5 h-3.5" />
+                          <span>{item.readTime || '5 min read'}</span>
+                        </span>
+                        <span>•</span>
+                        <span>{item.date}</span>
+                      </div>
+                    </div>
+
+                    {/* Article Title & Excerpt */}
+                    <div>
+                      <h3 className="text-base sm:text-lg font-heading font-extrabold text-[#1A1A1A] hover:text-[#0F6B4C] transition-colors">
+                        {item.title}
+                      </h3>
+                      <p className="text-xs text-gray-600 mt-1.5 leading-relaxed line-clamp-2">
+                        {item.excerpt}
+                      </p>
+                    </div>
+
+                    {/* Key Takeaways Preview */}
+                    {item.keyTakeaways && item.keyTakeaways.length > 0 && (
+                      <div className="bg-[#FAFAF7] p-3 rounded-2xl border border-gray-100 space-y-1.5">
+                        <div className="text-[10px] font-extrabold uppercase tracking-wider text-gray-400">
+                          Key Counsel Takeaways:
+                        </div>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                          {item.keyTakeaways.slice(0, 2).map((takeaway, idx) => (
+                            <div key={idx} className="flex items-start gap-1.5 text-xs text-gray-700">
+                              <CheckCircle2 className="w-3.5 h-3.5 text-[#0F6B4C] shrink-0 mt-0.5" />
+                              <span className="line-clamp-1">{takeaway}</span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Bottom Row: Author details & Management Actions */}
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-3 border-t border-gray-100">
+                      {/* Author */}
+                      {(() => {
+                        const authorName = typeof item.author === 'object' && item.author !== null ? item.author.name : String(item.author || 'HISK Counsel');
+                        const authorRole = typeof item.author === 'object' && item.author !== null ? item.author.role : 'Advocate High Court | Associate Counsel';
+                        const initials = authorName.split(' ').map((n: string) => n[0]).filter(Boolean).slice(0, 2).join('');
+                        return (
+                          <div className="flex items-center gap-2.5">
+                            <div className="w-8 h-8 rounded-full bg-[#0A4B35] text-white flex items-center justify-center font-heading font-extrabold text-xs shadow-sm">
+                              {initials}
+                            </div>
+                            <div>
+                              <div className="text-xs font-extrabold text-[#1A1A1A]">{authorName}</div>
+                              <div className="text-[10px] text-gray-500">{authorRole}</div>
+                            </div>
+                          </div>
+                        );
+                      })()}
+
+                      {/* Action buttons */}
+                      <div className="flex items-center gap-2 self-end sm:self-auto flex-wrap">
+                        <a
+                          href={`/insights/${item.slug || item.id}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="px-3 py-1.5 rounded-xl bg-[#0A4B35]/10 hover:bg-[#0A4B35]/20 text-[#0A4B35] text-xs font-bold transition-colors flex items-center gap-1 cursor-pointer"
+                          title="Open live briefing page"
+                        >
+                          <ExternalLink className="w-3.5 h-3.5" />
+                          <span>View Public</span>
+                        </a>
+
+                        <button
+                          type="button"
+                          onClick={() => handleToggleInsightStatus(item)}
+                          className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-colors flex items-center gap-1 cursor-pointer ${
+                            item.status === 'archived'
+                              ? 'bg-emerald-50 hover:bg-emerald-100 text-emerald-700'
+                              : 'bg-gray-100 hover:bg-gray-200 text-gray-700'
+                          }`}
+                          title={item.status === 'archived' ? 'Publish to Website' : 'Archive from Website'}
+                        >
+                          {item.status === 'archived' ? (
+                            <>
+                              <Eye className="w-3.5 h-3.5" />
+                              <span>Publish</span>
+                            </>
+                          ) : (
+                            <>
+                              <Lock className="w-3.5 h-3.5" />
+                              <span>Archive</span>
+                            </>
+                          )}
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={() => handleOpenEditInsight(item)}
+                          className="px-3 py-1.5 rounded-xl bg-gray-100 hover:bg-gray-200 text-gray-700 text-xs font-bold transition-colors flex items-center gap-1 cursor-pointer"
+                          title="Edit Insight Article"
+                        >
+                          <Edit3 className="w-3.5 h-3.5" />
+                          <span>Edit</span>
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={() => setDeleteConfirmInsight(item)}
+                          className="px-3 py-1.5 rounded-xl bg-red-50 hover:bg-red-100 text-red-600 text-xs font-bold transition-colors flex items-center gap-1 cursor-pointer"
+                          title="Delete Article"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                          <span>Delete</span>
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+
+                {/* Reset & Count link at bottom */}
+                <div className="pt-4 flex items-center justify-between text-xs text-gray-400 px-2">
+                  <span>Showing {filteredInsights.length} legal publications</span>
+                  <button
+                    type="button"
+                    onClick={handleResetInsights}
+                    className="hover:text-gray-600 underline flex items-center gap-1 text-[11px] cursor-pointer"
+                  >
+                    <RefreshCw className="w-3 h-3" />
+                    <span>Restore default firm articles</span>
                   </button>
                 </div>
               </div>
@@ -6898,6 +7449,296 @@ export const AdminPortal: React.FC = () => {
               <button
                 type="button"
                 onClick={() => handleDeleteReview(deleteConfirmReview)}
+                className="bg-red-600 hover:bg-red-700 text-white font-extrabold px-4 py-2 rounded-xl text-xs flex items-center gap-1.5 transition-colors shadow-sm cursor-pointer"
+              >
+                <Trash2 className="w-3.5 h-3.5" />
+                <span>Confirm Delete</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* --- MODAL: ADD / EDIT LEGAL INSIGHT --- */}
+      {showInsightModal && (
+        <div className="fixed inset-0 z-50 bg-black/65 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-white rounded-3xl max-w-2xl w-full p-6 border border-[#0F6B4C]/20 shadow-2xl max-h-[92vh] overflow-y-auto">
+            <div className="flex justify-between items-center mb-4 border-b pb-3">
+              <div>
+                <span className="text-[10px] font-extrabold text-[#F5A623] uppercase tracking-wider block">
+                  Thought Leadership Desk
+                </span>
+                <h3 className="text-lg font-heading font-extrabold text-[#1A1A1A]">
+                  {editingInsight ? 'Edit Legal Briefing' : 'Publish New Legal Insight'}
+                </h3>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowInsightModal(false)}
+                className="text-gray-400 hover:text-black font-bold p-1 rounded-lg"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <form onSubmit={handleSaveInsight} className="space-y-4 text-xs">
+              {/* Article Title */}
+              <div>
+                <label className="font-bold text-gray-700 block mb-1">
+                  Article Title <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="text"
+                  required
+                  placeholder="e.g. Navigating FBR Section 7E Capital Value Tax Notices (2025-26)"
+                  value={insightFormData.title}
+                  onChange={(e) => setInsightFormData({ ...insightFormData, title: e.target.value })}
+                  className="w-full bg-[#FAFAF7] p-2.5 rounded-xl border border-gray-200 font-bold text-[#1A1A1A] focus:outline-none focus:border-[#0F6B4C]"
+                />
+              </div>
+
+              {/* Category & Slug */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="font-bold text-gray-700 block mb-1">
+                    Practice Category
+                  </label>
+                  <select
+                    value={insightFormData.category}
+                    onChange={(e) => setInsightFormData({ ...insightFormData, category: e.target.value })}
+                    className="w-full bg-[#FAFAF7] p-2.5 rounded-xl border border-gray-200 font-bold text-[#0F6B4C] focus:outline-none focus:border-[#0F6B4C]"
+                  >
+                    <option value="FBR Notice Defense">FBR Notice Defense</option>
+                    <option value="Corporate & M&A Law">Corporate &amp; M&amp;A Law</option>
+                    <option value="High Court Writs & Appeals">High Court Writs &amp; Appeals</option>
+                    <option value="Property & Real Estate">Property &amp; Real Estate</option>
+                    <option value="Banking & Financial Crimes">Banking &amp; Financial Crimes</option>
+                    <option value="NAB & FIA White-Collar Defense">NAB &amp; FIA White-Collar Defense</option>
+                    <option value="International Trade & Customs">International Trade &amp; Customs</option>
+                    <option value="Tax Compliance & Audit">Tax Compliance &amp; Audit</option>
+                    <option value="Intellectual Property">Intellectual Property</option>
+                    <option value="General Legal Advisory">General Legal Advisory</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="font-bold text-gray-700 block mb-1">
+                    Custom URL Slug (Optional)
+                  </label>
+                  <input
+                    type="text"
+                    placeholder="e.g. fbr-section-7e-defense-guide"
+                    value={insightFormData.slug}
+                    onChange={(e) => setInsightFormData({ ...insightFormData, slug: e.target.value })}
+                    className="w-full bg-[#FAFAF7] p-2.5 rounded-xl border border-gray-200 font-mono text-gray-700 focus:outline-none focus:border-[#0F6B4C]"
+                  />
+                  <span className="text-[10px] text-gray-400 block mt-0.5">
+                    Will be generated automatically from title if left blank.
+                  </span>
+                </div>
+              </div>
+
+              {/* Author Info */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="font-bold text-gray-700 block mb-1">
+                    Author / Lead Counsel
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    value={insightFormData.author}
+                    onChange={(e) => setInsightFormData({ ...insightFormData, author: e.target.value })}
+                    className="w-full bg-[#FAFAF7] p-2.5 rounded-xl border border-gray-200 font-bold text-gray-800 focus:outline-none focus:border-[#0F6B4C]"
+                  />
+                </div>
+
+                <div>
+                  <label className="font-bold text-gray-700 block mb-1">
+                    Author Designation / Role
+                  </label>
+                  <input
+                    type="text"
+                    value={insightFormData.authorRole}
+                    onChange={(e) => setInsightFormData({ ...insightFormData, authorRole: e.target.value })}
+                    className="w-full bg-[#FAFAF7] p-2.5 rounded-xl border border-gray-200 text-gray-700 focus:outline-none focus:border-[#0F6B4C]"
+                    placeholder="Advocate High Court | Managing Partner"
+                  />
+                </div>
+              </div>
+
+              {/* Date & Read Time */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="font-bold text-gray-700 block mb-1">
+                    Publication Date
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    value={insightFormData.date}
+                    onChange={(e) => setInsightFormData({ ...insightFormData, date: e.target.value })}
+                    className="w-full bg-[#FAFAF7] p-2.5 rounded-xl border border-gray-200 text-gray-700 focus:outline-none focus:border-[#0F6B4C]"
+                    placeholder="e.g. March 15, 2026"
+                  />
+                </div>
+
+                <div>
+                  <label className="font-bold text-gray-700 block mb-1">
+                    Estimated Read Time
+                  </label>
+                  <input
+                    type="text"
+                    value={insightFormData.readTime}
+                    onChange={(e) => setInsightFormData({ ...insightFormData, readTime: e.target.value })}
+                    className="w-full bg-[#FAFAF7] p-2.5 rounded-xl border border-gray-200 text-gray-700 focus:outline-none focus:border-[#0F6B4C]"
+                    placeholder="e.g. 6 min read"
+                  />
+                </div>
+              </div>
+
+              {/* Brief Excerpt / Summary */}
+              <div>
+                <label className="font-bold text-gray-700 block mb-1">
+                  Executive Excerpt / Overview <span className="text-red-500">*</span>
+                </label>
+                <textarea
+                  rows={2}
+                  required
+                  placeholder="Concise 1-2 sentence executive overview displayed in insight listing cards..."
+                  value={insightFormData.excerpt}
+                  onChange={(e) => setInsightFormData({ ...insightFormData, excerpt: e.target.value })}
+                  className="w-full bg-[#FAFAF7] p-2.5 rounded-xl border border-gray-200 resize-none focus:outline-none focus:border-[#0F6B4C]"
+                />
+              </div>
+
+              {/* Key Takeaways */}
+              <div>
+                <label className="font-bold text-gray-700 block mb-1">
+                  Key Counsel Takeaways (One item per line)
+                </label>
+                <textarea
+                  rows={3}
+                  placeholder="Section 7E notices require prompt formal response before CIR Appeals.&#10;High Court stay petitions require substantiation of constitutional rights violation.&#10;Strict 30-day deadline applies for appellate review."
+                  value={insightFormData.keyTakeawaysText}
+                  onChange={(e) => setInsightFormData({ ...insightFormData, keyTakeawaysText: e.target.value })}
+                  className="w-full bg-[#FAFAF7] p-2.5 rounded-xl border border-gray-200 font-mono text-xs resize-none focus:outline-none focus:border-[#0F6B4C]"
+                />
+                <span className="text-[10px] text-gray-400 block mt-0.5">
+                  Enter each takeaway bullet on a new line.
+                </span>
+              </div>
+
+              {/* Full Article Content */}
+              <div>
+                <label className="font-bold text-gray-700 block mb-1">
+                  Full Article Body Paragraphs
+                </label>
+                <textarea
+                  rows={6}
+                  placeholder="Enter the full article commentary here. Separate individual paragraphs with an empty line (two enters).&#10;&#10;Our firm provides comprehensive legal representations before appellate tribunals and the High Court."
+                  value={insightFormData.fullContentText}
+                  onChange={(e) => setInsightFormData({ ...insightFormData, fullContentText: e.target.value })}
+                  className="w-full bg-[#FAFAF7] p-2.5 rounded-xl border border-gray-200 text-xs leading-relaxed focus:outline-none focus:border-[#0F6B4C]"
+                />
+                <span className="text-[10px] text-gray-400 block mt-0.5">
+                  Separate paragraphs with an empty blank line for clean typography on the public article page.
+                </span>
+              </div>
+
+              {/* Status and Featured Controls */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2 border-t border-gray-100">
+                <div>
+                  <label className="font-bold text-gray-700 block mb-1">
+                    Publication Status
+                  </label>
+                  <select
+                    value={insightFormData.status}
+                    onChange={(e) =>
+                      setInsightFormData({
+                        ...insightFormData,
+                        status: e.target.value as 'published' | 'draft' | 'archived'
+                      })
+                    }
+                    className="w-full bg-[#FAFAF7] p-2 rounded-xl border border-gray-200 font-bold text-[#0F6B4C] focus:outline-none focus:border-[#0F6B4C]"
+                  >
+                    <option value="published">Published (Visible on Website)</option>
+                    <option value="draft">Draft (Private in Portal)</option>
+                    <option value="archived">Archived (Hidden from Website)</option>
+                  </select>
+                </div>
+
+                <div className="flex items-center gap-2 pt-6">
+                  <label className="flex items-center gap-2 cursor-pointer select-none">
+                    <input
+                      type="checkbox"
+                      checked={insightFormData.featured}
+                      onChange={(e) =>
+                        setInsightFormData({ ...insightFormData, featured: e.target.checked })
+                      }
+                      className="w-4 h-4 rounded text-[#0F6B4C] focus:ring-[#0F6B4C]"
+                    />
+                    <span className="font-bold text-gray-700">Feature on Homepage Feed</span>
+                  </label>
+                </div>
+              </div>
+
+              {/* Submit Buttons */}
+              <div className="flex justify-end gap-2 pt-3 border-t border-gray-100">
+                <button
+                  type="button"
+                  onClick={() => setShowInsightModal(false)}
+                  className="px-4 py-2 rounded-xl border text-gray-600 font-bold hover:bg-gray-50 transition-colors cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="px-5 py-2 rounded-xl bg-[#0A4B35] hover:bg-[#0F6B4C] text-white font-extrabold shadow-sm transition-colors cursor-pointer"
+                >
+                  {editingInsight ? 'Save Changes' : 'Publish Legal Briefing'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* --- MODAL: CONFIRM DELETE LEGAL INSIGHT --- */}
+      {deleteConfirmInsight && (
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-white rounded-3xl max-w-md w-full p-6 border border-red-200 shadow-2xl space-y-4">
+            <div className="w-12 h-12 rounded-2xl bg-red-50 text-red-600 flex items-center justify-center mx-auto">
+              <AlertTriangle className="w-6 h-6" />
+            </div>
+
+            <div className="text-center space-y-2">
+              <h3 className="font-heading font-extrabold text-base text-[#1A1A1A]">
+                Delete Legal Briefing?
+              </h3>
+              <p className="text-xs text-gray-600">
+                Are you sure you want to delete the publication{' '}
+                <strong className="text-black font-extrabold">
+                  &quot;{deleteConfirmInsight.title}&quot;
+                </strong>
+                ?
+              </p>
+              <p className="text-[11px] text-red-700 font-medium bg-red-50 p-2 rounded-xl">
+                This article will be immediately removed from the live website and public insights feed.
+              </p>
+            </div>
+
+            <div className="flex items-center justify-end gap-2.5 pt-2">
+              <button
+                type="button"
+                onClick={() => setDeleteConfirmInsight(null)}
+                className="bg-gray-100 hover:bg-gray-200 text-gray-700 font-bold px-4 py-2 rounded-xl text-xs transition-colors cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={() => handleDeleteInsight(deleteConfirmInsight)}
                 className="bg-red-600 hover:bg-red-700 text-white font-extrabold px-4 py-2 rounded-xl text-xs flex items-center gap-1.5 transition-colors shadow-sm cursor-pointer"
               >
                 <Trash2 className="w-3.5 h-3.5" />

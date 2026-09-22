@@ -10,9 +10,10 @@ import {
   HearingEvent,
   PracticeArea,
   TeamMember,
-  ReviewItem
+  ReviewItem,
+  LegalInsightItem
 } from '@/types/portal';
-import { ATTORNEYS, TESTIMONIALS } from '@/data/lawFirmData';
+import { ATTORNEYS, TESTIMONIALS, BLOG_POSTS } from '@/data/lawFirmData';
 
 export const INITIAL_CLIENTS: Client[] = [
   {
@@ -727,5 +728,12 @@ export const INITIAL_REVIEWS: ReviewItem[] = TESTIMONIALS.map((rev) => ({
   featured: true,
   createdAt: '2026-01-01'
 }));
+
+export const INITIAL_INSIGHTS: LegalInsightItem[] = BLOG_POSTS.map((post) => ({
+  ...post,
+  status: 'published',
+  createdAt: '2026-01-01'
+}));
+
 
 

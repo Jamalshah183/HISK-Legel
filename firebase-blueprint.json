@@ -51,6 +51,10 @@
     "reviews": {
       "title": "Client Reviews",
       "description": "Client testimonials, ratings, tax savings, and case verification records"
+    },
+    "legalInsights": {
+      "title": "Legal Insights",
+      "description": "Legal articles, tax guides, FBR analyses, and firm publications"
     }
   }
 }

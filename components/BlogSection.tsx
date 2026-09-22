@@ -10,12 +10,18 @@ import {
   ExternalLink
 } from 'lucide-react';
 import { BLOG_POSTS } from '@/data/lawFirmData';
+import { usePortalStore } from '@/lib/portalStore';
 
 export const BlogSection: React.FC = () => {
   const carouselRef = useRef<HTMLDivElement>(null);
+  const { insights } = usePortalStore();
+
+  const activePosts = insights && insights.length > 0
+    ? insights.filter((p) => p.status !== 'draft' && p.status !== 'archived')
+    : BLOG_POSTS;
 
   // 10 Highlighted Articles for Slideshow on Main Page
-  const highlightedPosts = BLOG_POSTS.slice(0, 10);
+  const highlightedPosts = (activePosts.length > 0 ? activePosts : BLOG_POSTS).slice(0, 10);
 
   const handlePrevSlide = () => {
     if (carouselRef.current) {

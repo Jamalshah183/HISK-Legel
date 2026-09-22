@@ -550,7 +550,7 @@ Thank you for choosing HISK LEGAL!`;
           <div className="flex flex-col sm:flex-row justify-between items-start pb-6 border-b-2 border-[#0A4B35] gap-4">
             <div>
               <div className="flex items-center gap-3 mb-2">
-                <div className="relative h-12 w-36 shrink-0 bg-transparent flex items-center justify-center overflow-hidden">
+                <div className="relative h-14 w-44 shrink-0 bg-transparent flex items-center justify-center overflow-hidden">
                   <img
                     src="https://i.ibb.co/wh9Gb1br/20260723-032202-0000.png"
                     alt="HISK LEGAL Official Logo"

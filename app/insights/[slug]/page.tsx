@@ -12,6 +12,7 @@ import {
   BookOpen
 } from 'lucide-react';
 import { BLOG_POSTS } from '@/data/lawFirmData';
+import { usePortalStore } from '@/lib/portalStore';
 import { buildWhatsAppUrl } from '@/lib/whatsapp';
 import { Footer } from '@/components/Footer';
 
@@ -22,7 +23,10 @@ interface PageProps {
 export default function SingleBlogPostPage({ params }: PageProps) {
   const resolvedParams = use(params);
   const slug = resolvedParams.slug;
-  const post = BLOG_POSTS.find((p) => p.slug === slug || p.id === slug);
+  const { insights } = usePortalStore();
+
+  const allPosts = insights && insights.length > 0 ? insights : BLOG_POSTS;
+  const post = allPosts.find((p) => p.slug === slug || p.id === slug);
 
   if (!post) {
     return (
@@ -44,21 +48,22 @@ export default function SingleBlogPostPage({ params }: PageProps) {
   }
 
   // Related articles from same or other categories
-  const relatedPosts = BLOG_POSTS.filter((p) => p.slug !== post.slug).slice(0, 3);
+  const relatedPosts = allPosts.filter((p) => p.slug !== post.slug && (p as any).status !== 'archived').slice(0, 3);
 
   return (
     <div className="min-h-screen bg-[#FAFAF7] text-[#1A1A1A] font-sans flex flex-col selection:bg-[#F5A623] selection:text-[#1A1A1A]">
       {/* Top Navigation Bar */}
       <header className="sticky top-0 z-40 bg-[#0F6B4C] text-white shadow-md border-b border-[#0A4B35]">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-20 flex items-center justify-between">
-          <Link href="/" className="flex items-center group">
-            <div className="relative w-36 h-12 sm:w-48 sm:h-16 shrink-0">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-20 sm:h-24 md:h-28 flex items-center justify-between">
+          <Link href="/" className="flex items-center group cursor-pointer" title="Return to Home">
+            <div className="relative h-[68px] w-[74px] sm:h-[84px] sm:w-[92px] md:h-[96px] md:w-[104px] shrink-0">
               <Image
                 src="https://i.ibb.co/V02sjKtY/file-00000000549882089b03c95577e607a2.png"
                 alt="HISK LEGAL Logo"
                 fill
                 unoptimized
-                className="object-contain object-left"
+                priority
+                className="object-contain object-left transition-transform duration-300 group-hover:scale-105"
                 referrerPolicy="no-referrer"
               />
             </div>

@@ -14,17 +14,25 @@ import {
   Filter
 } from 'lucide-react';
 import { BLOG_POSTS } from '@/data/lawFirmData';
+import { usePortalStore } from '@/lib/portalStore';
 import { buildWhatsAppUrl } from '@/lib/whatsapp';
 import { Footer } from '@/components/Footer';
 
 export default function InsightsPage() {
+  const { insights } = usePortalStore();
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [selectedCategory, setSelectedCategory] = useState<string>('All');
 
-  // Extract unique categories
-  const categories = ['All', ...Array.from(new Set(BLOG_POSTS.map((p) => p.category)))];
+  const activePosts = insights && insights.length > 0
+    ? insights.filter((p) => p.status !== 'draft' && p.status !== 'archived')
+    : BLOG_POSTS;
 
-  const filteredPosts = BLOG_POSTS.filter((post) => {
+  const displayPosts = activePosts.length > 0 ? activePosts : BLOG_POSTS;
+
+  // Extract unique categories
+  const categories = ['All', ...Array.from(new Set(displayPosts.map((p) => p.category)))];
+
+  const filteredPosts = displayPosts.filter((post) => {
     const matchesCategory = selectedCategory === 'All' || post.category === selectedCategory;
     const query = searchQuery.toLowerCase().trim();
     const matchesSearch =
@@ -41,15 +49,16 @@ export default function InsightsPage() {
     <div className="min-h-screen bg-[#FAFAF7] text-[#1A1A1A] font-sans flex flex-col selection:bg-[#F5A623] selection:text-[#1A1A1A]">
       {/* Top Header / Navigation Bar */}
       <header className="sticky top-0 z-40 bg-[#0F6B4C] text-white shadow-md border-b border-[#0A4B35]">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-20 flex items-center justify-between">
-          <Link href="/" className="flex items-center group">
-            <div className="relative w-36 h-12 sm:w-48 sm:h-16 shrink-0">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-20 sm:h-24 md:h-28 flex items-center justify-between">
+          <Link href="/" className="flex items-center group cursor-pointer" title="Return to Home">
+            <div className="relative h-[68px] w-[74px] sm:h-[84px] sm:w-[92px] md:h-[96px] md:w-[104px] shrink-0">
               <Image
                 src="https://i.ibb.co/V02sjKtY/file-00000000549882089b03c95577e607a2.png"
                 alt="HISK LEGAL Logo"
                 fill
                 unoptimized
-                className="object-contain object-left"
+                priority
+                className="object-contain object-left transition-transform duration-300 group-hover:scale-105"
                 referrerPolicy="no-referrer"
               />
             </div>

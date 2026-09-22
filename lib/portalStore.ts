@@ -17,7 +17,8 @@ import {
   ClientCredential,
   PracticeArea,
   TeamMember,
-  ReviewItem
+  ReviewItem,
+  LegalInsightItem
 } from '@/types/portal';
 import {
   INITIAL_CLIENTS,
@@ -32,7 +33,8 @@ import {
   INITIAL_CLIENT_CREDENTIALS,
   INITIAL_PRACTICE_AREAS,
   INITIAL_TEAM_MEMBERS,
-  INITIAL_REVIEWS
+  INITIAL_REVIEWS,
+  INITIAL_INSIGHTS
 } from '@/data/portalSeedData';
 import { db } from './firebase';
 import { collection, onSnapshot, doc, setDoc, deleteDoc } from 'firebase/firestore';
@@ -50,7 +52,8 @@ const STORAGE_KEYS = {
   CLIENT_CREDENTIALS: 'hisk_portal_client_credentials_v2',
   PRACTICE_AREAS: 'hisk_portal_practice_areas_v2',
   TEAM_MEMBERS: 'hisk_portal_team_members_v2',
-  REVIEWS: 'hisk_portal_reviews_v2'
+  REVIEWS: 'hisk_portal_reviews_v2',
+  INSIGHTS: 'hisk_portal_insights_v2'
 };
 
 const createUniqueId = (prefix: string) => `${prefix}-${Date.now().toString().slice(-4)}`;
@@ -187,6 +190,16 @@ export function usePortalStore() {
       return saved ? JSON.parse(saved) : INITIAL_REVIEWS;
     } catch {
       return INITIAL_REVIEWS;
+    }
+  });
+
+  const [insights, setInsights] = useState<LegalInsightItem[]>(() => {
+    if (typeof window === 'undefined') return INITIAL_INSIGHTS;
+    try {
+      const saved = localStorage.getItem(STORAGE_KEYS.INSIGHTS);
+      return saved ? JSON.parse(saved) : INITIAL_INSIGHTS;
+    } catch {
+      return INITIAL_INSIGHTS;
     }
   });
 
@@ -370,6 +383,17 @@ export function usePortalStore() {
       }
     }, (err) => console.warn('Client Reviews snapshot error:', err));
 
+    // 14. Legal Insights & Blog Articles
+    const unsubInsights = onSnapshot(collection(db, 'legal_insights'), (snap) => {
+      if (snap.empty) {
+        INITIAL_INSIGHTS.forEach((ins) => saveToFirestoreDoc('legal_insights', ins.id, ins));
+      } else {
+        const items = snap.docs.map((d) => d.data() as LegalInsightItem);
+        setInsights(items);
+        saveToStorage(STORAGE_KEYS.INSIGHTS, items);
+      }
+    }, (err) => console.warn('Legal Insights snapshot error:', err));
+
     return () => {
       unsubClients();
       unsubCases();
@@ -384,6 +408,7 @@ export function usePortalStore() {
       unsubPracticeAreas();
       unsubTeam();
       unsubReviews();
+      unsubInsights();
     };
   }, []);
 
@@ -1109,6 +1134,53 @@ export function usePortalStore() {
     INITIAL_REVIEWS.forEach((r) => saveToFirestoreDoc('client_reviews', r.id, r));
   };
 
+  // --- LEGAL INSIGHTS ACTIONS ---
+  const addInsight = (insight: Omit<LegalInsightItem, 'id' | 'createdAt'>) => {
+    const slug = insight.slug?.trim() || insight.title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
+    const newId = slug || createUniqueId('post');
+    const newInsight: LegalInsightItem = {
+      ...insight,
+      id: newId,
+      slug: slug || newId,
+      status: insight.status || 'published',
+      createdAt: getTodayDateString()
+    };
+    const updated = [newInsight, ...insights];
+    setInsights(updated);
+    saveToStorage(STORAGE_KEYS.INSIGHTS, updated);
+    saveToFirestoreDoc('legal_insights', newId, newInsight);
+    return newInsight;
+  };
+
+  const updateInsight = (id: string, updates: Partial<LegalInsightItem>) => {
+    let targetDoc: LegalInsightItem | null = null;
+    const updated = insights.map((item) => {
+      if (item.id === id) {
+        targetDoc = { ...item, ...updates, updatedAt: getTodayDateString() };
+        return targetDoc;
+      }
+      return item;
+    });
+    setInsights(updated);
+    saveToStorage(STORAGE_KEYS.INSIGHTS, updated);
+    if (targetDoc) {
+      saveToFirestoreDoc('legal_insights', id, targetDoc);
+    }
+  };
+
+  const deleteInsight = (id: string) => {
+    const updated = insights.filter((item) => item.id !== id);
+    setInsights(updated);
+    saveToStorage(STORAGE_KEYS.INSIGHTS, updated);
+    deleteFromFirestoreDoc('legal_insights', id);
+  };
+
+  const resetInsights = () => {
+    setInsights(INITIAL_INSIGHTS);
+    saveToStorage(STORAGE_KEYS.INSIGHTS, INITIAL_INSIGHTS);
+    INITIAL_INSIGHTS.forEach((ins) => saveToFirestoreDoc('legal_insights', ins.id, ins));
+  };
+
   return {
     isLoaded,
     clients,
@@ -1124,6 +1196,7 @@ export function usePortalStore() {
     practiceAreas,
     teamMembers,
     reviews,
+    insights,
     addClient,
     addClientCredential,
     addCase,
@@ -1153,6 +1226,10 @@ export function usePortalStore() {
     addReview,
     updateReview,
     deleteReview,
-    resetReviews
+    resetReviews,
+    addInsight,
+    updateInsight,
+    deleteInsight,
+    resetInsights
   };
 }

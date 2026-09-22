@@ -172,7 +172,7 @@ export const ClientPortal: React.FC<ClientPortalProps> = ({
       <div className="min-h-screen bg-[#FAFAF7] text-[#1A1A1A] p-4 sm:p-6 lg:p-8 flex items-center justify-center">
         <div className="max-w-md w-full bg-white rounded-3xl border border-[#0F6B4C]/20 shadow-2xl p-6 sm:p-8 space-y-6">
           <div className="text-center space-y-2">
-            <div className="relative w-48 h-16 mx-auto">
+            <div className="relative w-[240px] h-[75px] mx-auto">
               <Image
                 src="https://i.ibb.co/wh9Gb1br/20260723-032202-0000.png"
                 alt="HISK LEGAL Logo"
