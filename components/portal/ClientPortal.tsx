@@ -173,19 +173,14 @@ export const ClientPortal: React.FC<ClientPortalProps> = ({
     alert('Document uploaded successfully to your legal case vault!');
   };
 
-  // DEDICATED APPEALING CLIENT "UNDER CONSTRUCTION" VIEW (NO LOGIN BOX)
+  // DEDICATED APPEALING CLIENT "UNDER CONSTRUCTION" VIEW (NO LOGIN BOX, CLEAN & MINIMAL)
   if (!showLayoutPreview) {
     return (
-      <div className="min-h-[85vh] bg-[#071F17] text-white flex flex-col items-center justify-center p-4 sm:p-6 lg:p-10 relative overflow-hidden selection:bg-[#F5A623] selection:text-[#1A1A1A]">
-        {/* Atmospheric Ambient Glows */}
-        <div className="absolute top-10 left-1/4 w-72 h-72 sm:w-96 sm:h-96 rounded-full bg-[#0F6B4C]/30 blur-3xl pointer-events-none" />
-        <div className="absolute bottom-10 right-1/4 w-72 h-72 sm:w-96 sm:h-96 rounded-full bg-[#F5A623]/20 blur-3xl pointer-events-none" />
-        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top,rgba(15,107,76,0.25)_0%,transparent_60%)] pointer-events-none" />
-
-        <div className="max-w-4xl w-full mx-auto relative z-10 text-center space-y-8 sm:space-y-10 my-auto py-6 sm:py-10">
-          {/* Top Logo & Status Pills */}
-          <div className="flex flex-col items-center space-y-4">
-            <div className="relative w-56 sm:w-72 h-16 sm:h-20 mx-auto drop-shadow-2xl">
+      <div className="min-h-[80vh] bg-[#FAFAF7] text-[#1A1A1A] flex flex-col items-center justify-center p-4 sm:p-6 lg:p-12 relative selection:bg-[#F5A623] selection:text-[#1A1A1A]">
+        <div className="max-w-2xl w-full mx-auto text-center space-y-8 my-auto py-8">
+          {/* Logo with 100% High Visibility */}
+          <div className="inline-flex items-center justify-center bg-white px-8 sm:px-10 py-4 sm:py-5 rounded-3xl shadow-md border border-[#0F6B4C]/15 mx-auto">
+            <div className="relative w-60 sm:w-72 h-16 sm:h-20">
               <Image
                 src="https://i.ibb.co/V02sjKtY/file-00000000549882089b03c95577e607a2.png"
                 alt="HISK LEGAL Logo"
@@ -196,158 +191,61 @@ export const ClientPortal: React.FC<ClientPortalProps> = ({
                 priority
               />
             </div>
-
-            <div className="inline-flex items-center gap-2.5 bg-[#0F6B4C]/50 border border-[#F5A623]/40 px-4 py-1.5 rounded-full shadow-lg backdrop-blur-md">
-              <span className="relative flex h-2.5 w-2.5">
-                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[#F5A623] opacity-75"></span>
-                <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-[#F5A623]"></span>
-              </span>
-              <span className="text-xs sm:text-sm font-heading font-extrabold uppercase tracking-widest text-[#F5A623]">
-                Client Workspace Upgrade
-              </span>
-              <span className="text-white/40">|</span>
-              <span className="text-xs font-semibold text-emerald-200">
-                Exclusively For Clients
-              </span>
-            </div>
           </div>
 
-          {/* Big, Striking "UNDER CONSTRUCTION" Headline */}
+          {/* Under Construction Notice & Big Headline */}
           <div className="space-y-4">
-            <div className="inline-flex items-center justify-center p-3.5 sm:p-4 rounded-3xl bg-[#F5A623]/15 border border-[#F5A623]/40 text-[#F5A623] shadow-inner">
-              <Construction className="w-10 h-10 sm:w-14 sm:h-14 animate-pulse text-[#F5A623]" />
+            <div className="inline-flex items-center gap-2 bg-[#F5A623]/15 text-[#B45309] border border-[#F5A623]/40 px-4 py-1.5 rounded-full text-xs font-heading font-extrabold uppercase tracking-widest shadow-sm">
+              <Construction className="w-4 h-4 text-[#D97706]" />
+              <span>Client Portal</span>
             </div>
 
-            <h1 className="text-5xl sm:text-7xl md:text-8xl font-heading font-black tracking-tight uppercase leading-none drop-shadow-2xl">
-              <span className="text-white">Under</span>{' '}
-              <span className="text-transparent bg-clip-text bg-gradient-to-r from-[#F5A623] via-[#FFD584] to-[#F5A623]">
-                Construction
-              </span>
+            <h1 className="text-4xl sm:text-6xl lg:text-7xl font-heading font-black tracking-tight text-[#0A4B35] uppercase leading-none">
+              Under <span className="text-[#D97706]">Construction</span>
             </h1>
 
-            <p className="max-w-2xl mx-auto text-base sm:text-lg lg:text-xl text-emerald-100/90 font-normal leading-relaxed drop-shadow">
-              We are currently engineering a high-security, real-time client case vault and court hearing tracking portal exclusively for registered clients of <strong className="text-white font-extrabold">HISK LEGAL</strong>.
+            <p className="max-w-lg mx-auto text-base sm:text-lg text-gray-600 font-medium leading-relaxed">
+              Our online client workspace is currently undergoing scheduled upgrades. For real-time case updates or urgent court assistance, please contact your advocate directly.
             </p>
           </div>
 
-          {/* Progress Indicator */}
-          <div className="max-w-xl mx-auto bg-black/40 backdrop-blur-md border border-emerald-500/30 rounded-2xl p-4 sm:p-5 text-left space-y-2.5 shadow-xl">
-            <div className="flex items-center justify-between text-xs sm:text-sm font-bold">
-              <span className="flex items-center gap-2 text-emerald-200">
-                <Clock className="w-4 h-4 text-[#F5A623]" />
-                System Integration &amp; Encrypted Vault Setup
-              </span>
-              <span className="font-mono text-[#F5A623] font-extrabold">85% Complete</span>
-            </div>
-            <div className="w-full bg-emerald-950/80 rounded-full h-2.5 overflow-hidden border border-emerald-500/30">
-              <div className="bg-gradient-to-r from-[#0F6B4C] via-[#F5A623] to-[#FFD584] h-full rounded-full w-[85%] transition-all duration-1000 shadow-sm" />
-            </div>
-            <p className="text-[11px] text-emerald-300/70 text-right">
-              Expected Launch: Q2 2026 • Encrypted 256-bit Case Vault
-            </p>
+          {/* Action Hub for Clients */}
+          <div className="pt-2 flex flex-col sm:flex-row items-center justify-center gap-3.5">
+            <a
+              href={buildWhatsAppUrl({
+                customMessage: 'Assalamu Alaikum HISK LEGAL, I am a client requesting an urgent status briefing on my ongoing case/court matter.'
+              })}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="w-full sm:w-auto bg-[#0A4B35] hover:bg-[#0F6B4C] text-white font-heading font-extrabold text-sm sm:text-base px-7 py-3.5 rounded-2xl shadow-lg transition-all flex items-center justify-center gap-2.5 cursor-pointer"
+            >
+              <MessageCircle className="w-5 h-5 text-[#F5A623]" />
+              <span>Chat on WhatsApp</span>
+            </a>
+
+            <a
+              href="tel:+923145113670"
+              className="w-full sm:w-auto bg-white hover:bg-gray-50 border-2 border-[#0A4B35]/20 text-[#0A4B35] font-heading font-bold text-sm sm:text-base px-6 py-3.5 rounded-2xl shadow-sm transition-all flex items-center justify-center gap-2 cursor-pointer"
+            >
+              <PhoneCall className="w-4 h-4 text-[#D97706]" />
+              <span>Call: +92 314 5113670</span>
+            </a>
           </div>
 
-          {/* Upcoming Features Grid */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 text-left">
-            <div className="bg-white/5 hover:bg-white/10 transition-all border border-emerald-500/20 rounded-2xl p-4 backdrop-blur-sm group">
-              <div className="w-9 h-9 rounded-xl bg-[#0F6B4C]/70 flex items-center justify-center text-[#F5A623] mb-3 group-hover:scale-110 transition-transform">
-                <Calendar className="w-4 h-4" />
-              </div>
-              <h3 className="font-heading font-extrabold text-sm text-white mb-1">
-                Live Hearing Calendar
-              </h3>
-              <p className="text-xs text-emerald-200/80 leading-relaxed">
-                Direct cause list sync for High Court &amp; Appellate Tribunal dates.
-              </p>
-            </div>
-
-            <div className="bg-white/5 hover:bg-white/10 transition-all border border-emerald-500/20 rounded-2xl p-4 backdrop-blur-sm group">
-              <div className="w-9 h-9 rounded-xl bg-[#0F6B4C]/70 flex items-center justify-center text-[#F5A623] mb-3 group-hover:scale-110 transition-transform">
-                <FolderOpen className="w-4 h-4" />
-              </div>
-              <h3 className="font-heading font-extrabold text-sm text-white mb-1">
-                Secure Evidence Vault
-              </h3>
-              <p className="text-xs text-emerald-200/80 leading-relaxed">
-                Download certified stay orders, tax appeals, and legal opinions.
-              </p>
-            </div>
-
-            <div className="bg-white/5 hover:bg-white/10 transition-all border border-emerald-500/20 rounded-2xl p-4 backdrop-blur-sm group">
-              <div className="w-9 h-9 rounded-xl bg-[#0F6B4C]/70 flex items-center justify-center text-[#F5A623] mb-3 group-hover:scale-110 transition-transform">
-                <ShieldCheck className="w-4 h-4" />
-              </div>
-              <h3 className="font-heading font-extrabold text-sm text-white mb-1">
-                FBR Notice Tracking
-              </h3>
-              <p className="text-xs text-emerald-200/80 leading-relaxed">
-                Real-time alerts for show-cause summons and ATL compliance.
-              </p>
-            </div>
-
-            <div className="bg-white/5 hover:bg-white/10 transition-all border border-emerald-500/20 rounded-2xl p-4 backdrop-blur-sm group">
-              <div className="w-9 h-9 rounded-xl bg-[#0F6B4C]/70 flex items-center justify-center text-[#F5A623] mb-3 group-hover:scale-110 transition-transform">
-                <MessageCircle className="w-4 h-4" />
-              </div>
-              <h3 className="font-heading font-extrabold text-sm text-white mb-1">
-                Direct Advocate Desk
-              </h3>
-              <p className="text-xs text-emerald-200/80 leading-relaxed">
-                Instant encrypted messaging with your handling legal advocate.
-              </p>
-            </div>
-          </div>
-
-          {/* Direct Urgent Action Hub for Clients */}
-          <div className="pt-2 sm:pt-4 max-w-2xl mx-auto space-y-4">
-            <div className="bg-gradient-to-r from-[#0F6B4C]/40 via-[#0A4B35]/60 to-[#0F6B4C]/40 border border-[#F5A623]/30 rounded-3xl p-5 sm:p-6 backdrop-blur-md space-y-4 shadow-2xl">
-              <div>
-                <h4 className="font-heading font-extrabold text-base sm:text-lg text-white">
-                  Need an Immediate Update on Your Active Case?
-                </h4>
-                <p className="text-xs sm:text-sm text-emerald-100/80 mt-1">
-                  Our High Court advocates and legal support team are active right now to assist with hearings, stay orders, and filings.
-                </p>
-              </div>
-
-              <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-center gap-3">
-                <a
-                  href={buildWhatsAppUrl({
-                    customMessage: 'Assalamu Alaikum HISK LEGAL, I am an active client requesting an urgent status briefing on my ongoing case/court matter.'
-                  })}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="bg-[#25D366] hover:bg-[#20ba59] text-white font-heading font-extrabold text-sm sm:text-base px-6 py-3.5 rounded-2xl shadow-xl transition-all flex items-center justify-center gap-2 group cursor-pointer"
-                >
-                  <MessageCircle className="w-5 h-5 fill-white" />
-                  <span>Chat With Advocate on WhatsApp</span>
-                </a>
-
-                <a
-                  href="tel:+923145113670"
-                  className="bg-white/10 hover:bg-white/20 border border-white/20 text-white font-heading font-bold text-sm sm:text-base px-5 py-3.5 rounded-2xl shadow-md transition-all flex items-center justify-center gap-2 cursor-pointer"
-                >
-                  <PhoneCall className="w-4 h-4 text-[#F5A623]" />
-                  <span>Call: +92 314 5113670</span>
-                </a>
-              </div>
-            </div>
-
-            {/* Subtle Discrete Toggle to Preview Layout and Keep Coding 100% Intact */}
-            <div className="pt-2 text-center">
-              <button
-                type="button"
-                onClick={() => {
-                  const demoId = clients[0]?.id || 'cli-101';
-                  setSelectedClientId(demoId);
-                  setAuthenticatedClientId(demoId);
-                  setShowLayoutPreview(true);
-                }}
-                className="text-[11px] text-emerald-400/60 hover:text-[#F5A623] transition-colors underline underline-offset-4 cursor-pointer"
-              >
-                Law Firm Internal: Preview Client Dashboard &amp; Case Vault Layout &rarr;
-              </button>
-            </div>
+          {/* Discreet Internal Layout Preview (Preserves Layout & Code) */}
+          <div className="pt-4">
+            <button
+              type="button"
+              onClick={() => {
+                const demoId = clients[0]?.id || 'cli-101';
+                setSelectedClientId(demoId);
+                setAuthenticatedClientId(demoId);
+                setShowLayoutPreview(true);
+              }}
+              className="text-xs text-gray-400 hover:text-[#0A4B35] transition-colors underline underline-offset-4 cursor-pointer"
+            >
+              Internal: Preview Client Dashboard Layout &rarr;
+            </button>
           </div>
         </div>
       </div>
