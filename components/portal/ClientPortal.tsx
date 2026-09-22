@@ -24,7 +24,8 @@ import {
   Info,
   LogOut,
   Mail,
-  KeyRound
+  KeyRound,
+  Construction
 } from 'lucide-react';
 import { usePortalStore } from '@/lib/portalStore';
 import { Client, CaseFile, Invoice } from '@/types/portal';
@@ -170,71 +171,143 @@ export const ClientPortal: React.FC<ClientPortalProps> = ({
   if (!authenticatedClientId) {
     return (
       <div className="min-h-screen bg-[#FAFAF7] text-[#1A1A1A] p-4 sm:p-6 lg:p-8 flex items-center justify-center">
-        <div className="max-w-md w-full bg-white rounded-3xl border border-[#0F6B4C]/20 shadow-2xl p-6 sm:p-8 space-y-6">
-          <div className="text-center space-y-2">
-            <div className="relative w-[240px] h-[75px] mx-auto">
-              <Image
-                src="https://i.ibb.co/wh9Gb1br/20260723-032202-0000.png"
-                alt="HISK LEGAL Logo"
-                fill
-                unoptimized
-                className="object-contain object-center brightness-0"
-                referrerPolicy="no-referrer"
-              />
+        <div className="max-w-lg w-full space-y-5">
+          {/* Under Construction Notice Card */}
+          <div className="bg-amber-50 border-2 border-amber-300/90 rounded-3xl p-5 sm:p-6 shadow-sm space-y-3">
+            <div className="flex items-center justify-between gap-2 flex-wrap">
+              <span className="bg-[#F5A623] text-[#1A1A1A] text-[10px] font-extrabold px-3 py-1 rounded-full uppercase tracking-wider inline-flex items-center gap-1.5 shadow-sm">
+                <Construction className="w-3.5 h-3.5" />
+                Under Construction
+              </span>
+              <span className="text-[11px] font-bold text-amber-800 bg-amber-100/90 px-2.5 py-0.5 rounded-full">
+                Exclusively For HISK LEGAL Clients
+              </span>
             </div>
-            <span className="bg-[#0A4B35]/10 text-[#0A4B35] text-[10px] font-extrabold px-3 py-1 rounded-full uppercase tracking-wider inline-block">
-              HISK LEGAL Client Portal
-            </span>
-            <h1 className="text-2xl font-heading font-extrabold text-[#1A1A1A]">
-              Client Case Progress Portal
-            </h1>
+
+            <div className="space-y-1.5">
+              <h2 className="text-xl font-heading font-extrabold text-[#1A1A1A]">
+                Client Portal is Currently Under Construction
+              </h2>
+              <p className="text-xs text-amber-950/85 leading-relaxed font-medium">
+                Our digital client workspace is undergoing scheduled upgrades for enhanced security, real-time court hearing tracking, and encrypted document delivery. All underlying layout modules and client case architectures remain fully coded and preserved.
+              </p>
+            </div>
+
+            <div className="pt-2 flex flex-col sm:flex-row items-stretch sm:items-center gap-2.5">
+              <a
+                href={buildWhatsAppUrl({
+                  customMessage: 'Assalamu Alaikum HISK LEGAL, I am a client requesting an urgent update on my ongoing case/matter.'
+                })}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="bg-[#0A4B35] hover:bg-[#0F6B4C] text-white text-xs font-heading font-extrabold py-2.5 px-4 rounded-2xl shadow-sm transition-all flex items-center justify-center gap-2 text-center"
+              >
+                <MessageCircle className="w-4 h-4 text-[#F5A623]" />
+                <span>Instant Case Update on WhatsApp</span>
+              </a>
+              <a
+                href="tel:+923145113670"
+                className="bg-white hover:bg-gray-50 text-[#1A1A1A] border border-amber-300 text-xs font-bold py-2.5 px-4 rounded-2xl shadow-sm transition-all flex items-center justify-center gap-2 text-center"
+              >
+                <PhoneCall className="w-3.5 h-3.5 text-[#0A4B35]" />
+                <span>Call Legal Desk</span>
+              </a>
+            </div>
           </div>
 
-          {authError && (
-            <div className="bg-red-50 border border-red-200 text-red-700 text-xs p-3 rounded-2xl font-medium">
-              {authError}
-            </div>
-          )}
-
-          <form onSubmit={handleClientLogin} className="space-y-4">
-            <div>
-              <label className="text-xs font-bold text-gray-700 block mb-1">Registered Client Email</label>
-              <div className="relative">
-                <Mail className="w-4 h-4 text-gray-400 absolute left-3.5 top-3" />
-                <input
-                  type="email"
-                  required
-                  value={clientEmail}
-                  onChange={(e) => setClientEmail(e.target.value)}
-                  placeholder="e.g. alhabib@group.com"
-                  className="w-full bg-[#FAFAF7] pl-10 pr-4 py-2.5 rounded-2xl border border-gray-200 text-xs font-medium focus:outline-none focus:border-[#0F6B4C]"
+          {/* Client Sign In & Layout Preview */}
+          <div className="bg-white rounded-3xl border border-[#0F6B4C]/20 shadow-xl p-6 sm:p-8 space-y-6">
+            <div className="text-center space-y-2">
+              <div className="relative w-48 h-16 mx-auto">
+                <Image
+                  src="https://i.ibb.co/V02sjKtY/file-00000000549882089b03c95577e607a2.png"
+                  alt="HISK LEGAL Logo"
+                  fill
+                  unoptimized
+                  className="object-contain object-center"
+                  referrerPolicy="no-referrer"
                 />
               </div>
-            </div>
-
-            <div>
-              <label className="text-xs font-bold text-gray-700 block mb-1">Password</label>
-              <div className="relative">
-                <KeyRound className="w-4 h-4 text-gray-400 absolute left-3.5 top-3" />
-                <input
-                  type="password"
-                  required
-                  value={clientPassword}
-                  onChange={(e) => setClientPassword(e.target.value)}
-                  placeholder="••••••••"
-                  className="w-full bg-[#FAFAF7] pl-10 pr-4 py-2.5 rounded-2xl border border-gray-200 text-xs font-mono focus:outline-none focus:border-[#0F6B4C]"
-                />
+              <div className="flex items-center justify-center gap-2">
+                <span className="bg-[#0A4B35]/10 text-[#0A4B35] text-[10px] font-extrabold px-3 py-1 rounded-full uppercase tracking-wider inline-block">
+                  Authorized Client Access
+                </span>
+                <span className="bg-amber-100 text-amber-900 text-[10px] font-extrabold px-2.5 py-1 rounded-full uppercase tracking-wider inline-block">
+                  Preview Mode
+                </span>
               </div>
+              <h1 className="text-2xl font-heading font-extrabold text-[#1A1A1A]">
+                Client Case Progress Portal
+              </h1>
+              <p className="text-xs text-[#5A6275]">
+                Sign in with client credentials or preview the active portal layout.
+              </p>
             </div>
 
-            <button
-              type="submit"
-              className="w-full bg-[#0A4B35] hover:bg-[#0F6B4C] text-white font-extrabold py-3 px-4 rounded-2xl shadow-md transition-all text-xs flex items-center justify-center gap-2 cursor-pointer"
-            >
-              <Lock className="w-4 h-4 text-[#F5A623]" />
-              <span>Sign In to Track My Cases</span>
-            </button>
-          </form>
+            {authError && (
+              <div className="bg-red-50 border border-red-200 text-red-700 text-xs p-3 rounded-2xl font-medium">
+                {authError}
+              </div>
+            )}
+
+            <form onSubmit={handleClientLogin} className="space-y-4">
+              <div>
+                <label className="text-xs font-bold text-gray-700 block mb-1">Registered Client Email</label>
+                <div className="relative">
+                  <Mail className="w-4 h-4 text-gray-400 absolute left-3.5 top-3" />
+                  <input
+                    type="email"
+                    required
+                    value={clientEmail}
+                    onChange={(e) => setClientEmail(e.target.value)}
+                    placeholder="e.g. alhabib@group.com"
+                    className="w-full bg-[#FAFAF7] pl-10 pr-4 py-2.5 rounded-2xl border border-gray-200 text-xs font-medium focus:outline-none focus:border-[#0F6B4C]"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="text-xs font-bold text-gray-700 block mb-1">Password</label>
+                <div className="relative">
+                  <KeyRound className="w-4 h-4 text-gray-400 absolute left-3.5 top-3" />
+                  <input
+                    type="password"
+                    required
+                    value={clientPassword}
+                    onChange={(e) => setClientPassword(e.target.value)}
+                    placeholder="••••••••"
+                    className="w-full bg-[#FAFAF7] pl-10 pr-4 py-2.5 rounded-2xl border border-gray-200 text-xs font-mono focus:outline-none focus:border-[#0F6B4C]"
+                  />
+                </div>
+              </div>
+
+              <div className="space-y-2 pt-1">
+                <button
+                  type="submit"
+                  className="w-full bg-[#0A4B35] hover:bg-[#0F6B4C] text-white font-extrabold py-3 px-4 rounded-2xl shadow-md transition-all text-xs flex items-center justify-center gap-2 cursor-pointer"
+                >
+                  <Lock className="w-4 h-4 text-[#F5A623]" />
+                  <span>Sign In to Track My Cases</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    const fallbackId = clients[0]?.id || 'cli-101';
+                    setAuthenticatedClientId(fallbackId);
+                    setSelectedClientId(fallbackId);
+                    if (typeof window !== 'undefined') {
+                      localStorage.setItem('hisk_client_session_id', fallbackId);
+                    }
+                  }}
+                  className="w-full bg-[#FAFAF7] hover:bg-[#E8F5F0] text-[#0A4B35] font-bold py-2.5 px-4 rounded-2xl border border-dashed border-[#0A4B35]/30 transition-all text-xs flex items-center justify-center gap-1.5 cursor-pointer"
+                >
+                  <span>Preview Client Portal Layout (Demo Mode)</span>
+                  <ArrowRight className="w-3.5 h-3.5" />
+                </button>
+              </div>
+            </form>
+          </div>
         </div>
       </div>
     );
@@ -242,6 +315,39 @@ export const ClientPortal: React.FC<ClientPortalProps> = ({
 
   return (
     <div className="min-h-screen bg-[#FAFAF7] text-[#1A1A1A] p-4 sm:p-6 lg:p-8 max-w-7xl mx-auto space-y-6">
+      {/* Client Portal Under Construction Alert Banner */}
+      <div className="bg-amber-500/10 border-2 border-dashed border-amber-400/90 p-4 sm:p-5 rounded-3xl flex flex-col md:flex-row items-start md:items-center justify-between gap-4 text-amber-950 shadow-sm">
+        <div className="flex items-start gap-3.5">
+          <div className="p-2.5 rounded-2xl bg-[#F5A623] text-[#1A1A1A] shrink-0 shadow-sm">
+            <Construction className="w-5 h-5" />
+          </div>
+          <div>
+            <div className="flex items-center gap-2 flex-wrap">
+              <h2 className="font-heading font-extrabold text-sm sm:text-base text-[#1A1A1A]">
+                Client Portal is Currently Under Construction &amp; Active Enhancement
+              </h2>
+              <span className="text-[10px] bg-amber-200 text-amber-900 font-extrabold px-2 py-0.5 rounded-full uppercase tracking-wider">
+                Exclusively For Clients
+              </span>
+            </div>
+            <p className="text-xs text-amber-900/90 mt-1 max-w-3xl leading-relaxed">
+              This portal is strictly for registered HISK LEGAL clients. We are actively refining digital court hearing sync and encrypted case vaults. All layout modules, case files, FBR notices, and fee invoices below are live for review and testing.
+            </p>
+          </div>
+        </div>
+        <a
+          href={buildWhatsAppUrl({
+            customMessage: `Assalamu Alaikum HISK LEGAL, I am a client (${currentClient?.name || 'Registered Client'}) requesting an update on my active case.`
+          })}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="bg-[#0A4B35] hover:bg-[#0F6B4C] text-white text-xs font-heading font-extrabold px-4 py-2.5 rounded-2xl shadow-sm transition-all flex items-center gap-1.5 shrink-0 self-end md:self-auto cursor-pointer"
+        >
+          <MessageCircle className="w-4 h-4 text-[#F5A623]" />
+          <span>Direct Advocate Support</span>
+        </a>
+      </div>
+
       {/* Top Client Bar & Switcher */}
       <div className="bg-white p-6 rounded-3xl border border-[#0F6B4C]/15 shadow-sm flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
         <div className="flex items-center gap-4">
