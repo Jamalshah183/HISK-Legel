@@ -4,7 +4,6 @@ import React, { useState, useEffect } from 'react';
 import { Navbar } from '@/components/Navbar';
 import { Hero } from '@/components/Hero';
 import { ServicesSection } from '@/components/ServicesSection';
-import { TaxCalculator } from '@/components/TaxCalculator';
 import { AboutSection } from '@/components/AboutSection';
 import { BlogSection } from '@/components/BlogSection';
 import { ReviewsSection } from '@/components/ReviewsSection';
@@ -33,7 +32,7 @@ export default function Home() {
     if (isPortalOpen) return;
 
     const handleScroll = () => {
-      const sections = ['home', 'services', 'about', 'insights', 'reviews', 'calculator'];
+      const sections = ['home', 'services', 'about', 'insights', 'reviews'];
       const scrollPosition = window.scrollY + 200;
 
       for (const sectionId of sections) {
@@ -116,7 +115,6 @@ export default function Home() {
         {/* Hero Section */}
         <div id="home">
           <Hero
-            onNavigateToCalc={() => scrollToSection('calculator')}
             onNavigateToPractice={() => scrollToSection('services')}
           />
         </div>
@@ -132,9 +130,6 @@ export default function Home() {
 
         {/* Reviews & Testimonials Section */}
         <ReviewsSection />
-
-        {/* Tax Calculator Section */}
-        <TaxCalculator />
       </main>
 
       {/* Sticky Floating WhatsApp Quick Chat Desk */}

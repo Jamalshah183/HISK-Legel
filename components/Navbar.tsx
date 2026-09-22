@@ -29,7 +29,6 @@ export const Navbar: React.FC<NavbarProps> = ({ activeTab, setActiveTab, onOpenP
     { id: 'about', label: 'About Firm' },
     { id: 'insights', label: 'Legal Insights' },
     { id: 'reviews', label: 'Reviews' },
-    { id: 'calculator', label: 'Tax Calculator' },
   ];
 
   const handleNavClick = (id: string) => {
@@ -56,13 +55,18 @@ export const Navbar: React.FC<NavbarProps> = ({ activeTab, setActiveTab, onOpenP
       {/* Top Banner (Hidden on mobile) */}
       <div className="hidden sm:block bg-[#0A4B35] text-white text-[11px] py-2 px-4">
         <div className="max-w-7xl mx-auto flex flex-col lg:flex-row justify-between items-center gap-2">
-          <div className="flex items-center gap-2 font-medium shrink-0">
+          <a
+            href={buildWhatsAppUrl({ customMessage: 'Assalamu Alaikum HISK LEGAL, I need emergency legal help.' })}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex items-center gap-2 font-medium shrink-0 hover:text-[#F5A623] transition-colors cursor-pointer group"
+          >
             <span className="relative flex h-2 w-2">
               <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[#25D366] opacity-75"></span>
               <span className="relative inline-flex rounded-full h-2 w-2 bg-[#25D366]"></span>
             </span>
-            <span className="font-bold">Emergency Legal Help - Active Now</span>
-          </div>
+            <span className="font-bold group-hover:underline">Emergency Legal Help - Chat Now</span>
+          </a>
           <div className="flex flex-wrap items-center justify-center lg:justify-end gap-x-3 gap-y-1 text-[11px]">
             <a
               href={buildWhatsAppUrl({ topic: 'fbr_audit' })}

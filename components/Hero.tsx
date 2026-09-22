@@ -7,7 +7,6 @@ import { buildWhatsAppUrl } from '@/lib/whatsapp';
 import { FIRM_METRICS } from '@/data/lawFirmData';
 
 interface HeroProps {
-  onNavigateToCalc?: () => void;
   onNavigateToPractice?: () => void;
 }
 

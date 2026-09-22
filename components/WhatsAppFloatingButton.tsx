@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
-import { MessageCircle, X, ShieldAlert, Building, Calculator, ChevronRight } from 'lucide-react';
+import { MessageCircle, X, ShieldAlert, Building, BadgeCheck, ChevronRight } from 'lucide-react';
 import { buildWhatsAppUrl } from '@/lib/whatsapp';
 
 export const WhatsAppFloatingButton: React.FC = () => {
@@ -15,10 +15,11 @@ export const WhatsAppFloatingButton: React.FC = () => {
       icon: <ShieldAlert className="w-4 h-4 text-red-500" />
     },
     {
-      id: 'tax_calculator',
+      id: 'general',
+      customMessage: 'Assalamu Alaikum HISK LEGAL, I need assistance with Active Taxpayer List (ATL) registration and NTN return filing.',
       title: 'Active Taxpayer List (ATL)',
       subtitle: 'NTN filing & non-filer status removal',
-      icon: <Calculator className="w-4 h-4 text-[#F5A623]" />
+      icon: <BadgeCheck className="w-4 h-4 text-[#F5A623]" />
     },
     {
       id: 'business_tax',
@@ -64,8 +65,8 @@ export const WhatsAppFloatingButton: React.FC = () => {
           <div className="space-y-2">
             {topics.map((t) => (
               <a
-                key={t.id}
-                href={buildWhatsAppUrl({ topic: t.id as any })}
+                key={t.title}
+                href={buildWhatsAppUrl({ topic: t.id as any, customMessage: (t as any).customMessage })}
                 target="_blank"
                 rel="noopener noreferrer"
                 onClick={() => setIsOpen(false)}
