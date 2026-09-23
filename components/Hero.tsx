@@ -124,7 +124,7 @@ export const Hero: React.FC<HeroProps> = ({ onNavigateToPractice }) => {
           <div className="flex items-center justify-center gap-2 py-1">
             <CheckCircle2 className="w-4 h-4 text-[#F5A623] shrink-0" />
             <span>
-              <strong className="text-white font-extrabold text-sm sm:text-base">{FIRM_METRICS.successfulCases}</strong> Successful Cases
+              <strong className="text-white font-extrabold text-sm sm:text-base">{FIRM_METRICS.successfulCases}</strong> Successful Court Cases
             </span>
           </div>
 

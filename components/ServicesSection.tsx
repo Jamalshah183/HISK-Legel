@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { motion } from 'motion/react';
 import {
   FileText,
@@ -11,7 +11,6 @@ import {
   Shield,
   Scroll,
   MessageCircle,
-  Sparkles,
   X,
   CheckCircle2,
   ChevronLeft,
@@ -22,30 +21,254 @@ import {
 } from 'lucide-react';
 import { buildWhatsAppUrl } from '@/lib/whatsapp';
 import { usePortalStore } from '@/lib/portalStore';
-import { INITIAL_PRACTICE_AREAS } from '@/data/portalSeedData';
 import { PracticeArea } from '@/types/portal';
 
 export type ServiceItem = PracticeArea;
 
-export const SERVICES_DATA: ServiceItem[] = INITIAL_PRACTICE_AREAS;
+// Dedicated Core Practice Areas curated into the 3 requested categories:
+// 1. 'Litigation & Disputes'
+// 2. 'Corporate and Advisory'
+// 3. 'Tax and Compliance'
+export const CORE_PRACTICE_SERVICES: ServiceItem[] = [
+  // ==================== LITIGATION & DISPUTES ====================
+  {
+    id: 'litigation-arbitration-white-collar',
+    title: 'Litigation, Arbitration & Accountability',
+    category: 'Litigation & Disputes',
+    shortDesc: 'Civil & commercial litigation, domestic/international arbitration, NAB/FIA white-collar crime defense, and banking recovery.',
+    fullDesc: 'Aggressive trial advocacy and dispute resolution before District Courts, Banking Courts, Special Tribunals, and High Courts. We specialize in commercial arbitration (ADR), defense in white-collar criminal investigations (NAB/FIA), and corporate banking debt recovery suits.',
+    subServices: [
+      'Civil & Commercial Litigation',
+      'Commercial Arbitration & ADR',
+      'White-Collar Crime (NAB & FIA)',
+      'Banking Court Recovery Defense'
+    ],
+    keyHighlights: [
+      'High Court Civil & Commercial Suits & Appeals',
+      'Domestic & International Commercial Arbitration (ADR)',
+      'White-Collar Crime & Accountability Trial Defense (NAB / FIA)',
+      'Banking Court Recovery Suits & Loan Restructuring'
+    ],
+    iconName: 'Gavel',
+    badge: 'High Court & Trial'
+  },
+  {
+    id: 'constitutional-public-law',
+    title: 'Constitutional & Public Law',
+    category: 'Litigation & Disputes',
+    shortDesc: 'High Court constitutional writ petitions (Article 199), challenging unlawful SROs, and public procurement disputes.',
+    fullDesc: 'Defending fundamental constitutional rights and challenging arbitrary executive actions, illegal tax SROs, or statutory overreach under Article 199 before the High Courts of Pakistan. Also covers public tenders under PPRA rules.',
+    subServices: [
+      'High Court Writ Petitions (Art. 199)',
+      'Challenging Unlawful SROs & Circulars',
+      'Public Procurement (PPRA) Disputes',
+      'Administrative Injunctions & Stays'
+    ],
+    keyHighlights: [
+      'High Court Constitutional Writ Petitions under Article 199',
+      'Challenging Unlawful FBR SROs, Circulars & Excess of Authority',
+      'Public Procurement (PPRA) & Government Tender Disputes',
+      'Stay Orders Against Arbitrary Executive Enforcement'
+    ],
+    iconName: 'Scroll',
+    badge: 'High Court Writs'
+  },
+  {
+    id: 'property-civil-disputes',
+    title: 'Civil, Property & Succession Disputes',
+    category: 'Litigation & Disputes',
+    shortDesc: 'Land title verification, rent controller eviction suits, High Court succession certificates, and inheritance partition trials.',
+    fullDesc: 'Expert trial and appellate advocacy in property and inheritance disputes. We represent landlords and tenants in rent controller proceedings, handle partition suits for family assets, obtain Letters of Administration and Succession Certificates from Nadra/Courts, and defend real estate titles.',
+    subServices: [
+      'Property Title & Injunction Suits',
+      'Rent Controller Eviction Defense',
+      'Succession & Inheritance Partition',
+      'Family Court & Custody Litigation'
+    ],
+    keyHighlights: [
+      'Civil Injunctions & Land Ownership Title Defense',
+      'Commercial Lease Disputes & Eviction Decrees',
+      'High Court & Nadra Succession Certificates',
+      'Partition Deeds & Inheritance Asset Division'
+    ],
+    iconName: 'Home',
+    badge: 'Dispute Resolution'
+  },
+
+  // ==================== CORPORATE AND ADVISORY ====================
+  {
+    id: 'corporate-secp-advisory',
+    title: 'Corporate, SECP & Business Advisory',
+    category: 'Corporate and Advisory',
+    shortDesc: 'SECP company formation, annual statutory compliance, HR consultancy, M&A transactions, and business strategy.',
+    fullDesc: 'Comprehensive corporate law advisory for startups, SMEs, and multinational enterprises. We handle company incorporation (Private Limited, SMC, LLP) with SECP, joint ventures, shareholder agreements, labor law/HR compliance, M&A transaction advisory, and company liquidation.',
+    subServices: [
+      'Company Formation & SECP Compliance',
+      'Human Resource & Labor Consultancy',
+      'M&A & Transaction Advisory',
+      'Corporate Liquidation & Exit'
+    ],
+    keyHighlights: [
+      'SECP Company Incorporation & Statutory Filings (Form A/29)',
+      'Mergers & Acquisitions (M&A) & Venture Capital Deals',
+      'Employment Contracts, Labor Law & EOBI/PESSI Compliance',
+      'Corporate Restructuring & Winding-Up / Exit Advisory'
+    ],
+    iconName: 'Building2',
+    badge: 'Corporate'
+  },
+  {
+    id: 'commercial-contracts-regulatory',
+    title: 'Commercial Contracts & Regulatory Advisory',
+    category: 'Corporate and Advisory',
+    shortDesc: 'Cross-border joint ventures, distribution & agency agreements, corporate governance, and regulatory licensing.',
+    fullDesc: 'Structuring airtight commercial contracts, vendor agreements, franchise pacts, and regulatory licensing. We guide corporate boards and founders on regulatory compliance across federal and provincial authorities.',
+    subServices: [
+      'Commercial Contract Drafting',
+      'Cross-Border Joint Ventures',
+      'Corporate Governance & Audits',
+      'Regulatory Licensing & Approvals'
+    ],
+    keyHighlights: [
+      'Airtight Commercial Agreements & SLA Drafting',
+      'Cross-Border Joint Venture & Partnership Structuring',
+      'Corporate Governance Policies & Board Advisory',
+      'Provincial & Federal Regulatory Compliance Clearances'
+    ],
+    iconName: 'Briefcase',
+    badge: 'Advisory'
+  },
+  {
+    id: 'cyber-ip-tech-law',
+    title: 'Intellectual Property, Cyber & Tech Advisory',
+    category: 'Corporate and Advisory',
+    shortDesc: 'IPO trademark & patent registration, software licensing, FIA Cyber Crime (PECA 2016) defense, and e-commerce compliance.',
+    fullDesc: 'Specialized legal protection for technology firms, digital enterprises, and brand owners. We represent clients before the FIA Cyber Crime Wing, register trademarks and patents with IPO Pakistan, handle copyright protection, and structure software licensing agreements.',
+    subServices: [
+      'IPO Trademark & Patent Registration',
+      'Software & SaaS Licensing Agreements',
+      'FIA Cyber Crime (PECA 2016) Advisory',
+      'Data Privacy & E-Commerce Law'
+    ],
+    keyHighlights: [
+      'Trademark, Logo & Patent Registration with IPO Pakistan',
+      'Software Licensing, IP Assignment & Tech Contracts',
+      'Data Privacy, E-Commerce & PECA 2016 Compliance',
+      'IP Infringement Notice Issuance & Enforcement'
+    ],
+    iconName: 'Shield',
+    badge: 'Tech & IP'
+  },
+
+  // ==================== TAX AND COMPLIANCE ====================
+  {
+    id: 'taxation-fbr-advisory',
+    title: 'Taxation & FBR Legal Defense',
+    category: 'Tax and Compliance',
+    shortDesc: 'Complete direct & indirect tax legal counsel, FBR notice & audit defense, bookkeeping, and High Court tax litigation.',
+    fullDesc: 'End-to-end tax legal counsel for corporate entities and high earners across Pakistan. We handle income tax, sales tax (FBR, PRA, SRB, KPRA, BRA), withholding audits, international tax treaties, tax-compliant bookkeeping, and appellate tribunal representation before CIR-A, ATIR, and High Courts.',
+    subServices: [
+      'Direct & Indirect Taxation',
+      'FBR Notice & Audit Defense',
+      'Appellate Tribunal (ATIR) Appeals',
+      'Tax-Compliant Bookkeeping'
+    ],
+    keyHighlights: [
+      'Income Tax & Sales Tax Return Filing & Audit Defense',
+      'Tax Planning, Structuring & Exemption Certificates',
+      'Appellate Tribunal (ATIR) & CIR-Appeals Defense',
+      'Computerized Ledger Maintenance & Withholding Reconciliation'
+    ],
+    iconName: 'FileText',
+    badge: 'Tax & FBR'
+  },
+  {
+    id: 'high-court-tax-litigation',
+    title: 'High Court Tax Litigation & Appeals',
+    category: 'Tax and Compliance',
+    shortDesc: 'High Court tax writ petitions challenging illegal tax assessments, arbitrary recovery notices, and unconstitutional SRO levies.',
+    fullDesc: 'Litigating complex federal and provincial tax controversies before the High Courts of Pakistan and the Supreme Court. We obtain urgent stay orders against arbitrary bank attachments, recovery notices, and unlawful show-cause notices.',
+    subServices: [
+      'High Court Tax Writ Petitions',
+      'Stay Orders Against Bank Attachments',
+      'Reference Applications before High Court',
+      'Challenging Unlawful SRO Levies'
+    ],
+    keyHighlights: [
+      'Immediate High Court Stay Petitions Against Recovery Notices',
+      'Challenging SRO Ultra Vires & Illegal Tax Levies',
+      'Tax Reference Appeals (ITRA / STRA) before High Court Division Benches',
+      'Restoration of Bank Accounts Attached under Section 140'
+    ],
+    iconName: 'Scale',
+    badge: 'Tax Litigation'
+  },
+  {
+    id: 'fbr-section-7e-regulatory-compliance',
+    title: 'FBR Section 7E & Regulatory Tax Compliance',
+    category: 'Tax and Compliance',
+    shortDesc: 'Section 7E deemed income tax exemption certificates, withholding audits, active taxpayer status (ATL), and sales tax registrations.',
+    fullDesc: 'Ensuring seamless regulatory tax compliance for corporations, developers, and individuals. We secure Section 7E tax clearance certificates for property transfers, resolve ATL suspension issues, and ensure multi-provincial sales tax alignment.',
+    subServices: [
+      'Section 7E Tax Exemption Certificates',
+      'Sales Tax (PRA, SRB, KPRA, BRA)',
+      'Withholding Agent Audit Compliance',
+      'Active Taxpayer List (ATL) Restoration'
+    ],
+    keyHighlights: [
+      'Fast-Track FBR Section 7E Exemption Certificate Issuance',
+      'Provincial Sales Tax on Services Compliance (PRA / SRB / KPRA)',
+      'Quarterly & Annual Withholding Statement Audits',
+      'ATL Blacklisting / Inactive Status Legal Resolution'
+    ],
+    iconName: 'Landmark',
+    badge: 'Compliance'
+  }
+];
+
+export const SERVICES_DATA: ServiceItem[] = CORE_PRACTICE_SERVICES;
 
 export const ServicesSection: React.FC = () => {
   const { practiceAreas } = usePortalStore();
-  const currentServices = practiceAreas && practiceAreas.length > 0 ? practiceAreas : SERVICES_DATA;
+
+  // Normalize any store practice areas strictly into the 3 requested categories
+  const currentServices = useMemo(() => {
+    if (practiceAreas && practiceAreas.length > 0) {
+      // Check if custom areas were defined
+      const hasCustom = practiceAreas.some(p => p.id && !CORE_PRACTICE_SERVICES.some(c => c.id === p.id));
+      if (hasCustom) {
+        return practiceAreas.map((p) => {
+          const lower = (p.category || '').toLowerCase();
+          let targetCategory = 'Corporate and Advisory';
+          if (lower.includes('tax') || lower.includes('compliance') || lower.includes('fbr') || lower.includes('finance')) {
+            targetCategory = 'Tax and Compliance';
+          } else if (lower.includes('litigat') || lower.includes('dispute') || lower.includes('court') || lower.includes('property') || lower.includes('family')) {
+            targetCategory = 'Litigation & Disputes';
+          }
+          return { ...p, category: targetCategory };
+        });
+      }
+    }
+    return CORE_PRACTICE_SERVICES;
+  }, [practiceAreas]);
 
   const [modalService, setModalService] = useState<ServiceItem | null>(null);
   const [selectedCategory, setSelectedCategory] = useState<string>('All');
   const [isHovered, setIsHovered] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
 
-  const CATEGORIES = React.useMemo(() => {
-    const cats = Array.from(new Set(currentServices.map(service => service.category).filter(Boolean)));
-    return ['All', ...cats];
-  }, [currentServices]);
+  // Strictly only the requested categories
+  const CATEGORIES = useMemo(() => [
+    'All',
+    'Litigation & Disputes',
+    'Corporate and Advisory',
+    'Tax and Compliance'
+  ], []);
 
-  const filteredServices = selectedCategory === 'All'
-    ? currentServices
-    : currentServices.filter(service => service.category === selectedCategory);
+  const filteredServices = useMemo(() => {
+    if (selectedCategory === 'All') return currentServices;
+    return currentServices.filter(service => service.category === selectedCategory);
+  }, [currentServices, selectedCategory]);
 
   // Helper to render icon with text-current so group-hover transition works smoothly
   const getServiceIcon = (iconName: string) => {
@@ -139,13 +362,13 @@ export const ServicesSection: React.FC = () => {
             className="w-full max-w-3xl mx-auto flex flex-col items-center justify-center text-center"
           >
             <h2 className="w-full font-heading font-extrabold text-3xl sm:text-4xl lg:text-5xl text-[#1A1A1A] tracking-tight mb-3 text-center mx-auto">
-              Major Practice Areas
+              Core Practice Areas
             </h2>
             <p className="w-full text-sm sm:text-base text-[#5A6275] font-normal leading-relaxed mb-4 text-center max-w-2xl mx-auto">
-              From complex litigation to corporate advisory our advocates provide practical legal solutions tailored to individuals, businesses and institutions.
+              From complex litigation to corporate advisory our advocates provide out of the box practical legal solutions tailored to individuals, businesses and institutions.
             </p>
 
-            {/* Category Filter Buttons */}
+            {/* Category Filter Buttons - Strictly the 3 Categories */}
             <div className="w-full flex flex-wrap items-center justify-center text-center gap-2 pt-2 mx-auto">
               {CATEGORIES.map((cat) => {
                 const isActive = selectedCategory === cat;
@@ -169,7 +392,7 @@ export const ServicesSection: React.FC = () => {
           </motion.div>
         </div>
 
-        {/* Major Practice Areas Carousel with Left and Right Navigation Arrows */}
+        {/* Core Practice Areas Carousel with Left and Right Navigation Arrows */}
         <div
           className="w-full relative group py-2"
           onMouseEnter={() => setIsHovered(true)}
@@ -214,16 +437,21 @@ export const ServicesSection: React.FC = () => {
                 onClick={() => setModalService(service)}
               >
                 <div>
-                  {/* Top Bar with Icon & Badge */}
+                  {/* Top Bar with Icon & Category + Badge */}
                   <div className="flex items-start justify-between gap-3 mb-5">
                     <div className="w-12 h-12 rounded-xl bg-[#E8F5F0] text-[#0F6B4C] group-hover:bg-[#0F6B4C] group-hover:text-white transition-all duration-300 flex items-center justify-center shrink-0 shadow-xs">
                       {getServiceIcon(service.iconName)}
                     </div>
-                    {service.badge && (
-                      <span className="text-[10px] font-extrabold uppercase tracking-wider bg-[#F5A623]/20 text-[#1A1A1A] border border-[#F5A623]/40 px-2.5 py-1 rounded-md">
-                        {service.badge}
+                    <div className="flex flex-col items-end gap-1">
+                      <span className="text-[10px] font-bold text-[#0F6B4C] bg-[#E8F5F0] border border-[#0F6B4C]/20 px-2 py-0.5 rounded-md">
+                        {service.category}
                       </span>
-                    )}
+                      {service.badge && (
+                        <span className="text-[9px] font-extrabold uppercase tracking-wider bg-[#F5A623]/20 text-[#1A1A1A] border border-[#F5A623]/40 px-2 py-0.5 rounded-md">
+                          {service.badge}
+                        </span>
+                      )}
+                    </div>
                   </div>
 
                   {/* Title */}
@@ -291,7 +519,7 @@ export const ServicesSection: React.FC = () => {
                 <h3 className="font-heading font-extrabold text-lg sm:text-2xl text-[#1A1A1A]">
                   {modalService.title}
                 </h3>
-                <span className="text-[11px] sm:text-xs font-bold text-[#0F6B4C] bg-[#E8F5F0] px-2 py-0.5 rounded-full inline-block mt-0.5">
+                <span className="text-[11px] sm:text-xs font-bold text-[#0F6B4C] bg-[#E8F5F0] px-2.5 py-0.5 rounded-full inline-block mt-0.5">
                   {modalService.category}
                 </span>
               </div>

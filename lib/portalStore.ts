@@ -50,7 +50,7 @@ const STORAGE_KEYS = {
   HEARINGS: 'hisk_portal_hearings_v2',
   NOTIFICATIONS: 'hisk_portal_notifications_v2',
   CLIENT_CREDENTIALS: 'hisk_portal_client_credentials_v2',
-  PRACTICE_AREAS: 'hisk_portal_practice_areas_v2',
+  PRACTICE_AREAS: 'hisk_portal_practice_areas_v3',
   TEAM_MEMBERS: 'hisk_portal_team_members_v2',
   REVIEWS: 'hisk_portal_reviews_v2',
   INSIGHTS: 'hisk_portal_insights_v2'
