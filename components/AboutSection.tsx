@@ -23,7 +23,7 @@ import {
   Gavel,
   TrendingUp
 } from 'lucide-react';
-import { ATTORNEYS, FIRM_METRICS, Attorney } from '@/data/lawFirmData';
+import { ATTORNEYS, Attorney } from '@/data/lawFirmData';
 import { usePortalStore } from '@/lib/portalStore';
 import { TeamMember } from '@/types/portal';
 import { buildWhatsAppUrl } from '@/lib/whatsapp';
@@ -114,78 +114,6 @@ export const AboutSection: React.FC = () => {
           </p>
         </motion.div>
 
-
-
-        {/* Quantifiable Relief & Firm Metrics Banner */}
-        <motion.div
-          initial={{ opacity: 0, scale: 0.98 }}
-          whileInView={{ opacity: 1, scale: 1 }}
-          viewport={{ once: false, amount: 0.15 }}
-          transition={{ duration: 0.6 }}
-          className="bg-[#0F6B4C] text-white rounded-3xl p-6 sm:p-8 lg:p-10 shadow-xl mb-12 sm:mb-16 relative overflow-hidden border border-[#0F6B4C]/30"
-        >
-          {/* Subtle Decorative Pattern */}
-          <div className="absolute top-0 right-0 w-96 h-96 bg-emerald-400/10 rounded-full blur-3xl pointer-events-none" />
-          <div className="absolute bottom-0 left-0 w-80 h-80 bg-[#F5A623]/10 rounded-full blur-3xl pointer-events-none" />
-
-          <div className="relative z-10 grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-10 items-center">
-            {/* Left Info Column */}
-            <div className="lg:col-span-5 text-center lg:text-left space-y-3">
-              <div className="inline-flex items-center gap-2 bg-[#0A4B35] text-[#F5A623] text-xs font-extrabold px-3.5 py-1.5 rounded-full border border-[#F5A623]/30 shadow-xs">
-                <Award className="w-3.5 h-3.5 text-[#F5A623]" />
-                <span className="uppercase tracking-wider">Track Record of Success</span>
-              </div>
-
-              <h3 className="font-heading font-extrabold text-2xl sm:text-3xl text-white leading-tight">
-                Quantifiable Legal Relief &amp; Representation
-              </h3>
-
-              <p className="text-xs sm:text-sm text-emerald-100/90 leading-relaxed font-normal">
-                Protecting business assets, resolving high-stakes disputes, and securing tax relief before judicial and administrative authorities.
-              </p>
-            </div>
-
-            {/* Right Metric Cards Column */}
-            <div className="lg:col-span-7 grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4 lg:gap-5 w-full">
-              <div className="bg-[#0A4B35]/90 hover:bg-[#0A4B35] p-4 sm:p-5 rounded-2xl border border-emerald-400/20 text-center flex flex-col justify-center items-center shadow-sm transition-all duration-300 min-h-[110px] sm:min-h-[120px]">
-                <div className="font-heading font-extrabold text-2xl sm:text-3xl text-[#F5A623] tracking-tight">
-                  {FIRM_METRICS.totalTaxSaved}
-                </div>
-                <div className="text-[11px] sm:text-xs text-emerald-100 font-medium mt-1.5 leading-tight">
-                  Tax Saved &amp; Protected
-                </div>
-              </div>
-
-              <div className="bg-[#0A4B35]/90 hover:bg-[#0A4B35] p-4 sm:p-5 rounded-2xl border border-emerald-400/20 text-center flex flex-col justify-center items-center shadow-sm transition-all duration-300 min-h-[110px] sm:min-h-[120px]">
-                <div className="font-heading font-extrabold text-2xl sm:text-3xl text-white tracking-tight">
-                  {FIRM_METRICS.auditReliefRate}
-                </div>
-                <div className="text-[11px] sm:text-xs text-emerald-100 font-medium mt-1.5 leading-tight">
-                  Litigation Success Rate
-                </div>
-              </div>
-
-              <div className="bg-[#0A4B35]/90 hover:bg-[#0A4B35] p-4 sm:p-5 rounded-2xl border border-emerald-400/20 text-center flex flex-col justify-center items-center shadow-sm transition-all duration-300 min-h-[110px] sm:min-h-[120px]">
-                <div className="font-heading font-extrabold text-2xl sm:text-3xl text-[#F5A623] tracking-tight">
-                  {FIRM_METRICS.casesHandled}
-                </div>
-                <div className="text-[11px] sm:text-xs text-emerald-100 font-medium mt-1.5 leading-tight">
-                  Cases &amp; Writs Handled
-                </div>
-              </div>
-
-              <div className="bg-[#0A4B35]/90 hover:bg-[#0A4B35] p-4 sm:p-5 rounded-2xl border border-emerald-400/20 text-center flex flex-col justify-center items-center shadow-sm transition-all duration-300 min-h-[110px] sm:min-h-[120px]">
-                <div className="font-heading font-extrabold text-2xl sm:text-3xl text-white tracking-tight">
-                  {FIRM_METRICS.yearsInPractice}
-                </div>
-                <div className="text-[11px] sm:text-xs text-emerald-100 font-medium mt-1.5 leading-tight">
-                  Years Legal Experience
-                </div>
-              </div>
-            </div>
-          </div>
-        </motion.div>
-
         {/* Why Clients Trust Us - High-Impact Luxury Legal Showcase */}
         <div className="relative bg-[#0B251C] text-white p-6 sm:p-10 lg:p-14 rounded-3xl border border-[#0F6B4C]/40 shadow-2xl overflow-hidden mb-24">
           {/* Ambient Lighting & Geometric Overlays */}
@@ -203,7 +131,7 @@ export const AboutSection: React.FC = () => {
               className="lg:col-span-6 space-y-7"
             >
               <h3 className="font-heading font-extrabold text-3xl sm:text-4xl lg:text-5xl text-white leading-[1.15] tracking-tight">
-                Why Corporate Leaders &amp; Taxpayers Trust <span className="text-transparent bg-clip-text bg-gradient-to-r from-[#F5A623] via-[#FFD07B] to-[#F5A623]">HISK LEGAL</span>
+                Why Litigants, Corporate Leaders &amp; Taxpayers Trust <span className="text-transparent bg-clip-text bg-gradient-to-r from-[#F5A623] via-[#FFD07B] to-[#F5A623]">HISK LEGAL</span>
               </h3>
 
               <p className="text-sm sm:text-base text-[#C2D8D0] leading-relaxed font-light">
@@ -217,7 +145,7 @@ export const AboutSection: React.FC = () => {
                     <CheckCircle2 className="w-4 h-4" />
                   </div>
                   <p className="text-xs sm:text-sm text-[#E2F0EA] font-medium">
-                    <strong className="text-white">Emergency Article 199 Relief:</strong> Immediate High Court stay orders against illegal FBR bank account attachments &amp; recovery notices.
+                    <strong className="text-white">Emergency Relief:</strong> Immediate stay orders in Civil Cases, Family and Guardian Petitions and against FBR bank account attachments &amp; recovery notices.
                   </p>
                 </div>
 
@@ -226,7 +154,7 @@ export const AboutSection: React.FC = () => {
                     <CheckCircle2 className="w-4 h-4" />
                   </div>
                   <p className="text-xs sm:text-sm text-[#E2F0EA] font-medium">
-                    <strong className="text-white">Senior Appellate Advocacy:</strong> Proven defense records before Commissioner Appeals (CIR), Appellate Tribunal (ATIR), &amp; High Courts.
+                    <strong className="text-white">Effective Appellate Advocacy:</strong> Proven records of appellate litigation before High Courts, District and Sessions Courts, Appellate Tribunals &amp; Commissioner Appeals
                   </p>
                 </div>
               </div>
@@ -277,16 +205,11 @@ export const AboutSection: React.FC = () => {
                     <Gavel className="w-6 h-6 sm:w-7 sm:h-7" />
                   </div>
                   <div className="space-y-1.5 flex-1">
-                    <div className="flex items-center justify-between gap-2 flex-wrap">
-                      <h4 className="font-heading font-extrabold text-base sm:text-lg text-white group-hover:text-[#F5A623] transition-colors">
-                        High Court Writs &amp; Emergency Stays
-                      </h4>
-                      <span className="text-[10px] font-extrabold text-[#F5A623] bg-[#F5A623]/15 border border-[#F5A623]/30 px-2.5 py-0.5 rounded-full uppercase tracking-wider">
-                        Article 199
-                      </span>
-                    </div>
+                    <h4 className="font-heading font-extrabold text-base sm:text-lg text-white group-hover:text-[#F5A623] transition-colors">
+                      Deep Legal Understanding
+                    </h4>
                     <p className="text-xs sm:text-sm text-[#C2D8D0] leading-relaxed font-light">
-                      Rapid judicial petitions before High Courts to halt illegal tax recoveries, bank attachments, or unauthorized administrative actions.
+                      A thorough understanding of Pakistani law, procedure and the complexities of every matter we undertake.
                     </p>
                   </div>
                 </div>
@@ -298,16 +221,11 @@ export const AboutSection: React.FC = () => {
                     <GraduationCap className="w-6 h-6 sm:w-7 sm:h-7" />
                   </div>
                   <div className="space-y-1.5 flex-1">
-                    <div className="flex items-center justify-between gap-2 flex-wrap">
-                      <h4 className="font-heading font-extrabold text-base sm:text-lg text-white group-hover:text-[#F5A623] transition-colors">
-                        Appellate Advocacy &amp; Rebuttals
-                      </h4>
-                      <span className="text-[10px] font-extrabold text-[#F5A623] bg-[#F5A623]/15 border border-[#F5A623]/30 px-2.5 py-0.5 rounded-full uppercase tracking-wider">
-                        ATIR &amp; CIR Appeals
-                      </span>
-                    </div>
+                    <h4 className="font-heading font-extrabold text-base sm:text-lg text-white group-hover:text-[#F5A623] transition-colors">
+                      Strategic Legal Approach
+                    </h4>
                     <p className="text-xs sm:text-sm text-[#C2D8D0] leading-relaxed font-light">
-                      Meticulous drafting of legal grounds, appeals, and representations before Commissioner Appeals (CIR) and Appellate Tribunals (ATIR).
+                      Careful assessment, practical advice and a focused strategy designed around each client&apos;s objectives and legal position.
                     </p>
                   </div>
                 </div>
@@ -319,16 +237,11 @@ export const AboutSection: React.FC = () => {
                     <TrendingUp className="w-6 h-6 sm:w-7 sm:h-7" />
                   </div>
                   <div className="space-y-1.5 flex-1">
-                    <div className="flex items-center justify-between gap-2 flex-wrap">
-                      <h4 className="font-heading font-extrabold text-base sm:text-lg text-white group-hover:text-[#F5A623] transition-colors">
-                        Corporate Structuring &amp; SECP Advisory
-                      </h4>
-                      <span className="text-[10px] font-extrabold text-[#F5A623] bg-[#F5A623]/15 border border-[#F5A623]/30 px-2.5 py-0.5 rounded-full uppercase tracking-wider">
-                        SECP Governance
-                      </span>
-                    </div>
+                    <h4 className="font-heading font-extrabold text-base sm:text-lg text-white group-hover:text-[#F5A623] transition-colors">
+                      Decisive Litigation
+                    </h4>
                     <p className="text-xs sm:text-sm text-[#C2D8D0] leading-relaxed font-light">
-                      Full corporate lifecycle counsel including company incorporation, joint ventures, shareholder agreements, and regulatory filings.
+                      Strong, well-prepared advocacy and determined representation before courts and relevant forums.
                     </p>
                   </div>
                 </div>
