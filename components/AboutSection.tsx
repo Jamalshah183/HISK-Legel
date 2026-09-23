@@ -101,13 +101,16 @@ export const AboutSection: React.FC = () => {
           whileInView={{ opacity: 1, x: 0, filter: 'blur(0px)' }}
           viewport={{ once: false, amount: 0.2 }}
           transition={{ duration: 0.6 }}
-          className="max-w-3xl mx-auto text-center mb-8 sm:mb-12"
+          className="max-w-4xl mx-auto text-center mb-8 sm:mb-12 space-y-3.5"
         >
-          <h2 className="font-heading font-extrabold text-3xl sm:text-4xl lg:text-5xl text-[#1A1A1A] tracking-tight mb-4">
+          <h2 className="font-heading font-extrabold text-3xl sm:text-4xl lg:text-5xl text-[#1A1A1A] tracking-tight mb-3">
             About HISK LEGAL
           </h2>
-          <p className="text-base sm:text-lg text-[#5A6275] leading-relaxed font-normal">
-            Premier full-service law firm in Pakistan led by Founder &amp; CEO Hafiz Irfan Shabber Kayani, Advocate High Court. Dedicated to providing strategic, commercially focused, and results-oriented legal defense.
+          <p className="text-base sm:text-lg text-[#3A4255] leading-relaxed font-medium">
+            HISK LEGAL is a full-service law firm in Pakistan led by Hafiz Irfan Shabber Kayani, Advocate High Court, Founder &amp; CEO. With over 20 years of advocacy experience, the firm provides strategic, commercially focused legal counsel and representation across tax and FBR matters, corporate and commercial law, civil and criminal litigation, and High Court proceedings.
+          </p>
+          <p className="text-sm sm:text-base text-[#5A6275] leading-relaxed font-normal">
+            We combine rigorous legal analysis, practical strategy and dedicated client representation to protect our clients’ interests, manage legal risk and pursue effective solutions through aggressive litigation in complex legal and commercial matters.
           </p>
         </motion.div>
 
