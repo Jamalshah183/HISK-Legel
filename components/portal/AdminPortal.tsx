@@ -94,7 +94,7 @@ const ADVOCATES = [
   'Hafiz Irfan Shabber Kayani'
 ];
 
-const ALLOWED_ADMIN_EMAILS = ['jamalshah183@gmail.com', 'adv.kayani@gmail.com', 'adv.kiyani@gmail.com'];
+const ALLOWED_ADMIN_EMAILS = ['jamalshah183@gmail.com', 'adv.kayani@gmail.com', 'adv.kiyani@gmail.com', 'aamer222@gmail.com'];
 
 export const AdminPortal: React.FC = () => {
   // Admin authentication state
@@ -238,7 +238,7 @@ export const AdminPortal: React.FC = () => {
   // Simple Practice Area Form State
   const [paFormData, setPaFormData] = useState({
     title: '',
-    category: 'Litigation & Disputes',
+    category: 'Tax & Finance',
     badge: '',
     iconName: 'Scale',
     shortDesc: '',
@@ -565,7 +565,7 @@ export const AdminPortal: React.FC = () => {
     setEditingPracticeArea(null);
     setPaFormData({
       title: '',
-      category: 'Litigation & Disputes',
+      category: 'Tax & Finance',
       badge: '',
       iconName: 'Scale',
       shortDesc: '',
@@ -1749,7 +1749,7 @@ export const AdminPortal: React.FC = () => {
       <div className="min-h-screen bg-[#FAFAF7] text-[#1A1A1A] p-4 sm:p-6 lg:p-8 flex items-center justify-center">
         <div className="max-w-md w-full bg-white rounded-3xl border border-[#0F6B4C]/20 shadow-2xl p-6 sm:p-8 space-y-6">
           <div className="text-center space-y-3">
-            <div className="relative w-48 h-16 mx-auto">
+            <div className="relative w-[240px] h-[75px] mx-auto">
               <Image
                 src="https://i.ibb.co/wh9Gb1br/20260723-032202-0000.png"
                 alt="HISK LEGAL Logo"
@@ -6760,9 +6760,14 @@ export const AdminPortal: React.FC = () => {
                     onChange={(e) => setPaFormData({ ...paFormData, category: e.target.value })}
                     className="w-full bg-[#FAFAF7] px-3 py-2.5 rounded-xl border border-gray-200 text-xs focus:outline-none focus:border-[#0F6B4C] font-semibold"
                   >
+                    <option value="Tax & Finance">Tax & Finance</option>
+                    <option value="Corporate & Business">Corporate & Business</option>
                     <option value="Litigation & Disputes">Litigation & Disputes</option>
-                    <option value="Corporate & Advisory">Corporate & Advisory</option>
-                    <option value="Tax & Compliance">Tax & Compliance</option>
+                    <option value="Property & Real Estate">Property & Real Estate</option>
+                    <option value="Specialized Law">Specialized Law</option>
+                    <option value="Banking & Finance">Banking & Finance</option>
+                    <option value="Criminal Defense">Criminal Defense</option>
+                    <option value="General Practice">General Practice</option>
                   </select>
                 </div>
 

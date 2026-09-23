@@ -299,21 +299,27 @@ export const ServicesSection: React.FC = () => {
     }
   };
 
+  const getStepWidth = () => {
+    if (!scrollRef.current) return 360;
+    const firstCard = scrollRef.current.firstElementChild as HTMLElement | null;
+    return firstCard ? firstCard.offsetWidth + 24 : 360;
+  };
+
   const handleManualScroll = (direction: 'left' | 'right') => {
     if (scrollRef.current) {
       const { scrollLeft, scrollWidth, clientWidth } = scrollRef.current;
-      const cardWidth = 380;
+      const step = getStepWidth();
       if (direction === 'right') {
-        if (scrollLeft + clientWidth >= scrollWidth - 15) {
+        if (scrollLeft + clientWidth >= scrollWidth - 20) {
           scrollRef.current.scrollTo({ left: 0, behavior: 'smooth' });
         } else {
-          scrollRef.current.scrollBy({ left: cardWidth, behavior: 'smooth' });
+          scrollRef.current.scrollBy({ left: step, behavior: 'smooth' });
         }
       } else {
-        if (scrollLeft <= 15) {
+        if (scrollLeft <= 20) {
           scrollRef.current.scrollTo({ left: scrollWidth - clientWidth, behavior: 'smooth' });
         } else {
-          scrollRef.current.scrollBy({ left: -cardWidth, behavior: 'smooth' });
+          scrollRef.current.scrollBy({ left: -step, behavior: 'smooth' });
         }
       }
     }
@@ -326,19 +332,20 @@ export const ServicesSection: React.FC = () => {
     }
   }, [selectedCategory]);
 
-  // Subtle auto-advance when not hovered
+  // Fast & fluid auto-advance when not hovered (speed increased from 4.5s to 2s)
   useEffect(() => {
     if (isHovered) return;
     const timer = setInterval(() => {
       if (scrollRef.current) {
         const { scrollLeft, scrollWidth, clientWidth } = scrollRef.current;
-        if (scrollLeft + clientWidth >= scrollWidth - 15) {
+        const step = getStepWidth();
+        if (scrollLeft + clientWidth >= scrollWidth - 20) {
           scrollRef.current.scrollTo({ left: 0, behavior: 'smooth' });
         } else {
-          scrollRef.current.scrollBy({ left: 380, behavior: 'smooth' });
+          scrollRef.current.scrollBy({ left: step, behavior: 'smooth' });
         }
       }
-    }, 4500);
+    }, 2000);
     return () => clearInterval(timer);
   }, [isHovered, selectedCategory]);
 
@@ -427,7 +434,7 @@ export const ServicesSection: React.FC = () => {
           {/* Scrollable Cards Track */}
           <div
             ref={scrollRef}
-            className="flex gap-4 sm:gap-6 overflow-x-auto no-scrollbar py-3 px-10 sm:px-14 md:px-16 snap-x snap-mandatory scroll-smooth"
+            className="flex gap-4 sm:gap-6 overflow-x-auto no-scrollbar py-3 px-10 sm:px-14 md:px-16 snap-x snap-proximity scroll-smooth"
           >
             {filteredServices.map((service, idx) => (
               <div
@@ -437,21 +444,16 @@ export const ServicesSection: React.FC = () => {
                 onClick={() => setModalService(service)}
               >
                 <div>
-                  {/* Top Bar with Icon & Category + Badge */}
+                  {/* Top Bar with Icon & Badge */}
                   <div className="flex items-start justify-between gap-3 mb-5">
                     <div className="w-12 h-12 rounded-xl bg-[#E8F5F0] text-[#0F6B4C] group-hover:bg-[#0F6B4C] group-hover:text-white transition-all duration-300 flex items-center justify-center shrink-0 shadow-xs">
                       {getServiceIcon(service.iconName)}
                     </div>
-                    <div className="flex flex-col items-end gap-1">
-                      <span className="text-[10px] font-bold text-[#0F6B4C] bg-[#E8F5F0] border border-[#0F6B4C]/20 px-2 py-0.5 rounded-md">
-                        {service.category}
+                    {service.badge && (
+                      <span className="text-[10px] font-extrabold uppercase tracking-wider bg-[#F5A623]/20 text-[#1A1A1A] border border-[#F5A623]/40 px-2.5 py-1 rounded-md">
+                        {service.badge}
                       </span>
-                      {service.badge && (
-                        <span className="text-[9px] font-extrabold uppercase tracking-wider bg-[#F5A623]/20 text-[#1A1A1A] border border-[#F5A623]/40 px-2 py-0.5 rounded-md">
-                          {service.badge}
-                        </span>
-                      )}
-                    </div>
+                    )}
                   </div>
 
                   {/* Title */}
