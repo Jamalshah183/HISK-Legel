@@ -21,7 +21,7 @@ export const Hero: React.FC<HeroProps> = ({ onNavigateToPractice }) => {
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       transition={{ duration: 0.8 }}
-      className="scroll-mt-24 relative overflow-hidden min-h-[85vh] sm:min-h-[88vh] flex items-center justify-center pt-16 sm:pt-20 lg:pt-24 pb-12 sm:pb-16 lg:pb-20 bg-[#0B251C] text-white"
+      className="scroll-mt-24 relative overflow-hidden min-h-[85vh] sm:min-h-[88vh] flex items-center justify-center pt-16 sm:pt-20 lg:pt-24 pb-12 sm:pb-16 lg:pb-20 bg-[#0F3E2E] text-white"
     >
       {/* Background Video */}
       <div className="absolute inset-0 w-full h-full overflow-hidden pointer-events-none z-0">
@@ -30,20 +30,20 @@ export const Hero: React.FC<HeroProps> = ({ onNavigateToPractice }) => {
           loop
           muted
           playsInline
-          className="w-full h-full object-cover scale-105"
+          className="w-full h-full object-cover scale-105 opacity-90"
         >
           <source src="https://www.pexels.com/download/video/16555149/" type="video/mp4" />
           Your browser does not support the video tag.
         </video>
 
-        {/* Multi-layered Vignette & Dark Overlay for Crisp Contrast */}
-        <div className="absolute inset-0 bg-gradient-to-b from-[#061A13]/85 via-[#0B251C]/65 to-[#061A13]/90 mix-blend-multiply" />
-        <div className="absolute inset-0 bg-black/25" />
+        {/* Lightened Luminous Gradient Overlay (Decreased Darkness) */}
+        <div className="absolute inset-0 bg-gradient-to-b from-[#061A13]/55 via-[#0A4B35]/35 to-[#061A13]/60" />
+        <div className="absolute inset-0 bg-black/10" />
       </div>
 
       {/* Atmospheric Ambient Glows */}
-      <div className="absolute top-1/4 right-1/4 w-72 h-72 sm:w-[500px] sm:h-[500px] rounded-full bg-[#0F6B4C]/40 blur-3xl pointer-events-none z-0" />
-      <div className="absolute bottom-1/4 left-1/4 w-72 h-72 sm:w-[500px] sm:h-[500px] rounded-full bg-[#F5A623]/25 blur-3xl pointer-events-none z-0" />
+      <div className="absolute top-1/4 right-1/4 w-72 h-72 sm:w-[550px] sm:h-[550px] rounded-full bg-[#0F6B4C]/50 blur-3xl pointer-events-none z-0" />
+      <div className="absolute bottom-1/4 left-1/4 w-72 h-72 sm:w-[550px] sm:h-[550px] rounded-full bg-[#F5A623]/30 blur-3xl pointer-events-none z-0" />
 
       {/* Main Hero Content Container */}
       <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10 w-full flex flex-col items-center text-center space-y-6 sm:space-y-8">
@@ -57,7 +57,7 @@ export const Hero: React.FC<HeroProps> = ({ onNavigateToPractice }) => {
         >
           <div className="inline-flex items-center gap-2 bg-[#0F6B4C]/50 backdrop-blur-md border border-[#0F6B4C] px-4 py-1.5 rounded-full text-xs sm:text-sm font-semibold text-[#F5A623] shadow-lg">
             <ShieldCheck className="w-4 h-4 text-[#F5A623]" />
-            <span>Trusted Advocacy Solutions Beyond Expectations</span>
+            <span>Trusted Advocacy Solutions Exceeding Expectations</span>
           </div>
         </motion.div>
 
@@ -119,7 +119,7 @@ export const Hero: React.FC<HeroProps> = ({ onNavigateToPractice }) => {
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.6, delay: 0.5 }}
-          className="mt-4 pt-4 sm:pt-6 w-full max-w-3xl bg-[#0B251C]/80 backdrop-blur-md rounded-2xl p-4 sm:p-5 border border-[#0F6B4C]/50 shadow-2xl grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-6 text-xs sm:text-sm text-[#C2D8D0] font-medium"
+          className="mt-4 pt-4 sm:pt-6 w-full max-w-3xl bg-[#0A4B35]/60 backdrop-blur-md rounded-2xl p-4 sm:p-5 border border-[#0F6B4C]/60 shadow-xl grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-6 text-xs sm:text-sm text-emerald-100 font-medium"
         >
           <div className="flex items-center justify-center gap-2 py-1">
             <CheckCircle2 className="w-4 h-4 text-[#F5A623] shrink-0" />
