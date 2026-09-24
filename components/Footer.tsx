@@ -2,7 +2,7 @@
 
 import React from 'react';
 import Image from 'next/image';
-import { Phone, MapPin, Clock, Lock, Mail, Facebook, Linkedin } from 'lucide-react';
+import { Phone, MapPin, Lock, Mail, Facebook, Linkedin } from 'lucide-react';
 import { buildWhatsAppUrl, DISPLAY_PHONE, LAWFIRM_EMAIL, LAWFIRM_ADDRESS, SOCIAL_LINKS } from '@/lib/whatsapp';
 import { SERVICES_DATA } from '@/components/ServicesSection';
 
@@ -43,34 +43,37 @@ export const Footer: React.FC<FooterProps> = ({ setActiveTab }) => {
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-8 lg:gap-10 pb-8 border-b border-emerald-800/80">
           {/* Brand */}
           <div className="lg:col-span-2 space-y-4">
-            <div className="flex items-center gap-4 sm:gap-6 flex-wrap">
-              {/* Original Firm Logo (White background removed) */}
-              <div className="relative w-48 h-14 sm:w-56 sm:h-16 lg:w-64 lg:h-18 shrink-0">
-                <Image
-                  src="/images/logo-footer-bright.png"
-                  alt="HISK LEGAL Logo"
-                  fill
-                  unoptimized
-                  className="object-contain object-left"
-                  referrerPolicy="no-referrer"
-                />
-              </div>
+            {/* Brand Logos with clean subtle spacing */}
+            <div className="flex items-center">
+              <div className="inline-flex items-center gap-1.5 sm:gap-2 bg-white rounded-lg sm:rounded-xl p-1 sm:p-1.5 shadow-sm border border-white/20">
+                {/* Original Firm Logo (Trimmed to fit without negative margins) */}
+                <div className="relative h-14 w-[117px] sm:h-16 sm:w-[134px] lg:h-18 lg:w-[150px] shrink-0">
+                  <Image
+                    src="/images/logo-trimmed.jpg"
+                    alt="HISK LEGAL Logo"
+                    fill
+                    unoptimized
+                    className="object-contain"
+                    referrerPolicy="no-referrer"
+                  />
+                </div>
 
-              {/* Added Logo from https://ibb.co/cKsfybw1 (White background removed) */}
-              <div className="relative w-14 h-14 sm:w-16 sm:h-16 lg:w-18 lg:h-18 shrink-0">
-                <Image
-                  src="/images/logo-secondary-transparent.png"
-                  alt="Affiliated Legal Authority Logo"
-                  fill
-                  unoptimized
-                  className="object-contain object-left"
-                  referrerPolicy="no-referrer"
-                />
+                {/* Secondary Logo Adjacent */}
+                <div className="relative h-14 w-[67px] sm:h-16 sm:w-[76px] lg:h-18 lg:w-[86px] shrink-0">
+                  <Image
+                    src="/images/logo-secondary-trimmed.jpg"
+                    alt="Affiliated Legal Authority Logo"
+                    fill
+                    unoptimized
+                    className="object-contain"
+                    referrerPolicy="no-referrer"
+                  />
+                </div>
               </div>
             </div>
 
             <p className="text-sm text-emerald-100/90 leading-relaxed max-w-md font-normal">
-              Specialized High Court tax advocates representing taxpayers before FBR, Appellate Tribunals (ATIR), and High Courts in Pakistan. Direct advocate communication via WhatsApp.
+              HISK LEGAL is a premier law firm in Pakistan led by Hafiz Irfan Shabber Kayani, Advocate High Court, Founder &amp; CEO. With over two decades of advocacy experience, the firm provides strategic legal counsel, decisive litigation, and practical solutions across tax, corporate, commercial, civil, and criminal matters.
             </p>
 
             <div className="flex items-center gap-3">
@@ -170,10 +173,6 @@ export const Footer: React.FC<FooterProps> = ({ setActiveTab }) => {
                 >
                   {LAWFIRM_EMAIL}
                 </a>
-              </div>
-              <div className="flex items-center gap-2">
-                <Clock className="w-4 h-4 text-[#F5A623] shrink-0" />
-                <span>WhatsApp Desk Active 24/7</span>
               </div>
               <div className="flex items-center gap-2 text-emerald-300 font-semibold">
                 <Lock className="w-4 h-4 text-[#F5A623] shrink-0" />
