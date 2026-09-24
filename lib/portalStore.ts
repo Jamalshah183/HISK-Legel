@@ -1056,7 +1056,6 @@ export function usePortalStore() {
 
   const updateTeamMember = (id: string, updatedData: Partial<TeamMember>) => {
     let targetDoc: TeamMember | null = null;
-    const isNowPinned = updatedData.isPinnedLeft === true;
     const updated = teamMembers.map((m) => {
       if (m.id === id) {
         const obj: TeamMember = {
@@ -1067,11 +1066,6 @@ export function usePortalStore() {
         targetDoc = obj;
         return obj;
       }
-      if (isNowPinned && m.isPinnedLeft) {
-        const unpinned: TeamMember = { ...m, isPinnedLeft: false, updatedAt: getTodayDateString() };
-        saveToFirestoreDoc('team_members', m.id, unpinned);
-        return unpinned;
-      }
       return m;
     });
     setTeamMembers(updated);
@@ -1081,26 +1075,26 @@ export function usePortalStore() {
     }
   };
 
-  const pinTeamMemberLeft = (id: string) => {
-    const updated = teamMembers.map((m) => {
-      const isPinned = m.id === id;
-      const obj: TeamMember = {
-        ...m,
-        isPinnedLeft: isPinned,
-        updatedAt: getTodayDateString()
-      };
-      saveToFirestoreDoc('team_members', m.id, obj);
-      return obj;
-    });
-    setTeamMembers(updated);
-    saveToStorage(STORAGE_KEYS.TEAM_MEMBERS, updated);
-  };
-
   const deleteTeamMember = (id: string) => {
     const updated = teamMembers.filter((m) => m.id !== id);
     setTeamMembers(updated);
     saveToStorage(STORAGE_KEYS.TEAM_MEMBERS, updated);
     deleteFromFirestoreDoc('team_members', id);
+  };
+
+  const setStuckTeamMember = (id: string) => {
+    const updated = teamMembers.map((m) => {
+      const isStuck = m.id === id;
+      const updatedMember: TeamMember = {
+        ...m,
+        stickToLeft: isStuck,
+        updatedAt: getTodayDateString()
+      };
+      saveToFirestoreDoc('team_members', m.id, updatedMember);
+      return updatedMember;
+    });
+    setTeamMembers(updated);
+    saveToStorage(STORAGE_KEYS.TEAM_MEMBERS, updated);
   };
 
   const resetTeamMembers = () => {
@@ -1242,9 +1236,9 @@ export function usePortalStore() {
     resetPracticeAreas,
     addTeamMember,
     updateTeamMember,
-    pinTeamMemberLeft,
     deleteTeamMember,
     resetTeamMembers,
+    setStuckTeamMember,
     addReview,
     updateReview,
     deleteReview,

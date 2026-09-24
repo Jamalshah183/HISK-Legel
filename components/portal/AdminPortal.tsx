@@ -206,9 +206,9 @@ export const AdminPortal: React.FC = () => {
     teamMembers,
     addTeamMember,
     updateTeamMember,
-    pinTeamMemberLeft,
     deleteTeamMember,
     resetTeamMembers,
+    setStuckTeamMember,
     reviews,
     addReview,
     updateReview,
@@ -267,7 +267,7 @@ export const AdminPortal: React.FC = () => {
     credentialsText: 'Advocate High Court, High Court Bar Association, Associate Counsel',
     image: 'https://i.postimg.cc/Qtsx9f0Q/advocate-high-court.jpg',
     isCeo: false,
-    isPinnedLeft: false
+    stickToLeft: false
   });
 
   // Reviews Search, Filters & Modal States
@@ -705,13 +705,14 @@ export const AdminPortal: React.FC = () => {
       credentialsText: 'Advocate High Court, High Court Bar Association, Associate Counsel',
       image: 'https://i.postimg.cc/Qtsx9f0Q/advocate-high-court.jpg',
       isCeo: false,
-      isPinnedLeft: false
+      stickToLeft: false
     });
     setShowTeamModal(true);
   };
 
   const handleOpenEditTeamMember = (member: TeamMember) => {
     setEditingTeamMember(member);
+    const isCurrentlyStuck = !!member.stickToLeft || (!teamMembers.some((m) => m.stickToLeft) && !!member.isCeo);
     setTeamFormData({
       name: member.name,
       title: member.title,
@@ -723,15 +724,17 @@ export const AdminPortal: React.FC = () => {
       credentialsText: (member.credentials || []).join(', '),
       image: member.image || 'https://i.postimg.cc/Qtsx9f0Q/advocate-high-court.jpg',
       isCeo: !!member.isCeo,
-      isPinnedLeft: !!member.isPinnedLeft
+      stickToLeft: isCurrentlyStuck
     });
     setShowTeamModal(true);
   };
 
-  const handlePinTeamMember = (id: string) => {
-    pinTeamMemberLeft(id);
-    const target = teamMembers?.find((m) => m.id === id);
-    setTeamActionSuccess(`"${target?.name || 'Profile'}" is now stuck to the left side in the Our Team section.`);
+  const handleStickToLeft = (memberId: string) => {
+    setStuckTeamMember(memberId);
+    const target = teamMembers.find((m) => m.id === memberId);
+    setTeamActionSuccess(
+      `"${target?.name || 'Selected profile'}" is now stuck to the left side of the screen.`
+    );
     setTimeout(() => setTeamActionSuccess(null), 4000);
   };
 
@@ -766,10 +769,16 @@ export const AdminPortal: React.FC = () => {
         keyWin: keyWinText,
         image: teamFormData.image.trim() || 'https://i.postimg.cc/Qtsx9f0Q/advocate-high-court.jpg',
         isCeo: teamFormData.isCeo,
-        isPinnedLeft: teamFormData.isPinnedLeft
+        stickToLeft: teamFormData.stickToLeft
       });
+      if (teamFormData.stickToLeft) {
+        setStuckTeamMember(editingTeamMember.id);
+      }
       setTeamActionSuccess(`Updated team member "${teamFormData.name.trim()}" successfully.`);
     } else {
+      const generatedId =
+        teamFormData.name.trim().toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '') ||
+        `team-${Date.now()}`;
       addTeamMember({
         name: teamFormData.name.trim(),
         title: teamFormData.title.trim(),
@@ -781,8 +790,11 @@ export const AdminPortal: React.FC = () => {
         keyWin: keyWinText,
         image: teamFormData.image.trim() || 'https://i.postimg.cc/Qtsx9f0Q/advocate-high-court.jpg',
         isCeo: teamFormData.isCeo,
-        isPinnedLeft: teamFormData.isPinnedLeft
+        stickToLeft: teamFormData.stickToLeft
       });
+      if (teamFormData.stickToLeft) {
+        setStuckTeamMember(generatedId);
+      }
       setTeamActionSuccess(`Added "${teamFormData.name.trim()}" to the firm roster.`);
     }
 
@@ -3442,6 +3454,48 @@ export const AdminPortal: React.FC = () => {
               </div>
             )}
 
+            {/* Quick Sticky-to-Left Profile Control Banner */}
+            <div className="bg-amber-50/70 border border-amber-200/90 rounded-3xl p-5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 text-xs shadow-xs">
+              <div className="flex items-start sm:items-center gap-3.5">
+                <div className="w-10 h-10 rounded-2xl bg-amber-100 text-amber-800 flex items-center justify-center shrink-0 border border-amber-200">
+                  <Pin className="w-4 h-4 fill-amber-700 text-amber-700" />
+                </div>
+                <div>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span className="font-extrabold text-[#1A1A1A]">Stuck Profile (Left Side of Screen):</span>
+                    <span className="text-[11px] font-extrabold text-amber-900 bg-amber-100 px-2.5 py-0.5 rounded-lg border border-amber-300">
+                      {teamMembers.find((m) => m.stickToLeft)?.name ||
+                        teamMembers.find((m) => m.isCeo)?.name ||
+                        'CEO Profile (Default)'}
+                    </span>
+                  </div>
+                  <p className="text-[11px] text-gray-600 mt-0.5">
+                    This profile stays stationary on the left side of the screen in the team section while other members scroll in the carousel.
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-2 shrink-0 w-full sm:w-auto justify-end">
+                <label className="text-[11px] font-bold text-gray-700 whitespace-nowrap">Stick Profile to Left:</label>
+                <select
+                  value={
+                    teamMembers.find((m) => m.stickToLeft)?.id ||
+                    teamMembers.find((m) => m.isCeo)?.id ||
+                    teamMembers[0]?.id ||
+                    ''
+                  }
+                  onChange={(e) => handleStickToLeft(e.target.value)}
+                  className="bg-white border border-amber-300 text-amber-900 font-bold text-xs rounded-xl px-3 py-2 focus:outline-none focus:ring-2 focus:ring-[#0F6B4C] cursor-pointer shadow-xs"
+                >
+                  {teamMembers.map((m) => (
+                    <option key={m.id} value={m.id}>
+                      {m.name} {m.isCeo ? '(CEO)' : ''}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </div>
+
             {/* Search & Filter Bar */}
             <div className="bg-white p-4 rounded-3xl border border-[#0F6B4C]/15 shadow-sm flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
               <div className="relative flex-1">
@@ -3541,12 +3595,6 @@ export const AdminPortal: React.FC = () => {
                               <span>Founder &amp; CEO</span>
                             </span>
                           )}
-                          {member.isPinnedLeft && (
-                            <span className="text-[10px] font-extrabold text-amber-900 bg-amber-100/90 px-2 py-0.5 rounded-md border border-amber-300 flex items-center gap-1 shadow-xs">
-                              <Pin className="w-3 h-3 fill-amber-500 text-amber-700" />
-                              <span>Stuck to Left</span>
-                            </span>
-                          )}
                           <span className="text-[10px] font-bold text-emerald-800 bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-200">
                             {member.experienceYears || 10}+ Years Exp
                           </span>
@@ -3582,20 +3630,20 @@ export const AdminPortal: React.FC = () => {
                     </div>
 
                     {/* Right: Action Buttons */}
-                    <div className="flex flex-wrap items-center gap-2 pt-2 md:pt-0 border-t md:border-t-0 border-gray-100 shrink-0 justify-end">
-                      {member.isPinnedLeft ? (
-                        <span className="px-3 py-1.5 rounded-xl bg-amber-500/15 border border-amber-500/40 text-amber-900 text-xs font-extrabold flex items-center gap-1.5 shadow-xs">
-                          <Pin className="w-3.5 h-3.5 fill-amber-500 text-amber-700" />
+                    <div className="flex items-center gap-2 pt-2 md:pt-0 border-t md:border-t-0 border-gray-100 shrink-0 justify-end flex-wrap">
+                      {member.stickToLeft || (!teamMembers.some((m) => m.stickToLeft) && member.isCeo) ? (
+                        <span className="px-3 py-2 rounded-xl bg-amber-100 text-amber-900 border border-amber-300 text-xs font-bold flex items-center gap-1.5 shadow-xs">
+                          <Pin className="w-3.5 h-3.5 fill-amber-700 text-amber-700" />
                           <span>Stuck to Left</span>
                         </span>
                       ) : (
                         <button
                           type="button"
-                          onClick={() => handlePinTeamMember(member.id)}
-                          className="px-3 py-1.5 rounded-xl bg-amber-50 hover:bg-amber-100 border border-amber-200 text-amber-900 text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer shadow-xs hover:shadow-sm"
-                          title="Stick this profile to the left side in the Our Team section"
+                          onClick={() => handleStickToLeft(member.id)}
+                          className="px-3 py-2 rounded-xl bg-gray-100 hover:bg-amber-50 hover:text-amber-900 hover:border-amber-300 border border-transparent text-gray-700 text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer"
+                          title="Stick this profile to the left side of the screen"
                         >
-                          <Pin className="w-3.5 h-3.5 text-amber-600" />
+                          <Pin className="w-3.5 h-3.5 text-gray-500" />
                           <span>Stick to Left</span>
                         </button>
                       )}
@@ -6998,8 +7046,8 @@ export const AdminPortal: React.FC = () => {
                 />
               </div>
 
-              {/* Field 3: Experience & CEO Toggle */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 items-center">
+              {/* Field 3: Experience, CEO Toggle & Stick to Left Toggle */}
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 items-center">
                 <div>
                   <label className="font-bold text-gray-800 block mb-1">
                     Years of Experience
@@ -7019,36 +7067,37 @@ export const AdminPortal: React.FC = () => {
                     <input
                       type="checkbox"
                       checked={teamFormData.isCeo}
-                      onChange={(e) => setTeamFormData({ ...teamFormData, isCeo: e.target.checked })}
+                      onChange={(e) => {
+                        const isCeo = e.target.checked;
+                        setTeamFormData({
+                          ...teamFormData,
+                          isCeo,
+                          stickToLeft: isCeo ? true : teamFormData.stickToLeft
+                        });
+                      }}
                       className="w-4 h-4 text-[#0F6B4C] rounded border-gray-300 focus:ring-[#0F6B4C] cursor-pointer"
                     />
                     <span className="font-bold text-gray-800 text-[11px] flex items-center gap-1">
                       <Award className="w-3.5 h-3.5 text-[#F5A623]" />
-                      Founder &amp; Chief Executive Officer
+                      Founder &amp; CEO
                     </span>
                   </label>
                 </div>
-              </div>
 
-              {/* Stick to Left Side Toggle */}
-              <div className="bg-[#FAF5EA] p-3 rounded-2xl border border-[#F5A623]/40">
-                <label className="flex items-start gap-2.5 cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={teamFormData.isPinnedLeft}
-                    onChange={(e) => setTeamFormData({ ...teamFormData, isPinnedLeft: e.target.checked })}
-                    className="w-4 h-4 mt-0.5 text-[#0F6B4C] rounded border-gray-300 focus:ring-[#0F6B4C] cursor-pointer"
-                  />
-                  <div className="flex-1">
-                    <span className="font-extrabold text-[#7A4B00] text-xs flex items-center gap-1.5">
-                      <Pin className="w-3.5 h-3.5 text-[#F5A623] fill-[#F5A623]" />
-                      Stick to Left Side (Stationary Spotlight in Our Team Section)
+                <div className="pt-2 sm:pt-4">
+                  <label className="flex items-center gap-2 cursor-pointer bg-[#FAFAF7] p-2.5 rounded-xl border border-gray-200 hover:border-amber-400">
+                    <input
+                      type="checkbox"
+                      checked={teamFormData.stickToLeft}
+                      onChange={(e) => setTeamFormData({ ...teamFormData, stickToLeft: e.target.checked })}
+                      className="w-4 h-4 text-amber-600 rounded border-gray-300 focus:ring-amber-500 cursor-pointer"
+                    />
+                    <span className="font-bold text-gray-800 text-[11px] flex items-center gap-1">
+                      <Pin className="w-3.5 h-3.5 text-amber-600 fill-amber-600" />
+                      Stick to Left Side
                     </span>
-                    <p className="text-[11px] text-[#8C5D0C] leading-snug mt-0.5">
-                      When checked, this profile remains stationary on the left side with a highlighted gold leadership frame, while other team members scroll horizontally beside it.
-                    </p>
-                  </div>
-                </label>
+                  </label>
+                </div>
               </div>
 
               {/* Field 4: Practice Scope / Specialty */}
