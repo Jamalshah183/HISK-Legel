@@ -195,6 +195,25 @@ export const AboutSection: React.FC = () => {
           <div className="absolute -bottom-24 -right-24 w-96 h-96 bg-[#F5A623]/20 rounded-full blur-3xl pointer-events-none" />
           <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-full h-full bg-[radial-gradient(#1A4D3B_1px,transparent_1px)] [background-size:24px_24px] opacity-20 pointer-events-none" />
 
+          {/* Centered Showcase Heading - 2 Lines Maximum */}
+          <motion.div
+            initial={{ opacity: 0, y: -20 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: false, amount: 0.2 }}
+            transition={{ duration: 0.6 }}
+            className="relative z-10 text-center max-w-4xl mx-auto mb-8 sm:mb-10 lg:mb-12"
+          >
+            <h3 className="font-heading font-extrabold text-xl sm:text-3xl md:text-4xl lg:text-5xl text-white leading-tight sm:leading-[1.2] tracking-tight text-center">
+              <span className="block">Why Litigants, Corporate Leaders &amp;</span>
+              <span className="block mt-1 sm:mt-1.5">
+                Taxpayers Trust{' '}
+                <span className="text-transparent bg-clip-text bg-gradient-to-r from-[#F5A623] via-[#FFD07B] to-[#F5A623]">
+                  HISK LEGAL
+                </span>
+              </span>
+            </h3>
+          </motion.div>
+
           <div className="relative z-10 grid lg:grid-cols-12 gap-10 lg:gap-14 items-center">
             {/* Left Column - Core Strategic Positioning */}
             <motion.div
@@ -204,10 +223,6 @@ export const AboutSection: React.FC = () => {
               transition={{ duration: 0.6 }}
               className="lg:col-span-6 space-y-7"
             >
-              <h3 className="font-heading font-extrabold text-3xl sm:text-4xl lg:text-5xl text-white leading-[1.15] tracking-tight">
-                Why Litigants, Corporate Leaders &amp; Taxpayers Trust <span className="text-transparent bg-clip-text bg-gradient-to-r from-[#F5A623] via-[#FFD07B] to-[#F5A623]">HISK LEGAL</span>
-              </h3>
-
               <p className="text-sm sm:text-base text-[#C2D8D0] leading-relaxed font-light">
                 Under the leadership of Founder &amp; CEO Hafiz Irfan Shabber Kayani, HISK LEGAL combines rigorous statutory analysis with proactive courtroom advocacy. Our practice encompasses Civil, Criminal, Corporate, Banking, Property, and Tax law.
               </p>
@@ -233,19 +248,22 @@ export const AboutSection: React.FC = () => {
                 </div>
               </div>
 
-              {/* Key Advantage Metrics Cards */}
-              <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 pt-2">
-                <div className="bg-[#12382A]/80 border border-[#0F6B4C] p-3.5 rounded-2xl text-center backdrop-blur-sm">
-                  <div className="font-heading font-black text-xl sm:text-2xl text-[#F5A623]">High Court</div>
-                  <div className="text-[10px] sm:text-xs text-[#9EBEB2] font-semibold mt-0.5">Appellate Rights</div>
+              {/* Core Pillars: EXPERTISE, STRATEGY, ADVOCACY */}
+              <div className="grid grid-cols-3 gap-2 sm:gap-3 pt-2">
+                <div className="bg-[#12382A]/80 border border-[#0F6B4C] py-3.5 px-2 sm:p-3.5 rounded-2xl text-center backdrop-blur-sm flex items-center justify-center shadow-sm">
+                  <div className="font-heading font-black text-xs sm:text-sm md:text-base text-[#F5A623] tracking-wider uppercase">
+                    EXPERTISE
+                  </div>
                 </div>
-                <div className="bg-[#12382A]/80 border border-[#0F6B4C] p-3.5 rounded-2xl text-center backdrop-blur-sm">
-                  <div className="font-heading font-black text-xl sm:text-2xl text-white">PKR 10B+</div>
-                  <div className="text-[10px] sm:text-xs text-[#9EBEB2] font-semibold mt-0.5">Tax Liabilities Defended</div>
+                <div className="bg-[#12382A]/80 border border-[#0F6B4C] py-3.5 px-2 sm:p-3.5 rounded-2xl text-center backdrop-blur-sm flex items-center justify-center shadow-sm">
+                  <div className="font-heading font-black text-xs sm:text-sm md:text-base text-white tracking-wider uppercase">
+                    STRATEGY
+                  </div>
                 </div>
-                <div className="bg-[#12382A]/80 border border-[#0F6B4C] p-3.5 rounded-2xl text-center backdrop-blur-sm col-span-2 sm:col-span-1">
-                  <div className="font-heading font-black text-xl sm:text-2xl text-[#F5A623]">24/7</div>
-                  <div className="text-[10px] sm:text-xs text-[#9EBEB2] font-semibold mt-0.5">Urgent Stay Counsel</div>
+                <div className="bg-[#12382A]/80 border border-[#0F6B4C] py-3.5 px-2 sm:p-3.5 rounded-2xl text-center backdrop-blur-sm flex items-center justify-center shadow-sm">
+                  <div className="font-heading font-black text-xs sm:text-sm md:text-base text-[#F5A623] tracking-wider uppercase">
+                    ADVOCACY
+                  </div>
                 </div>
               </div>
 

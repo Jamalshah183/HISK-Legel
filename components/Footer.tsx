@@ -43,26 +43,14 @@ export const Footer: React.FC<FooterProps> = ({ setActiveTab }) => {
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-8 lg:gap-10 pb-8 border-b border-emerald-800/80">
           {/* Brand */}
           <div className="lg:col-span-2 space-y-4">
-            {/* Brand Logos with clean subtle spacing */}
+            {/* Brand Logo */}
             <div className="flex items-center">
-              <div className="inline-flex items-center gap-1.5 sm:gap-2 bg-white rounded-lg sm:rounded-xl p-1 sm:p-1.5 shadow-sm border border-white/20">
-                {/* Original Firm Logo (Trimmed to fit without negative margins) */}
+              <div className="inline-flex items-center bg-white rounded-lg sm:rounded-xl p-1.5 sm:p-2 shadow-sm border border-white/20">
+                {/* Original Firm Logo */}
                 <div className="relative h-14 w-[117px] sm:h-16 sm:w-[134px] lg:h-18 lg:w-[150px] shrink-0">
                   <Image
                     src="/images/logo-trimmed.jpg"
                     alt="HISK LEGAL Logo"
-                    fill
-                    unoptimized
-                    className="object-contain"
-                    referrerPolicy="no-referrer"
-                  />
-                </div>
-
-                {/* Secondary Logo Adjacent */}
-                <div className="relative h-14 w-[67px] sm:h-16 sm:w-[76px] lg:h-18 lg:w-[86px] shrink-0">
-                  <Image
-                    src="/images/logo-secondary-trimmed.jpg"
-                    alt="Affiliated Legal Authority Logo"
                     fill
                     unoptimized
                     className="object-contain"
@@ -154,25 +142,41 @@ export const Footer: React.FC<FooterProps> = ({ setActiveTab }) => {
                 <MapPin className="w-4 h-4 text-[#F5A623] shrink-0 mt-0.5" />
                 <span className="leading-snug">{LAWFIRM_ADDRESS}</span>
               </div>
-              <div className="flex items-center gap-2">
-                <Phone className="w-4 h-4 text-[#F5A623] shrink-0" />
-                <a
-                  href={buildWhatsAppUrl({ topic: 'general' })}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="hover:text-[#F5A623] transition-colors"
-                >
-                  {DISPLAY_PHONE}
-                </a>
+              <div className="flex items-start gap-2">
+                <Phone className="w-4 h-4 text-[#F5A623] shrink-0 mt-0.5" />
+                <div className="flex flex-col space-y-0.5">
+                  <a
+                    href={buildWhatsAppUrl({ topic: 'general' })}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="hover:text-[#F5A623] transition-colors"
+                  >
+                    {DISPLAY_PHONE}
+                  </a>
+                  <a
+                    href="tel:+923411999963"
+                    className="hover:text-[#F5A623] transition-colors"
+                  >
+                    +92 341 1999963
+                  </a>
+                </div>
               </div>
-              <div className="flex items-center gap-2">
-                <Mail className="w-4 h-4 text-[#F5A623] shrink-0" />
-                <a
-                  href={`mailto:${LAWFIRM_EMAIL}`}
-                  className="hover:text-[#F5A623] transition-colors"
-                >
-                  {LAWFIRM_EMAIL}
-                </a>
+              <div className="flex items-start gap-2">
+                <Mail className="w-4 h-4 text-[#F5A623] shrink-0 mt-0.5" />
+                <div className="flex flex-col space-y-0.5">
+                  <a
+                    href={`mailto:${LAWFIRM_EMAIL}`}
+                    className="hover:text-[#F5A623] transition-colors"
+                  >
+                    {LAWFIRM_EMAIL}
+                  </a>
+                  <a
+                    href="mailto:hisklegal@gmail.com"
+                    className="hover:text-[#F5A623] transition-colors"
+                  >
+                    hisklegal@gmail.com
+                  </a>
+                </div>
               </div>
               <div className="text-xs text-emerald-200/90 font-medium pt-0.5">
                 <span className="text-[#F5A623] font-bold">CC No.</span> IHC - 4001, LHC - 25893

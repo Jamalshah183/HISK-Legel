@@ -119,26 +119,26 @@ export const Hero: React.FC<HeroProps> = ({ onNavigateToPractice }) => {
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.6, delay: 0.5 }}
-          className="mt-4 pt-4 sm:pt-6 w-full max-w-3xl bg-[#0A4B35]/60 backdrop-blur-md rounded-2xl p-4 sm:p-5 border border-[#0F6B4C]/60 shadow-xl grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-6 text-xs sm:text-sm text-emerald-100 font-medium"
+          className="mt-4 pt-4 sm:pt-6 w-full max-w-4xl bg-[#0A4B35]/60 backdrop-blur-md rounded-2xl p-3.5 sm:p-4 md:p-5 border border-[#0F6B4C]/60 shadow-xl grid grid-cols-1 sm:grid-cols-3 gap-2.5 sm:gap-4 md:gap-6 text-xs sm:text-sm text-emerald-100 font-medium"
         >
-          <div className="flex items-center justify-center gap-2 py-1">
+          <div className="flex items-center justify-center gap-1.5 sm:gap-2 py-1 whitespace-nowrap">
             <CheckCircle2 className="w-4 h-4 text-[#F5A623] shrink-0" />
-            <span>
-              <strong className="text-white font-extrabold text-sm sm:text-base">{FIRM_METRICS.successfulCases}</strong> Successful Court Cases
+            <span className="whitespace-nowrap">
+              <strong className="text-white font-extrabold text-xs sm:text-sm md:text-base">{FIRM_METRICS.successfulCases}</strong> Successful Court Cases
             </span>
           </div>
 
-          <div className="flex items-center justify-center gap-2 py-1 border-t sm:border-t-0 sm:border-l border-[#0F6B4C]/40">
+          <div className="flex items-center justify-center gap-1.5 sm:gap-2 py-1 border-t sm:border-t-0 sm:border-l border-[#0F6B4C]/40 whitespace-nowrap">
             <Users className="w-4 h-4 text-[#F5A623] shrink-0" />
-            <span>
-              <strong className="text-white font-extrabold text-sm sm:text-base">{FIRM_METRICS.clientsServed}</strong> Clients Served
+            <span className="whitespace-nowrap">
+              <strong className="text-white font-extrabold text-xs sm:text-sm md:text-base">{FIRM_METRICS.clientsServed}</strong> Clients Served
             </span>
           </div>
 
-          <div className="flex items-center justify-center gap-2 py-1 border-t sm:border-t-0 sm:border-l border-[#0F6B4C]/40">
+          <div className="flex items-center justify-center gap-1.5 sm:gap-2 py-1 border-t sm:border-t-0 sm:border-l border-[#0F6B4C]/40 whitespace-nowrap">
             <Award className="w-4 h-4 text-[#F5A623] shrink-0" />
-            <span>
-              <strong className="text-white font-extrabold text-sm sm:text-base">{FIRM_METRICS.totalTaxSaved}</strong> Tax Saved
+            <span className="whitespace-nowrap">
+              <strong className="text-white font-extrabold text-xs sm:text-sm md:text-base">{FIRM_METRICS.totalTaxSaved}</strong> Tax Saved
             </span>
           </div>
         </motion.div>
