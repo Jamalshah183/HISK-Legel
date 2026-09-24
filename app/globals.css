@@ -72,7 +72,7 @@
 
   /* Major Section Headings and Page Titles */
   .font-heading {
-    font-family: var(--font-heading);
+    font-family: var(--font-heading), 'Lora', Georgia, serif;
   }
 }
 
