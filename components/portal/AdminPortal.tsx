@@ -1777,11 +1777,11 @@ export const AdminPortal: React.FC = () => {
           <div className="text-center space-y-3">
             <div className="relative w-[240px] h-[75px] mx-auto">
               <Image
-                src="https://i.ibb.co/wh9Gb1br/20260723-032202-0000.png"
+                src="https://i.ibb.co/8Lh2Hzsq/Whats-App-Image-2026-09-17-at-7-22-55-PM.jpg"
                 alt="HISK LEGAL Logo"
                 fill
                 unoptimized
-                className="object-contain object-center brightness-0"
+                className="object-contain object-center mix-blend-multiply"
                 referrerPolicy="no-referrer"
               />
             </div>

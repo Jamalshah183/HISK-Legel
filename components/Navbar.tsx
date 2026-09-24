@@ -139,12 +139,12 @@ export const Navbar: React.FC<NavbarProps> = ({ activeTab, setActiveTab, onOpenP
               }`}
             >
               <Image
-                src="https://i.ibb.co/V02sjKtY/file-00000000549882089b03c95577e607a2.png"
+                src="https://i.ibb.co/8Lh2Hzsq/Whats-App-Image-2026-09-17-at-7-22-55-PM.jpg"
                 alt="HISK LEGAL Logo"
                 fill
                 unoptimized
                 priority
-                className="object-contain object-left transition-transform duration-300 group-hover:scale-105"
+                className="object-contain object-left mix-blend-multiply transition-transform duration-300 group-hover:scale-105"
                 referrerPolicy="no-referrer"
               />
             </div>

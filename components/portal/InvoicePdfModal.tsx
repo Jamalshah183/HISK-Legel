@@ -38,7 +38,7 @@ export const InvoicePdfModal: React.FC<InvoicePdfModalProps> = ({
     try {
       setIsGeneratingPdf(true);
 
-      const logoImg = await loadImage('https://i.ibb.co/wh9Gb1br/20260723-032202-0000.png');
+      const logoImg = await loadImage('https://i.ibb.co/8Lh2Hzsq/Whats-App-Image-2026-09-17-at-7-22-55-PM.jpg');
 
       const doc = new jsPDF({
         orientation: 'portrait',
@@ -552,9 +552,9 @@ Thank you for choosing HISK LEGAL!`;
               <div className="flex items-center gap-3 mb-2">
                 <div className="relative h-14 w-44 shrink-0 bg-transparent flex items-center justify-center overflow-hidden">
                   <img
-                    src="https://i.ibb.co/wh9Gb1br/20260723-032202-0000.png"
+                    src="https://i.ibb.co/8Lh2Hzsq/Whats-App-Image-2026-09-17-at-7-22-55-PM.jpg"
                     alt="HISK LEGAL Official Logo"
-                    className="max-h-full max-w-full object-contain filter brightness-0"
+                    className="max-h-full max-w-full object-contain mix-blend-multiply"
                   />
                 </div>
                 <div>

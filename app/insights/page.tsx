@@ -51,14 +51,14 @@ export default function InsightsPage() {
       <header className="sticky top-0 z-40 bg-[#0F6B4C] text-white shadow-md border-b border-[#0A4B35]">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-20 sm:h-24 md:h-28 flex items-center justify-between">
           <Link href="/" className="flex items-center group cursor-pointer" title="Return to Home">
-            <div className="relative h-[68px] w-[74px] sm:h-[84px] sm:w-[92px] md:h-[96px] md:w-[104px] shrink-0">
+            <div className="relative h-[68px] w-[74px] sm:h-[84px] sm:w-[92px] md:h-[96px] md:w-[104px] shrink-0 bg-white/95 rounded-2xl p-1.5 shadow-sm">
               <Image
-                src="https://i.ibb.co/V02sjKtY/file-00000000549882089b03c95577e607a2.png"
+                src="https://i.ibb.co/8Lh2Hzsq/Whats-App-Image-2026-09-17-at-7-22-55-PM.jpg"
                 alt="HISK LEGAL Logo"
                 fill
                 unoptimized
                 priority
-                className="object-contain object-left transition-transform duration-300 group-hover:scale-105"
+                className="object-contain object-left p-0.5 transition-transform duration-300 group-hover:scale-105"
                 referrerPolicy="no-referrer"
               />
             </div>

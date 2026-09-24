@@ -44,13 +44,13 @@ export const Footer: React.FC<FooterProps> = ({ setActiveTab }) => {
           {/* Brand */}
           <div className="lg:col-span-2 space-y-4">
             <div className="flex items-center">
-              <div className="relative w-52 h-16 sm:w-60 sm:h-18 lg:w-72 lg:h-22 shrink-0">
+              <div className="relative w-52 h-16 sm:w-60 sm:h-18 lg:w-72 lg:h-22 shrink-0 bg-white/95 rounded-2xl p-2 sm:p-2.5 shadow-md">
                 <Image
-                  src="https://i.ibb.co/V02sjKtY/file-00000000549882089b03c95577e607a2.png"
+                  src="https://i.ibb.co/8Lh2Hzsq/Whats-App-Image-2026-09-17-at-7-22-55-PM.jpg"
                   alt="HISK LEGAL Logo"
                   fill
                   unoptimized
-                  className="object-contain object-left brightness-0 invert"
+                  className="object-contain object-left p-1"
                   referrerPolicy="no-referrer"
                 />
               </div>

@@ -182,7 +182,7 @@ export const ClientPortal: React.FC<ClientPortalProps> = ({
           <div className="inline-flex items-center justify-center bg-white px-8 sm:px-10 py-4 sm:py-5 rounded-3xl shadow-md border border-[#0F6B4C]/15 mx-auto">
             <div className="relative w-60 sm:w-72 h-16 sm:h-20">
               <Image
-                src="https://i.ibb.co/V02sjKtY/file-00000000549882089b03c95577e607a2.png"
+                src="https://i.ibb.co/8Lh2Hzsq/Whats-App-Image-2026-09-17-at-7-22-55-PM.jpg"
                 alt="HISK LEGAL Logo"
                 fill
                 unoptimized
