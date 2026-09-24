@@ -95,7 +95,13 @@ const ADVOCATES = [
   'Hafiz Irfan Shabber Kayani'
 ];
 
-const ALLOWED_ADMIN_EMAILS = ['jamalshah183@gmail.com', 'adv.kayani@gmail.com', 'adv.kiyani@gmail.com', 'aamer222@gmail.com'];
+const ALLOWED_ADMIN_EMAILS = [
+  'jamalshah183@gmail.com',
+  'adv.kayani@gmail.com',
+  'adv.kiyani@gmail.com',
+  'aamer222@gmail.com',
+  'namias327@gmail.com',
+];
 
 export const AdminPortal: React.FC = () => {
   // Admin authentication state
@@ -1896,7 +1902,7 @@ export const AdminPortal: React.FC = () => {
         <div className="pt-4 border-t border-emerald-600/30 text-[11px] text-emerald-200 space-y-2">
           <div>
             <div className="font-bold text-white">HISK LEGAL Advocates</div>
-            <div className="text-[10px] text-emerald-300 font-mono">jamalshah183@gmail.com</div>
+            <div className="text-[10px] text-emerald-300 font-mono">{adminUser?.email || 'Authorized Advocate Admin'}</div>
           </div>
           <button
             type="button"
