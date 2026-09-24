@@ -338,11 +338,13 @@ export const AboutSection: React.FC = () => {
             </h3>
           </motion.div>
 
-          <div className="flex flex-col lg:flex-row items-center lg:items-start justify-center gap-6 lg:gap-8">
+          <div className="flex flex-col lg:flex-row items-center justify-center gap-6 lg:gap-8">
             {/* Stuck Profile - Anchored to Left side of screen, stationary (not moving) */}
             {stuckAttorney && (
-              <div className="shrink-0 z-20 self-center lg:self-start">
-                {renderAttorneyCard(stuckAttorney, 'stuck')}
+              <div className="shrink-0 z-20 self-center py-2">
+                <div className="py-3">
+                  {renderAttorneyCard(stuckAttorney, 'stuck')}
+                </div>
               </div>
             )}
 
