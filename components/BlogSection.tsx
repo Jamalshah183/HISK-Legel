@@ -5,7 +5,6 @@ import Link from 'next/link';
 import { motion } from 'motion/react';
 import {
   Clock,
-  ChevronRight,
   ExternalLink
 } from 'lucide-react';
 import { BLOG_POSTS } from '@/data/lawFirmData';
@@ -36,28 +35,23 @@ export const BlogSection: React.FC = () => {
       className="scroll-mt-20 sm:scroll-mt-24 py-10 sm:py-14 lg:py-16 bg-white border-y border-gray-100 relative"
     >
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        {/* Header - Same Animation and Title Font as Other Sections */}
+        {/* Header - Clickable Section Title to View All Insights */}
         <motion.div
           initial={{ opacity: 0, scale: 0.92, y: -20 }}
           whileInView={{ opacity: 1, scale: 1, y: 0 }}
           viewport={{ once: false, amount: 0.2 }}
           transition={{ duration: 0.6 }}
-          className="relative mb-8 sm:mb-10 flex flex-col items-center sm:justify-center text-center"
+          className="text-center max-w-3xl mx-auto mb-8 sm:mb-10"
         >
           <h2 className="font-heading font-extrabold text-3xl sm:text-4xl lg:text-5xl text-[#1A1A1A] tracking-tight">
-            Legal Insights &amp; Blog
-          </h2>
-
-          <div className="mt-4 sm:mt-0 sm:absolute sm:right-0">
             <Link
               href="/insights"
-              id="view-all-insights-btn"
-              className="inline-flex items-center gap-2 bg-[#0F6B4C] hover:bg-[#0A4B35] text-white font-heading font-bold text-xs sm:text-sm py-2.5 px-4 sm:px-5 rounded-xl shadow-xs hover:shadow-md transition-all shrink-0 cursor-pointer"
+              className="hover:text-[#0F6B4C] transition-colors inline-block"
+              title="Click to view all Legal Insights & Blog articles"
             >
-              <span>See All Insights</span>
-              <ChevronRight className="w-4 h-4 text-[#F5A623]" />
+              Legal Insights &amp; Blog
             </Link>
-          </div>
+          </h2>
         </motion.div>
 
         {/* Legal Insights Infinite Marquee (Same Animation as Reviews Section, Pauses on Hover) */}

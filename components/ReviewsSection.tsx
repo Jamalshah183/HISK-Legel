@@ -44,7 +44,7 @@ export const ReviewsSection: React.FC = () => {
           transition={{ duration: 0.6 }}
           className="text-center max-w-3xl mx-auto mb-6 sm:mb-8"
         >
-          <h2 className="font-heading font-extrabold text-3xl sm:text-4xl text-[#1A1A1A] tracking-tight mb-4">
+          <h2 className="font-heading font-extrabold text-3xl sm:text-4xl lg:text-5xl text-[#1A1A1A] tracking-tight mb-4">
             Testimonials &amp; client experiences
           </h2>
           <p className="text-base sm:text-lg text-[#5A6275] font-normal">

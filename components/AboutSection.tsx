@@ -333,7 +333,7 @@ export const AboutSection: React.FC = () => {
             transition={{ duration: 0.5 }}
             className="text-center max-w-xl mx-auto mb-8 sm:mb-10"
           >
-            <h3 className="font-heading font-extrabold text-3xl sm:text-4xl text-[#1A1A1A] tracking-tight">
+            <h3 className="font-heading font-extrabold text-3xl sm:text-4xl lg:text-5xl text-[#1A1A1A] tracking-tight">
               Our Team
             </h3>
           </motion.div>
