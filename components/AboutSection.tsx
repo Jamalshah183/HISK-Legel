@@ -21,7 +21,8 @@ import {
   FileCheck,
   Building2,
   Gavel,
-  TrendingUp
+  TrendingUp,
+  Pin
 } from 'lucide-react';
 import { ATTORNEYS, Attorney } from '@/data/lawFirmData';
 import { usePortalStore } from '@/lib/portalStore';
@@ -46,14 +47,24 @@ export const AboutSection: React.FC = () => {
     }
   };
 
-  const displayAttorneys = activeAttorneys.length < 5
-    ? [...activeAttorneys, ...activeAttorneys]
-    : activeAttorneys;
+  // Pinned/sticky profile on the left side (CEO by default or admin-selected)
+  const pinnedAttorney =
+    activeAttorneys.find((m) => m.isPinnedLeft) ||
+    activeAttorneys.find((m) => m.isCeo) ||
+    activeAttorneys[0];
+
+  // Remaining team members that carousel on the right
+  const carouselAttorneys = activeAttorneys.filter((m) => m.id !== pinnedAttorney?.id);
+
+  const displayCarouselAttorneys =
+    carouselAttorneys.length > 0 && carouselAttorneys.length < 4
+      ? [...carouselAttorneys, ...carouselAttorneys]
+      : carouselAttorneys;
 
   const handleManualScroll = (direction: 'left' | 'right') => {
     if (teamScrollRef.current) {
       const { scrollLeft, scrollWidth, clientWidth } = teamScrollRef.current;
-      const cardWidth = 340;
+      const cardWidth = 320;
       if (direction === 'right') {
         if (scrollLeft + clientWidth >= scrollWidth - 15) {
           teamScrollRef.current.scrollTo({ left: 0, behavior: 'smooth' });
@@ -71,19 +82,19 @@ export const AboutSection: React.FC = () => {
   };
 
   useEffect(() => {
-    if (isHovered) return;
+    if (isHovered || displayCarouselAttorneys.length === 0) return;
     const timer = setInterval(() => {
       if (teamScrollRef.current) {
         const { scrollLeft, scrollWidth, clientWidth } = teamScrollRef.current;
         if (scrollLeft + clientWidth >= scrollWidth - 15) {
           teamScrollRef.current.scrollTo({ left: 0, behavior: 'smooth' });
         } else {
-          teamScrollRef.current.scrollBy({ left: 340, behavior: 'smooth' });
+          teamScrollRef.current.scrollBy({ left: 320, behavior: 'smooth' });
         }
       }
     }, 4500);
     return () => clearInterval(timer);
-  }, [isHovered]);
+  }, [isHovered, displayCarouselAttorneys.length]);
 
   return (
     <motion.section
@@ -250,8 +261,8 @@ export const AboutSection: React.FC = () => {
           </div>
         </div>
 
-        {/* Senior Attorney Roster - Moving Track */}
-        <div className="max-w-6xl mx-auto">
+        {/* Senior Attorney Roster - Stationary Pinned Leader + Carousel Track */}
+        <div className="max-w-7xl mx-auto">
           <motion.div
             initial={{ opacity: 0, y: 15 }}
             whileInView={{ opacity: 1, y: 0 }}
@@ -259,112 +270,200 @@ export const AboutSection: React.FC = () => {
             transition={{ duration: 0.5 }}
             className="text-center max-w-xl mx-auto mb-8"
           >
+            <span className="text-[11px] font-extrabold uppercase tracking-widest text-[#0F6B4C] bg-[#0F6B4C]/10 px-3 py-1 rounded-full border border-[#0F6B4C]/20 mb-3 inline-block">
+              HISK LEGAL ADVOCATES &amp; COUNSEL
+            </span>
             <h3 className="font-heading font-extrabold text-3xl sm:text-4xl text-[#1A1A1A] tracking-tight">
               Our Team
             </h3>
+            <p className="text-xs sm:text-sm text-gray-500 mt-2 font-medium">
+              Led by seasoned High Court advocates delivering strategic litigation, corporate compliance, and results-driven defense.
+            </p>
           </motion.div>
 
-          {/* Senior Attorney Roster - Carousel with Left and Right Navigation Arrows */}
-          <div
-            className="w-full relative group py-2"
-            onMouseEnter={() => setIsHovered(true)}
-            onMouseLeave={() => setIsHovered(false)}
-          >
-            {/* Subtle Left & Right Edge Vignette Shadows */}
-            <div className="absolute left-0 top-0 bottom-0 w-8 sm:w-16 bg-gradient-to-r from-[#FAFAF7] via-[#FAFAF7]/80 to-transparent z-10 pointer-events-none" />
-            <div className="absolute right-0 top-0 bottom-0 w-8 sm:w-16 bg-gradient-to-l from-[#FAFAF7] via-[#FAFAF7]/80 to-transparent z-10 pointer-events-none" />
+          {/* Dual-Column Layout: Left Sticky Pinned Profile + Right Carousel */}
+          <div className="flex flex-col lg:flex-row items-stretch gap-6 lg:gap-8">
+            {/* LEFT: Pinned / Stationary CEO or Selected Leader Profile */}
+            {pinnedAttorney && (
+              <div className="w-full lg:w-[350px] xl:w-[370px] shrink-0 flex flex-col">
+                <div className="flex items-center justify-between gap-2 mb-2 px-1">
+                  <span className="text-[11px] font-extrabold uppercase tracking-wider text-[#0F6B4C] flex items-center gap-1.5">
+                    <Award className="w-3.5 h-3.5 text-[#F5A623]" />
+                    <span>{pinnedAttorney.isCeo ? 'Firm Leadership' : 'Senior Advocate'}</span>
+                  </span>
+                  <span className="text-[10px] font-extrabold text-amber-900 bg-amber-100/90 border border-amber-300 px-2 py-0.5 rounded-full flex items-center gap-1 shadow-xs">
+                    <Pin className="w-3 h-3 fill-amber-500 text-amber-700" />
+                    <span>Stationary Profile</span>
+                  </span>
+                </div>
 
-            {/* Left Navigation Arrow */}
-            <button
-              type="button"
-              onClick={() => handleManualScroll('left')}
-              id="team-carousel-prev-btn"
-              aria-label="Previous team member"
-              className="absolute left-1 sm:left-2 md:left-3 top-1/2 -translate-y-1/2 z-20 w-11 h-11 sm:w-12 sm:h-12 rounded-full bg-white/95 backdrop-blur-md border border-[#0F6B4C]/25 text-[#0F6B4C] shadow-lg hover:shadow-xl hover:bg-[#0F6B4C] hover:text-white transition-all flex items-center justify-center focus:outline-none focus:ring-2 focus:ring-[#0F6B4C] active:scale-95 cursor-pointer"
-            >
-              <ChevronLeft className="w-5 h-5 sm:w-6 sm:h-6" />
-            </button>
+                {/* Highlighted Sticky Leader Card */}
+                <div
+                  id={`team-card-${pinnedAttorney.id}-pinned`}
+                  onClick={() => setSelectedAttorney(pinnedAttorney)}
+                  className="group/card relative w-full h-[460px] sm:h-[490px] rounded-3xl overflow-hidden cursor-pointer flex flex-col justify-end bg-slate-900 border-2 border-[#F5A623] shadow-2xl ring-4 ring-[#F5A623]/25 transition-all duration-300 hover:ring-[#F5A623]/50 hover:shadow-[#F5A623]/20"
+                >
+                  {/* Subtle Glowing Corner Highlight */}
+                  <div className="absolute top-0 right-0 w-36 h-36 bg-[#F5A623]/20 rounded-full blur-2xl pointer-events-none z-10" />
 
-            {/* Right Navigation Arrow */}
-            <button
-              type="button"
-              onClick={() => handleManualScroll('right')}
-              id="team-carousel-next-btn"
-              aria-label="Next team member"
-              className="absolute right-1 sm:right-2 md:right-3 top-1/2 -translate-y-1/2 z-20 w-11 h-11 sm:w-12 sm:h-12 rounded-full bg-white/95 backdrop-blur-md border border-[#0F6B4C]/25 text-[#0F6B4C] shadow-lg hover:shadow-xl hover:bg-[#0F6B4C] hover:text-white transition-all flex items-center justify-center focus:outline-none focus:ring-2 focus:ring-[#0F6B4C] active:scale-95 cursor-pointer"
-            >
-              <ChevronRight className="w-5 h-5 sm:w-6 sm:h-6" />
-            </button>
+                  {/* Background Portrait Image */}
+                  <Image
+                    src={attorneyImages[pinnedAttorney.id] || pinnedAttorney.image}
+                    alt={pinnedAttorney.name}
+                    fill
+                    unoptimized
+                    className="object-cover object-top transition-transform duration-700 group-hover/card:scale-105"
+                    referrerPolicy="no-referrer"
+                    onError={() => handleImageError(pinnedAttorney.id, attorneyImages[pinnedAttorney.id] || pinnedAttorney.image)}
+                  />
 
-            {/* Scrollable Cards Track */}
-            <div
-              ref={teamScrollRef}
-              className="flex gap-4 sm:gap-6 overflow-x-auto no-scrollbar py-3 px-10 sm:px-14 md:px-16 snap-x snap-mandatory scroll-smooth"
-            >
-              {displayAttorneys.map((attorney, idx) => {
-                const imageSrc = attorneyImages[attorney.id] || attorney.image;
-                const isCeo = attorney.isCeo;
-
-                return (
-                  <div
-                    key={`${attorney.id}-${idx}`}
-                    id={`team-card-${attorney.id}-${idx}`}
-                    onClick={() => setSelectedAttorney(attorney)}
-                    className={`group/card relative w-[280px] sm:w-[320px] md:w-[340px] shrink-0 h-[420px] rounded-3xl overflow-hidden border shadow-md hover:shadow-2xl transition-all duration-300 cursor-pointer flex flex-col justify-end bg-slate-900 snap-start ${
-                      isCeo
-                        ? 'border-[#0F6B4C]/40 ring-2 ring-[#0F6B4C]/25'
-                        : 'border-[#0F6B4C]/15 hover:border-[#0F6B4C]/50'
-                    }`}
-                  >
-                    {/* Background Portrait Image */}
-                    <Image
-                      src={imageSrc}
-                      alt={attorney.name}
-                      fill
-                      unoptimized
-                      className="object-cover object-top transition-transform duration-700 group-hover/card:scale-105"
-                      referrerPolicy="no-referrer"
-                      onError={() => handleImageError(attorney.id, imageSrc)}
-                    />
-
-                    {/* Top Badge */}
-                    {isCeo && (
-                      <div className="absolute top-4 left-4 z-20 bg-[#0F6B4C] text-[#F5A623] text-[11px] font-extrabold px-3 py-1 rounded-full shadow-md flex items-center gap-1.5 border border-[#F5A623]/30">
-                        <Award className="w-3.5 h-3.5 text-[#F5A623]" />
-                        <span>FOUNDER &amp; CEO</span>
-                      </div>
-                    )}
-
-                    {/* Hover Overlay Hint */}
-                    <div className="absolute inset-0 bg-[#0F6B4C]/20 opacity-0 group-hover/card:opacity-100 transition-opacity duration-300 z-10 flex items-center justify-center p-4">
-                      <div className="bg-white/95 backdrop-blur-xs text-[#0F6B4C] font-extrabold text-xs px-4 py-2.5 rounded-full shadow-xl flex items-center gap-2 transform translate-y-3 group-hover/card:translate-y-0 transition-transform duration-300">
-                        <Eye className="w-4 h-4 text-[#F5A623]" />
-                        <span>Click to Reveal Full Details</span>
-                      </div>
+                  {/* Top Badges */}
+                  <div className="absolute top-4 left-4 right-4 z-20 flex items-center justify-between gap-2">
+                    <div className="bg-[#0F6B4C] text-[#F5A623] text-[11px] font-extrabold px-3 py-1.5 rounded-full shadow-lg flex items-center gap-1.5 border border-[#F5A623]/40">
+                      <Award className="w-3.5 h-3.5 text-[#F5A623]" />
+                      <span>{pinnedAttorney.isCeo ? 'FOUNDER & CEO' : 'SENIOR COUNSEL'}</span>
                     </div>
+                    <div className="bg-black/75 backdrop-blur-md text-amber-300 text-[10px] font-extrabold px-2.5 py-1 rounded-full border border-amber-400/40 flex items-center gap-1 shadow-md">
+                      <Pin className="w-3 h-3 fill-amber-400 text-amber-300" />
+                      <span>Stationary Lead</span>
+                    </div>
+                  </div>
 
-                    {/* Bottom Dark Gradient Footer (Name & Title + Action) */}
-                    <div className="relative z-20 p-5 bg-gradient-to-t from-black/95 via-black/70 to-transparent text-white space-y-2 text-left">
-                      <div className="text-[11px] text-[#F5A623] font-extrabold uppercase tracking-wider">
-                        {isCeo ? 'Founder & Chief Executive Officer' : 'Associate Counsel'}
-                      </div>
-                      <h4 className="font-heading font-extrabold text-lg sm:text-xl text-white leading-tight group-hover/card:text-[#F5A623] transition-colors">
-                        {attorney.name}
-                      </h4>
-                      <p className="text-xs text-gray-300 line-clamp-1 font-medium">
-                        {attorney.title}
-                      </p>
+                  {/* Hover Overlay Hint */}
+                  <div className="absolute inset-0 bg-[#0F6B4C]/20 opacity-0 group-hover/card:opacity-100 transition-opacity duration-300 z-10 flex items-center justify-center p-4">
+                    <div className="bg-white/95 backdrop-blur-xs text-[#0F6B4C] font-extrabold text-xs px-4 py-2.5 rounded-full shadow-xl flex items-center gap-2 transform translate-y-3 group-hover/card:translate-y-0 transition-transform duration-300">
+                      <Eye className="w-4 h-4 text-[#F5A623]" />
+                      <span>Click to Reveal Executive Bio</span>
+                    </div>
+                  </div>
 
-                      <div className="pt-2">
-                        <div className="w-full bg-[#0F6B4C] group-hover/card:bg-[#0A4B35] text-white text-xs font-bold py-2.5 px-3 rounded-xl flex items-center justify-center gap-2 transition-colors shadow-sm">
-                          <span>Click to Reveal Details</span>
-                          <ChevronRight className="w-4 h-4 text-[#F5A623]" />
-                        </div>
+                  {/* Bottom Dark Gradient Footer */}
+                  <div className="relative z-20 p-5 sm:p-6 bg-gradient-to-t from-black/95 via-black/75 to-transparent text-white space-y-2 text-left border-t border-[#F5A623]/20">
+                    <div className="text-[11px] text-[#F5A623] font-extrabold uppercase tracking-wider">
+                      {pinnedAttorney.isCeo ? 'Founder & Chief Executive Officer' : 'Senior Counsel'}
+                    </div>
+                    <h4 className="font-heading font-extrabold text-xl sm:text-2xl text-white leading-tight group-hover/card:text-[#F5A623] transition-colors">
+                      {pinnedAttorney.name}
+                    </h4>
+                    <p className="text-xs text-gray-200 line-clamp-2 font-normal leading-relaxed">
+                      {pinnedAttorney.bio || pinnedAttorney.title}
+                    </p>
+
+                    <div className="pt-2">
+                      <div className="w-full bg-[#F5A623] hover:bg-[#E0951C] text-[#0B251C] text-xs font-extrabold py-3 px-4 rounded-xl flex items-center justify-center gap-2 transition-all shadow-md group-hover/card:shadow-lg">
+                        <span>Click to Reveal Full Details</span>
+                        <ChevronRight className="w-4 h-4 text-[#0B251C]" />
                       </div>
                     </div>
                   </div>
-                );
-              })}
+                </div>
+              </div>
+            )}
+
+            {/* RIGHT: Remaining Team Members Carousel Track */}
+            <div className="flex-1 min-w-0 flex flex-col justify-between">
+              <div className="flex items-center justify-between gap-3 mb-2 px-1">
+                <span className="text-[11px] font-extrabold uppercase tracking-wider text-[#5A6275]">
+                  Associates &amp; Legal Team ({carouselAttorneys.length})
+                </span>
+                <div className="flex items-center gap-2">
+                  <span className="text-[11px] text-gray-400 hidden sm:inline">Scroll through firm advocates</span>
+                  <button
+                    type="button"
+                    onClick={() => handleManualScroll('left')}
+                    id="team-carousel-prev-btn"
+                    aria-label="Previous team member"
+                    className="w-8 h-8 rounded-full bg-white border border-[#0F6B4C]/25 text-[#0F6B4C] hover:bg-[#0F6B4C] hover:text-white transition-all flex items-center justify-center shadow-xs active:scale-95 cursor-pointer"
+                  >
+                    <ChevronLeft className="w-4 h-4" />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleManualScroll('right')}
+                    id="team-carousel-next-btn"
+                    aria-label="Next team member"
+                    className="w-8 h-8 rounded-full bg-white border border-[#0F6B4C]/25 text-[#0F6B4C] hover:bg-[#0F6B4C] hover:text-white transition-all flex items-center justify-center shadow-xs active:scale-95 cursor-pointer"
+                  >
+                    <ChevronRight className="w-4 h-4" />
+                  </button>
+                </div>
+              </div>
+
+              {/* Scrollable Cards Track */}
+              <div
+                className="w-full relative group py-1"
+                onMouseEnter={() => setIsHovered(true)}
+                onMouseLeave={() => setIsHovered(false)}
+              >
+                {/* Subtle Right Edge Vignette */}
+                <div className="absolute right-0 top-0 bottom-0 w-8 sm:w-16 bg-gradient-to-l from-[#FAFAF7] via-[#FAFAF7]/80 to-transparent z-10 pointer-events-none" />
+
+                <div
+                  ref={teamScrollRef}
+                  className="flex gap-4 sm:gap-5 overflow-x-auto no-scrollbar py-1 snap-x snap-mandatory scroll-smooth"
+                >
+                  {displayCarouselAttorneys.map((attorney, idx) => {
+                    const imageSrc = attorneyImages[attorney.id] || attorney.image;
+                    const isCeo = attorney.isCeo;
+
+                    return (
+                      <div
+                        key={`${attorney.id}-${idx}`}
+                        id={`team-card-${attorney.id}-${idx}`}
+                        onClick={() => setSelectedAttorney(attorney)}
+                        className="group/card relative w-[280px] sm:w-[310px] md:w-[320px] shrink-0 h-[460px] sm:h-[490px] rounded-3xl overflow-hidden border border-[#0F6B4C]/20 hover:border-[#0F6B4C]/50 shadow-md hover:shadow-2xl transition-all duration-300 cursor-pointer flex flex-col justify-end bg-slate-900 snap-start"
+                      >
+                        {/* Background Portrait Image */}
+                        <Image
+                          src={imageSrc}
+                          alt={attorney.name}
+                          fill
+                          unoptimized
+                          className="object-cover object-top transition-transform duration-700 group-hover/card:scale-105"
+                          referrerPolicy="no-referrer"
+                          onError={() => handleImageError(attorney.id, imageSrc)}
+                        />
+
+                        {/* Top Badge */}
+                        {isCeo && (
+                          <div className="absolute top-4 left-4 z-20 bg-[#0F6B4C] text-[#F5A623] text-[11px] font-extrabold px-3 py-1 rounded-full shadow-md flex items-center gap-1.5 border border-[#F5A623]/30">
+                            <Award className="w-3.5 h-3.5 text-[#F5A623]" />
+                            <span>FOUNDER &amp; CEO</span>
+                          </div>
+                        )}
+
+                        {/* Hover Overlay Hint */}
+                        <div className="absolute inset-0 bg-[#0F6B4C]/20 opacity-0 group-hover/card:opacity-100 transition-opacity duration-300 z-10 flex items-center justify-center p-4">
+                          <div className="bg-white/95 backdrop-blur-xs text-[#0F6B4C] font-extrabold text-xs px-4 py-2.5 rounded-full shadow-xl flex items-center gap-2 transform translate-y-3 group-hover/card:translate-y-0 transition-transform duration-300">
+                            <Eye className="w-4 h-4 text-[#F5A623]" />
+                            <span>Click to Reveal Full Details</span>
+                          </div>
+                        </div>
+
+                        {/* Bottom Dark Gradient Footer */}
+                        <div className="relative z-20 p-5 bg-gradient-to-t from-black/95 via-black/70 to-transparent text-white space-y-2 text-left">
+                          <div className="text-[11px] text-[#F5A623] font-extrabold uppercase tracking-wider">
+                            {isCeo ? 'Founder & Chief Executive Officer' : 'Associate Counsel'}
+                          </div>
+                          <h4 className="font-heading font-extrabold text-lg sm:text-xl text-white leading-tight group-hover/card:text-[#F5A623] transition-colors">
+                            {attorney.name}
+                          </h4>
+                          <p className="text-xs text-gray-300 line-clamp-1 font-medium">
+                            {attorney.title}
+                          </p>
+
+                          <div className="pt-2">
+                            <div className="w-full bg-[#0F6B4C] group-hover/card:bg-[#0A4B35] text-white text-xs font-bold py-2.5 px-3 rounded-xl flex items-center justify-center gap-2 transition-colors shadow-sm">
+                              <span>Click to Reveal Details</span>
+                              <ChevronRight className="w-4 h-4 text-[#F5A623]" />
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
             </div>
           </div>
         </div>

@@ -210,6 +210,7 @@ export interface TeamMember {
   image: string;
   keyWin: string;
   isCeo?: boolean;
+  isPinnedLeft?: boolean;
   order?: number;
   createdAt?: string;
   updatedAt?: string;

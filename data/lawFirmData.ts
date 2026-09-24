@@ -54,6 +54,7 @@ export interface Attorney {
   image: string;
   keyWin: string;
   isCeo?: boolean;
+  isPinnedLeft?: boolean;
 }
 
 export interface FAQItem {
@@ -215,7 +216,8 @@ export const ATTORNEYS: Attorney[] = [
     ],
     image: 'https://i.postimg.cc/VvWYYzzW/CEO.jpg',
     keyWin: 'Founded HISK LEGAL, leading high-stakes litigation, corporate advisory, and cross-border legal solutions.',
-    isCeo: true
+    isCeo: true,
+    isPinnedLeft: true
   },
   {
     id: 'mirza-ahmed-raza',

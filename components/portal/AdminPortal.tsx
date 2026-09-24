@@ -65,7 +65,8 @@ import {
   Quote,
   MessageSquareQuote,
   BookOpen,
-  Newspaper
+  Newspaper,
+  Pin
 } from 'lucide-react';
 import { usePortalStore } from '@/lib/portalStore';
 import { InvoicePdfModal } from '@/components/portal/InvoicePdfModal';
@@ -205,6 +206,7 @@ export const AdminPortal: React.FC = () => {
     teamMembers,
     addTeamMember,
     updateTeamMember,
+    pinTeamMemberLeft,
     deleteTeamMember,
     resetTeamMembers,
     reviews,
@@ -264,7 +266,8 @@ export const AdminPortal: React.FC = () => {
     keyWin: 'Successfully represented corporate and private clients before High Court benches.',
     credentialsText: 'Advocate High Court, High Court Bar Association, Associate Counsel',
     image: 'https://i.postimg.cc/Qtsx9f0Q/advocate-high-court.jpg',
-    isCeo: false
+    isCeo: false,
+    isPinnedLeft: false
   });
 
   // Reviews Search, Filters & Modal States
@@ -701,7 +704,8 @@ export const AdminPortal: React.FC = () => {
       keyWin: 'Successfully represented corporate and private clients before High Court benches.',
       credentialsText: 'Advocate High Court, High Court Bar Association, Associate Counsel',
       image: 'https://i.postimg.cc/Qtsx9f0Q/advocate-high-court.jpg',
-      isCeo: false
+      isCeo: false,
+      isPinnedLeft: false
     });
     setShowTeamModal(true);
   };
@@ -718,9 +722,17 @@ export const AdminPortal: React.FC = () => {
       keyWin: member.keyWin || '',
       credentialsText: (member.credentials || []).join(', '),
       image: member.image || 'https://i.postimg.cc/Qtsx9f0Q/advocate-high-court.jpg',
-      isCeo: !!member.isCeo
+      isCeo: !!member.isCeo,
+      isPinnedLeft: !!member.isPinnedLeft
     });
     setShowTeamModal(true);
+  };
+
+  const handlePinTeamMember = (id: string) => {
+    pinTeamMemberLeft(id);
+    const target = teamMembers?.find((m) => m.id === id);
+    setTeamActionSuccess(`"${target?.name || 'Profile'}" is now stuck to the left side in the Our Team section.`);
+    setTimeout(() => setTeamActionSuccess(null), 4000);
   };
 
   const handleSaveTeamMember = (e: React.FormEvent) => {
@@ -753,7 +765,8 @@ export const AdminPortal: React.FC = () => {
         credentials: credsList,
         keyWin: keyWinText,
         image: teamFormData.image.trim() || 'https://i.postimg.cc/Qtsx9f0Q/advocate-high-court.jpg',
-        isCeo: teamFormData.isCeo
+        isCeo: teamFormData.isCeo,
+        isPinnedLeft: teamFormData.isPinnedLeft
       });
       setTeamActionSuccess(`Updated team member "${teamFormData.name.trim()}" successfully.`);
     } else {
@@ -767,7 +780,8 @@ export const AdminPortal: React.FC = () => {
         credentials: credsList,
         keyWin: keyWinText,
         image: teamFormData.image.trim() || 'https://i.postimg.cc/Qtsx9f0Q/advocate-high-court.jpg',
-        isCeo: teamFormData.isCeo
+        isCeo: teamFormData.isCeo,
+        isPinnedLeft: teamFormData.isPinnedLeft
       });
       setTeamActionSuccess(`Added "${teamFormData.name.trim()}" to the firm roster.`);
     }
@@ -3527,6 +3541,12 @@ export const AdminPortal: React.FC = () => {
                               <span>Founder &amp; CEO</span>
                             </span>
                           )}
+                          {member.isPinnedLeft && (
+                            <span className="text-[10px] font-extrabold text-amber-900 bg-amber-100/90 px-2 py-0.5 rounded-md border border-amber-300 flex items-center gap-1 shadow-xs">
+                              <Pin className="w-3 h-3 fill-amber-500 text-amber-700" />
+                              <span>Stuck to Left</span>
+                            </span>
+                          )}
                           <span className="text-[10px] font-bold text-emerald-800 bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-200">
                             {member.experienceYears || 10}+ Years Exp
                           </span>
@@ -3562,7 +3582,24 @@ export const AdminPortal: React.FC = () => {
                     </div>
 
                     {/* Right: Action Buttons */}
-                    <div className="flex items-center gap-2 pt-2 md:pt-0 border-t md:border-t-0 border-gray-100 shrink-0 justify-end">
+                    <div className="flex flex-wrap items-center gap-2 pt-2 md:pt-0 border-t md:border-t-0 border-gray-100 shrink-0 justify-end">
+                      {member.isPinnedLeft ? (
+                        <span className="px-3 py-1.5 rounded-xl bg-amber-500/15 border border-amber-500/40 text-amber-900 text-xs font-extrabold flex items-center gap-1.5 shadow-xs">
+                          <Pin className="w-3.5 h-3.5 fill-amber-500 text-amber-700" />
+                          <span>Stuck to Left</span>
+                        </span>
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={() => handlePinTeamMember(member.id)}
+                          className="px-3 py-1.5 rounded-xl bg-amber-50 hover:bg-amber-100 border border-amber-200 text-amber-900 text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer shadow-xs hover:shadow-sm"
+                          title="Stick this profile to the left side in the Our Team section"
+                        >
+                          <Pin className="w-3.5 h-3.5 text-amber-600" />
+                          <span>Stick to Left</span>
+                        </button>
+                      )}
+
                       <button
                         type="button"
                         onClick={() => handleOpenEditTeamMember(member)}
@@ -6991,6 +7028,27 @@ export const AdminPortal: React.FC = () => {
                     </span>
                   </label>
                 </div>
+              </div>
+
+              {/* Stick to Left Side Toggle */}
+              <div className="bg-[#FAF5EA] p-3 rounded-2xl border border-[#F5A623]/40">
+                <label className="flex items-start gap-2.5 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={teamFormData.isPinnedLeft}
+                    onChange={(e) => setTeamFormData({ ...teamFormData, isPinnedLeft: e.target.checked })}
+                    className="w-4 h-4 mt-0.5 text-[#0F6B4C] rounded border-gray-300 focus:ring-[#0F6B4C] cursor-pointer"
+                  />
+                  <div className="flex-1">
+                    <span className="font-extrabold text-[#7A4B00] text-xs flex items-center gap-1.5">
+                      <Pin className="w-3.5 h-3.5 text-[#F5A623] fill-[#F5A623]" />
+                      Stick to Left Side (Stationary Spotlight in Our Team Section)
+                    </span>
+                    <p className="text-[11px] text-[#8C5D0C] leading-snug mt-0.5">
+                      When checked, this profile remains stationary on the left side with a highlighted gold leadership frame, while other team members scroll horizontally beside it.
+                    </p>
+                  </div>
+                </label>
               </div>
 
               {/* Field 4: Practice Scope / Specialty */}

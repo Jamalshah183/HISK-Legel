@@ -702,6 +702,7 @@ export const INITIAL_PRACTICE_AREAS: PracticeArea[] = [
 
 export const INITIAL_TEAM_MEMBERS: TeamMember[] = ATTORNEYS.map((attorney, index) => ({
   ...attorney,
+  isPinnedLeft: attorney.isPinnedLeft ?? (attorney.isCeo || index === 0),
   order: index + 1,
   createdAt: '2025-01-01'
 }));
