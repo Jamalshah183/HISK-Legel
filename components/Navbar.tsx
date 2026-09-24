@@ -151,7 +151,7 @@ export const Navbar: React.FC<NavbarProps> = ({ activeTab, setActiveTab, onOpenP
           </button>
 
           {/* Desktop Links */}
-          <div className="hidden lg:flex items-center gap-1 xl:gap-2">
+          <div className="hidden lg:flex items-center gap-1 xl:gap-2 ml-auto mr-4 lg:mr-6">
             {navItems.map((item) => {
               const isActive = activeTab === item.id;
               return (
