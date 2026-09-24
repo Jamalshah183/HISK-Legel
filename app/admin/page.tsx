@@ -193,7 +193,7 @@ export default function AdminPortalPage() {
                     <span className="text-[10px] text-emerald-800 bg-emerald-100 px-1.5 py-0.5 rounded font-sans">Admin</span>
                   </div>
                   <div className="flex items-center justify-between border-t border-emerald-200/60 pt-1">
-                    <span>adv.kiyani@gmail.com</span>
+                    <span>adv.kayani@gmail.com</span>
                     <span className="text-[10px] text-amber-800 bg-amber-100 px-1.5 py-0.5 rounded font-sans font-extrabold">CEO Account</span>
                   </div>
                 </div>

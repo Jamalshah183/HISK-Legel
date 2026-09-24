@@ -174,6 +174,9 @@ export const Footer: React.FC<FooterProps> = ({ setActiveTab }) => {
                   {LAWFIRM_EMAIL}
                 </a>
               </div>
+              <div className="text-xs text-emerald-200/90 font-medium pt-0.5">
+                <span className="text-[#F5A623] font-bold">CC No.</span> IHC - 4001, LHC - 25893
+              </div>
               <div className="flex items-center gap-2 text-emerald-300 font-semibold">
                 <Lock className="w-4 h-4 text-[#F5A623] shrink-0" />
                 <span>Advocate Privilege Applies</span>
@@ -184,11 +187,17 @@ export const Footer: React.FC<FooterProps> = ({ setActiveTab }) => {
 
         {/* Copyright Footer */}
         <div className="pt-4 text-xs text-emerald-200/70 leading-normal flex flex-col md:flex-row justify-between items-center gap-2 border-t border-emerald-800/60 mt-1">
-          <p className="text-emerald-100 font-semibold">
-            &copy; {new Date().getFullYear()} HISK LEGAL. All rights reserved.
-          </p>
-          <div className="text-emerald-200/80 text-xs">
-            High Court Advocates &amp; Tax Practitioners • Islamabad, Pakistan
+          <div className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-2 text-center sm:text-left">
+            <p className="text-emerald-100 font-semibold">
+              &copy; {new Date().getFullYear()} HISK LEGAL. All rights reserved.
+            </p>
+            <span className="hidden sm:inline text-emerald-600">•</span>
+            <span className="text-emerald-200/90 font-medium">
+              CC No. IHC - 4001, LHC - 25893
+            </span>
+          </div>
+          <div className="text-emerald-200/80 text-xs text-center md:text-right">
+            Advocates • Litigation, Civil, Criminal, Corporate, Tax • Islamabad, Pakistan
           </div>
         </div>
       </div>

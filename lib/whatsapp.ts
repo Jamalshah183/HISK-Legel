@@ -5,7 +5,7 @@
 
 export const LAWFIRM_WHATSAPP_NUMBER = "923145113670"; // Country code 92 for Pakistan
 export const DISPLAY_PHONE = "+92 314 5113670";
-export const LAWFIRM_EMAIL = "adv.kiyani@gmail.com";
+export const LAWFIRM_EMAIL = "adv.kayani@gmail.com";
 export const LAWFIRM_ADDRESS = "Office No.10, Second Floor, Awan Plaza, G-8 Markaz, Islamabad";
 export const SOCIAL_LINKS = {
   facebook: "https://www.facebook.com/HISKLegal/",

@@ -116,7 +116,7 @@ export const InvoicePdfModal: React.FC<InvoicePdfModalProps> = ({
       doc.setFontSize(8);
       doc.setTextColor(grayText[0], grayText[1], grayText[2]);
       doc.text('Office No.10, Second Floor, Awan Plaza, G-8 Markaz, Islamabad, Pakistan', 14, y);
-      doc.text('Ph: +92 314 5113670 | Email: adv.kiyani@gmail.com', 14, y + 4);
+      doc.text('Ph: +92 314 5113670 | Email: adv.kayani@gmail.com', 14, y + 4);
 
       y += 8;
 
@@ -424,7 +424,7 @@ export const InvoicePdfModal: React.FC<InvoicePdfModalProps> = ({
   const handleSendWhatsApp = () => {
     const message = `*HISK LEGAL ADVOCATES & CONSULTANTS*
 📍 Office No.10, Second Floor, Awan Plaza, G-8 Markaz, Islamabad
-📞 Phone: +92 314 5113670 | ✉️ Email: adv.kiyani@gmail.com
+📞 Phone: +92 314 5113670 | ✉️ Email: adv.kayani@gmail.com
 
 *OFFICIAL LEGAL FEE INVOICE: ${invoice.invoiceNumber}*
 
@@ -574,7 +574,7 @@ Thank you for choosing HISK LEGAL!`;
               <p className="text-xs text-gray-700 mt-2 max-w-md leading-relaxed font-medium">
                 Office No.10, Second Floor, Awan Plaza, G-8 Markaz, Islamabad, Pakistan
                 <br />
-                Ph: <strong className="text-[#0A4B35]">+92 314 5113670</strong> | Email: <strong className="text-[#0A4B35]">adv.kiyani@gmail.com</strong>
+                Ph: <strong className="text-[#0A4B35]">+92 314 5113670</strong> | Email: <strong className="text-[#0A4B35]">adv.kayani@gmail.com</strong>
               </p>
             </div>
 
