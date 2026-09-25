@@ -17,9 +17,11 @@ export const ReviewsSection: React.FC = () => {
     : TESTIMONIALS;
   const displayReviews = activeReviews.length > 0 ? activeReviews : TESTIMONIALS;
 
-  // Determine marquee list (repeat enough times for seamless continuous horizontal scroll)
-  const repeatCount = Math.max(2, Math.ceil(8 / displayReviews.length));
-  const marqueeItems = Array(repeatCount).fill(displayReviews).flat();
+  // Determine marquee list with 2 identical halves for seamless continuous 0% to -50% horizontal scroll
+  const cycleCount = Math.max(1, Math.ceil(4 / (displayReviews.length || 1)));
+  const singleCycle = Array(cycleCount).fill(displayReviews).flat();
+  const marqueeItems = [...singleCycle, ...singleCycle];
+  const reviewsDuration = Math.max(30, Math.round(singleCycle.length * 10));
 
   return (
     <motion.section
@@ -54,7 +56,10 @@ export const ReviewsSection: React.FC = () => {
           <div className="absolute right-0 top-0 bottom-0 w-8 sm:w-20 bg-gradient-to-l from-[#FAFAF7] to-transparent z-10 pointer-events-none" />
 
           {/* Marquee Track */}
-          <div className="flex gap-4 sm:gap-6 lg:gap-8 animate-marquee-rtl group-hover:[animation-play-state:paused] w-max">
+          <div
+            className="flex gap-4 sm:gap-6 lg:gap-8 animate-marquee-rtl group-hover:[animation-play-state:paused] w-max"
+            style={{ animationDuration: `${reviewsDuration}s` }}
+          >
             {marqueeItems.map((review, idx) => (
               <div
                 key={`${review.id}-${idx}`}

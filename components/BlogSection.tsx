@@ -20,10 +20,13 @@ export const BlogSection: React.FC = () => {
   // Highlighted Articles for Marquee on Main Page
   const basePosts = (activePosts.length > 0 ? activePosts : BLOG_POSTS).slice(0, 10);
 
-  // Determine marquee list (repeat enough times with duplicated cycle for seamless continuous 0% to -50% horizontal scroll)
-  const multiplier = Math.max(2, Math.ceil(8 / (basePosts.length || 1)));
-  const singleCycle = Array(multiplier).fill(basePosts).flat();
+  // Determine marquee list with 2 identical halves for seamless continuous 0% to -50% horizontal scroll
+  const cycleMultiplier = Math.max(1, Math.ceil(4 / (basePosts.length || 1)));
+  const singleCycle = Array(cycleMultiplier).fill(basePosts).flat();
   const marqueePosts = [...singleCycle, ...singleCycle];
+
+  // Match velocity of Reviews Section cards (~49 px/s -> ~8 seconds per blog card)
+  const marqueeDuration = Math.max(30, Math.round(singleCycle.length * 8));
 
   return (
     <motion.section
@@ -61,7 +64,10 @@ export const BlogSection: React.FC = () => {
           <div className="absolute right-0 top-0 bottom-0 w-8 sm:w-20 bg-gradient-to-l from-white to-transparent z-10 pointer-events-none" />
 
           {/* Marquee Track */}
-          <div className="flex gap-4 sm:gap-6 lg:gap-8 animate-marquee-rtl group-hover:[animation-play-state:paused] w-max py-2">
+          <div
+            className="flex gap-4 sm:gap-6 lg:gap-8 animate-marquee-rtl group-hover:[animation-play-state:paused] w-max py-2"
+            style={{ animationDuration: `${marqueeDuration}s` }}
+          >
             {marqueePosts.map((post, index) => (
               <article
                 key={`${post.id}-${index}`}
