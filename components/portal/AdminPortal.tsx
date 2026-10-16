@@ -2089,7 +2089,7 @@ export const AdminPortal: React.FC = () => {
                   type="email"
                   value={adminEmailInput}
                   onChange={(e) => setAdminEmailInput(e.target.value)}
-                  placeholder="e.g. rahim.nawaz@i-con.pk"
+                  placeholder="Enter authorized email address"
                   required
                   autoComplete="email"
                   className="w-full pl-10 pr-3 py-2.5 text-xs bg-gray-50 border border-gray-300 rounded-xl focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#0A4B35] focus:border-transparent transition"
@@ -2158,31 +2158,6 @@ export const AdminPortal: React.FC = () => {
               </button>
             </div>
           </form>
-
-          <div className="bg-[#FAFAF7] p-3.5 rounded-2xl border border-gray-200 text-[11px] text-gray-600 space-y-1">
-            <span className="font-extrabold text-[#0A4B35] block">Authorized Admin Portal Accounts:</span>
-            <div className="font-mono bg-emerald-50 text-[#0A4B35] p-2 rounded font-bold border border-emerald-200 text-xs space-y-1">
-              <div className="flex items-center justify-between">
-                <span>jamalshah183@gmail.com</span>
-                <span className="text-[10px] text-emerald-800 bg-emerald-100 px-1.5 py-0.5 rounded font-sans">Admin</span>
-              </div>
-              <div className="flex items-center justify-between border-t border-emerald-200/60 pt-1">
-                <span>adv.kayani@gmail.com</span>
-                <span className="text-[10px] text-amber-800 bg-amber-100 px-1.5 py-0.5 rounded font-sans font-extrabold">CEO Account</span>
-              </div>
-              <div className="flex items-center justify-between border-t border-emerald-200/60 pt-1">
-                <span>namias327@gmail.com</span>
-                <span className="text-[10px] text-emerald-800 bg-emerald-100 px-1.5 py-0.5 rounded font-sans">Admin</span>
-              </div>
-              <div className="flex items-center justify-between border-t border-emerald-200/60 pt-1">
-                <span>rahim.nawaz@i-con.pk</span>
-                <span className="text-[10px] text-emerald-800 bg-emerald-100 px-1.5 py-0.5 rounded font-sans">Admin</span>
-              </div>
-            </div>
-            <div className="text-[10px] text-gray-500 pt-1">
-              Connected to Firebase Project <span className="font-mono text-[#0A4B35] font-bold">hisk-46a92</span>.
-            </div>
-          </div>
         </div>
       </div>
     );
