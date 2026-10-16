@@ -5,9 +5,17 @@ import { PortalHeader } from '@/components/portal/PortalHeader';
 import { AdminPortal } from '@/components/portal/AdminPortal';
 import { usePortalStore } from '@/lib/portalStore';
 import Link from 'next/link';
-import { ArrowLeft, ShieldCheck, Lock, Mail, KeyRound, LogOut, CheckCircle2, User } from 'lucide-react';
+import { ArrowLeft, ShieldCheck, Lock, Mail, KeyRound, LogOut, CheckCircle2, User, Eye, EyeOff } from 'lucide-react';
 import { auth, googleProvider } from '@/lib/firebase';
-import { signInWithPopup, signInWithEmailAndPassword, signOut, onAuthStateChanged, User as FirebaseUser } from 'firebase/auth';
+import {
+  signInWithPopup,
+  signInWithEmailAndPassword,
+  createUserWithEmailAndPassword,
+  sendPasswordResetEmail,
+  signOut,
+  onAuthStateChanged,
+  User as FirebaseUser,
+} from 'firebase/auth';
 import { checkRateLimit, recordAttempt, resetRateLimit } from '@/lib/rateLimiter';
 import { useInactivityTimeout } from '@/lib/useInactivityTimeout';
 
@@ -17,6 +25,7 @@ const ALLOWED_ADMIN_EMAILS = [
   'adv.kiyani@gmail.com',
   'aamer222@gmail.com',
   'namias327@gmail.com',
+  'rahim.nawaz@i-con.pk',
 ];
 
 export default function AdminPortalPage() {
@@ -27,6 +36,13 @@ export default function AdminPortalPage() {
   const [isAdminLoggedIn, setIsAdminLoggedIn] = useState<boolean>(false);
   const [authLoading, setAuthLoading] = useState<boolean>(true);
   const [authError, setAuthError] = useState<string | null>(null);
+  const [authSuccessMessage, setAuthSuccessMessage] = useState<string | null>(null);
+
+  // Email & Password login states
+  const [emailInput, setEmailInput] = useState<string>('');
+  const [passwordInput, setPasswordInput] = useState<string>('');
+  const [showPassword, setShowPassword] = useState<boolean>(false);
+  const [isRegisterMode, setIsRegisterMode] = useState<boolean>(false);
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (user) => {
@@ -46,6 +62,7 @@ export default function AdminPortalPage() {
 
   const handleGoogleSignIn = async () => {
     setAuthError(null);
+    setAuthSuccessMessage(null);
 
     // Rate limit check
     const rateCheck = checkRateLimit('admin_login');
@@ -80,6 +97,99 @@ export default function AdminPortalPage() {
     }
   };
 
+  const handleEmailPasswordSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setAuthError(null);
+    setAuthSuccessMessage(null);
+
+    const cleanEmail = emailInput.trim().toLowerCase();
+    if (!cleanEmail || !passwordInput) {
+      setAuthError('Please enter both your authorized email and password.');
+      return;
+    }
+
+    if (!ALLOWED_ADMIN_EMAILS.includes(cleanEmail)) {
+      setAuthError(
+        `Access Denied: ${cleanEmail} is not in the list of authorized admin emails. Please check your email or contact the senior administrator.`
+      );
+      return;
+    }
+
+    // Rate limit check
+    const rateCheck = checkRateLimit('admin_login');
+    if (!rateCheck.allowed) {
+      setAuthError(rateCheck.message || 'Too many attempts. Please try again in a few minutes.');
+      return;
+    }
+    recordAttempt('admin_login');
+
+    setAuthLoading(true);
+    try {
+      if (isRegisterMode) {
+        if (passwordInput.length < 6) {
+          setAuthError('Password must be at least 6 characters long.');
+          setAuthLoading(false);
+          return;
+        }
+        const result = await createUserWithEmailAndPassword(auth, cleanEmail, passwordInput);
+        resetRateLimit('admin_login');
+        setCurrentUser(result.user);
+        setIsAdminLoggedIn(true);
+        setAuthSuccessMessage('Admin credentials verified. Welcome!');
+      } else {
+        const result = await signInWithEmailAndPassword(auth, cleanEmail, passwordInput);
+        resetRateLimit('admin_login');
+        setCurrentUser(result.user);
+        setIsAdminLoggedIn(true);
+      }
+    } catch (err: any) {
+      console.warn('Email/Password auth error:', err);
+      let msg = err.message || 'Authentication failed. Please verify your credentials.';
+      if (
+        err.code === 'auth/invalid-credential' ||
+        err.code === 'auth/wrong-password' ||
+        err.code === 'auth/user-not-found'
+      ) {
+        msg =
+          'Invalid email or password. If you have not created a password yet for this authorized account, click "Forgot / Set Password" below or switch to "Create password".';
+      } else if (err.code === 'auth/email-already-in-use') {
+        msg = 'An account already exists for this email. Please sign in with your password or use "Forgot / Set Password".';
+      } else if (err.code === 'auth/weak-password') {
+        msg = 'Password should be at least 6 characters long.';
+      }
+      setAuthError(msg);
+      setIsAdminLoggedIn(false);
+      setCurrentUser(null);
+    } finally {
+      setAuthLoading(false);
+    }
+  };
+
+  const handlePasswordReset = async () => {
+    setAuthError(null);
+    setAuthSuccessMessage(null);
+
+    const cleanEmail = emailInput.trim().toLowerCase();
+    if (!cleanEmail) {
+      setAuthError('Please enter your authorized email address above first, then click "Forgot / Set Password".');
+      return;
+    }
+
+    if (!ALLOWED_ADMIN_EMAILS.includes(cleanEmail)) {
+      setAuthError(`Access Denied: ${cleanEmail} is not an authorized admin email.`);
+      return;
+    }
+
+    try {
+      await sendPasswordResetEmail(auth, cleanEmail);
+      setAuthSuccessMessage(
+        `A password set/reset link has been sent to ${cleanEmail}. Check your inbox and spam folder to set your password.`
+      );
+    } catch (err: any) {
+      setAuthError(err.message || 'Failed to send password reset email. Please try again.');
+    }
+  };
+
   const handleSignOut = async () => {
     try {
       await signOut(auth);
@@ -88,6 +198,7 @@ export default function AdminPortalPage() {
     }
     setIsAdminLoggedIn(false);
     setCurrentUser(null);
+    setPasswordInput('');
   };
 
   // Auto-logout after 2 minutes (120,000 ms) of inactivity
@@ -164,6 +275,13 @@ export default function AdminPortalPage() {
                 </div>
               )}
 
+              {authSuccessMessage && (
+                <div className="bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs p-3 rounded-2xl font-medium flex items-start gap-2">
+                  <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />
+                  <span>{authSuccessMessage}</span>
+                </div>
+              )}
+
               {/* GOOGLE SIGN IN BUTTON */}
               <button
                 type="button"
@@ -191,6 +309,96 @@ export default function AdminPortalPage() {
                 <span className="text-white text-xs sm:text-sm">Sign in with Authorized Google Account</span>
               </button>
 
+              {/* OR DIVIDER */}
+              <div className="relative flex items-center justify-center my-3">
+                <div className="border-t border-gray-200 w-full"></div>
+                <span className="bg-white px-3 text-[11px] font-bold text-gray-400 uppercase tracking-wider shrink-0">
+                  or sign in with email & password
+                </span>
+              </div>
+
+              {/* EMAIL & PASSWORD SIGN IN FORM */}
+              <form onSubmit={handleEmailPasswordSubmit} className="space-y-3.5">
+                <div>
+                  <label className="block text-[11px] font-bold text-gray-700 mb-1">
+                    Admin Email Address
+                  </label>
+                  <div className="relative">
+                    <Mail className="w-4 h-4 text-gray-400 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+                    <input
+                      type="email"
+                      value={emailInput}
+                      onChange={(e) => setEmailInput(e.target.value)}
+                      placeholder="e.g. rahim.nawaz@i-con.pk"
+                      required
+                      autoComplete="email"
+                      className="w-full pl-10 pr-3 py-2.5 text-xs bg-gray-50 border border-gray-300 rounded-xl focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#0A4B35] focus:border-transparent transition"
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <div className="flex items-center justify-between mb-1">
+                    <label className="block text-[11px] font-bold text-gray-700">
+                      Password
+                    </label>
+                    <button
+                      type="button"
+                      onClick={handlePasswordReset}
+                      className="text-[11px] text-emerald-700 hover:text-emerald-900 font-semibold hover:underline cursor-pointer"
+                    >
+                      Forgot / Set Password?
+                    </button>
+                  </div>
+                  <div className="relative">
+                    <Lock className="w-4 h-4 text-gray-400 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+                    <input
+                      type={showPassword ? 'text' : 'password'}
+                      value={passwordInput}
+                      onChange={(e) => setPasswordInput(e.target.value)}
+                      placeholder={isRegisterMode ? 'Set a password (min 6 chars)' : '••••••••'}
+                      required
+                      autoComplete="current-password"
+                      className="w-full pl-10 pr-10 py-2.5 text-xs bg-gray-50 border border-gray-300 rounded-xl focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#0A4B35] focus:border-transparent transition"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowPassword(!showPassword)}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 focus:outline-none cursor-pointer"
+                      title={showPassword ? 'Hide password' : 'Show password'}
+                    >
+                      {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                    </button>
+                  </div>
+                </div>
+
+                <button
+                  type="submit"
+                  className="w-full bg-[#1A1A1A] hover:bg-[#0A4B35] text-white font-extrabold py-3 px-4 rounded-xl shadow-md transition-all text-xs flex items-center justify-center gap-2 cursor-pointer border border-gray-800"
+                >
+                  <KeyRound className="w-3.5 h-3.5 text-[#F5A623]" />
+                  <span>
+                    {isRegisterMode ? 'Register Password & Sign In' : 'Sign In with Email & Password'}
+                  </span>
+                </button>
+
+                <div className="text-center pt-0.5">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setIsRegisterMode(!isRegisterMode);
+                      setAuthError(null);
+                      setAuthSuccessMessage(null);
+                    }}
+                    className="text-[11px] text-gray-500 hover:text-emerald-800 font-medium hover:underline cursor-pointer"
+                  >
+                    {isRegisterMode
+                      ? 'Already set your password? Return to standard Sign In'
+                      : 'First time signing in with password? Create your password here'}
+                  </button>
+                </div>
+              </form>
+
               <div className="bg-[#FAFAF7] p-3.5 rounded-2xl border border-gray-200 text-[11px] text-gray-600 space-y-1">
                 <span className="font-extrabold text-[#0A4B35] block">Authorized Admin Portal Accounts:</span>
                 <div className="font-mono bg-emerald-50 text-[#0A4B35] p-2 rounded font-bold border border-emerald-200 text-xs space-y-1">
@@ -204,6 +412,10 @@ export default function AdminPortalPage() {
                   </div>
                   <div className="flex items-center justify-between border-t border-emerald-200/60 pt-1">
                     <span>namias327@gmail.com</span>
+                    <span className="text-[10px] text-emerald-800 bg-emerald-100 px-1.5 py-0.5 rounded font-sans">Admin</span>
+                  </div>
+                  <div className="flex items-center justify-between border-t border-emerald-200/60 pt-1">
+                    <span>rahim.nawaz@i-con.pk</span>
                     <span className="text-[10px] text-emerald-800 bg-emerald-100 px-1.5 py-0.5 rounded font-sans">Admin</span>
                   </div>
                 </div>

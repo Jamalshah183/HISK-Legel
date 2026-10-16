@@ -3,10 +3,21 @@
 import React, { useState, useEffect } from 'react';
 import Image from 'next/image';
 import { auth, googleProvider } from '@/lib/firebase';
-import { signInWithPopup, signOut, onAuthStateChanged, User as FirebaseUser } from 'firebase/auth';
+import {
+  signInWithPopup,
+  signInWithEmailAndPassword,
+  createUserWithEmailAndPassword,
+  sendPasswordResetEmail,
+  signOut,
+  onAuthStateChanged,
+  User as FirebaseUser,
+} from 'firebase/auth';
 import { checkRateLimit, recordAttempt, resetRateLimit } from '@/lib/rateLimiter';
 import { useInactivityTimeout } from '@/lib/useInactivityTimeout';
 import {
+  Mail,
+  KeyRound,
+  EyeOff,
   LayoutDashboard,
   Briefcase,
   Users,
@@ -101,6 +112,7 @@ const ALLOWED_ADMIN_EMAILS = [
   'adv.kiyani@gmail.com',
   'aamer222@gmail.com',
   'namias327@gmail.com',
+  'rahim.nawaz@i-con.pk',
 ];
 
 export const AdminPortal: React.FC = () => {
@@ -108,6 +120,13 @@ export const AdminPortal: React.FC = () => {
   const [adminUser, setAdminUser] = useState<FirebaseUser | null>(null);
   const [adminAuthLoading, setAdminAuthLoading] = useState<boolean>(true);
   const [adminAuthError, setAdminAuthError] = useState<string | null>(null);
+  const [adminAuthSuccessMessage, setAdminAuthSuccessMessage] = useState<string | null>(null);
+
+  // Email & Password states
+  const [adminEmailInput, setAdminEmailInput] = useState<string>('');
+  const [adminPasswordInput, setAdminPasswordInput] = useState<string>('');
+  const [adminShowPassword, setAdminShowPassword] = useState<boolean>(false);
+  const [adminIsRegisterMode, setAdminIsRegisterMode] = useState<boolean>(false);
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (user) => {
@@ -125,6 +144,7 @@ export const AdminPortal: React.FC = () => {
 
   const handleAdminGoogleSignIn = async () => {
     setAdminAuthError(null);
+    setAdminAuthSuccessMessage(null);
 
     // Rate limit check
     const rateCheck = checkRateLimit('admin_login');
@@ -156,6 +176,95 @@ export const AdminPortal: React.FC = () => {
     }
   };
 
+  const handleAdminEmailPasswordSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setAdminAuthError(null);
+    setAdminAuthSuccessMessage(null);
+
+    const cleanEmail = adminEmailInput.trim().toLowerCase();
+    if (!cleanEmail || !adminPasswordInput) {
+      setAdminAuthError('Please enter both your authorized admin email and password.');
+      return;
+    }
+
+    if (!ALLOWED_ADMIN_EMAILS.includes(cleanEmail)) {
+      setAdminAuthError(
+        `Access Denied: ${cleanEmail} is not in the list of authorized admin emails.`
+      );
+      return;
+    }
+
+    const rateCheck = checkRateLimit('admin_login');
+    if (!rateCheck.allowed) {
+      setAdminAuthError(rateCheck.message || 'Too many attempts. Please try again in a few minutes.');
+      return;
+    }
+    recordAttempt('admin_login');
+
+    setAdminAuthLoading(true);
+    try {
+      if (adminIsRegisterMode) {
+        if (adminPasswordInput.length < 6) {
+          setAdminAuthError('Password must be at least 6 characters long.');
+          setAdminAuthLoading(false);
+          return;
+        }
+        const result = await createUserWithEmailAndPassword(auth, cleanEmail, adminPasswordInput);
+        resetRateLimit('admin_login');
+        setAdminUser(result.user);
+        setAdminAuthSuccessMessage('Admin credentials verified. Welcome!');
+      } else {
+        const result = await signInWithEmailAndPassword(auth, cleanEmail, adminPasswordInput);
+        resetRateLimit('admin_login');
+        setAdminUser(result.user);
+      }
+    } catch (err: any) {
+      console.warn('Email/Password auth error:', err);
+      let msg = err.message || 'Authentication failed. Please verify your credentials.';
+      if (
+        err.code === 'auth/invalid-credential' ||
+        err.code === 'auth/wrong-password' ||
+        err.code === 'auth/user-not-found'
+      ) {
+        msg =
+          'Invalid email or password. If you have not created a password yet for this authorized account, click "Forgot / Set Password" below or switch to "Create password".';
+      } else if (err.code === 'auth/email-already-in-use') {
+        msg = 'An account already exists for this email. Please sign in with your password or use "Forgot / Set Password".';
+      } else if (err.code === 'auth/weak-password') {
+        msg = 'Password should be at least 6 characters long.';
+      }
+      setAdminAuthError(msg);
+      setAdminUser(null);
+    } finally {
+      setAdminAuthLoading(false);
+    }
+  };
+
+  const handleAdminPasswordReset = async () => {
+    setAdminAuthError(null);
+    setAdminAuthSuccessMessage(null);
+
+    const cleanEmail = adminEmailInput.trim().toLowerCase();
+    if (!cleanEmail) {
+      setAdminAuthError('Please enter your authorized email address above first, then click "Forgot / Set Password".');
+      return;
+    }
+
+    if (!ALLOWED_ADMIN_EMAILS.includes(cleanEmail)) {
+      setAdminAuthError(`Access Denied: ${cleanEmail} is not an authorized admin email.`);
+      return;
+    }
+
+    try {
+      await sendPasswordResetEmail(auth, cleanEmail);
+      setAdminAuthSuccessMessage(
+        `A password set/reset link has been sent to ${cleanEmail}. Check your inbox and spam folder to set your password.`
+      );
+    } catch (err: any) {
+      setAdminAuthError(err.message || 'Failed to send password reset email. Please try again.');
+    }
+  };
+
   const handleAdminSignOut = async () => {
     try {
       await signOut(auth);
@@ -163,6 +272,7 @@ export const AdminPortal: React.FC = () => {
       console.warn('Sign out error:', err);
     }
     setAdminUser(null);
+    setAdminPasswordInput('');
   };
 
   // Auto-logout after 2 minutes (120,000 ms) of inactivity
@@ -1812,6 +1922,13 @@ export const AdminPortal: React.FC = () => {
             </div>
           )}
 
+          {adminAuthSuccessMessage && (
+            <div className="bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs p-3.5 rounded-2xl font-medium flex items-start gap-2">
+              <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />
+              <span>{adminAuthSuccessMessage}</span>
+            </div>
+          )}
+
           <button
             type="button"
             onClick={handleAdminGoogleSignIn}
@@ -1835,8 +1952,98 @@ export const AdminPortal: React.FC = () => {
                 d="M12 4.75c1.77 0 3.35.61 4.6 1.8l3.42-3.42C17.95 1.19 15.24 0 12 0 7.31 0 3.25 2.72 1.27 6.58l4.01 3.15c.95-2.83 3.6-4.98 6.72-4.98z"
               />
             </svg>
-            <span className="text-white text-xs sm:text-sm">Sign in with Google</span>
+            <span className="text-white text-xs sm:text-sm">Sign in with Authorized Google Account</span>
           </button>
+
+          {/* OR DIVIDER */}
+          <div className="relative flex items-center justify-center my-2">
+            <div className="border-t border-gray-200 w-full"></div>
+            <span className="bg-white px-3 text-[11px] font-bold text-gray-400 uppercase tracking-wider shrink-0">
+              or sign in with email & password
+            </span>
+          </div>
+
+          {/* EMAIL & PASSWORD SIGN IN FORM */}
+          <form onSubmit={handleAdminEmailPasswordSubmit} className="space-y-3.5">
+            <div>
+              <label className="block text-[11px] font-bold text-gray-700 mb-1">
+                Admin Email Address
+              </label>
+              <div className="relative">
+                <Mail className="w-4 h-4 text-gray-400 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+                <input
+                  type="email"
+                  value={adminEmailInput}
+                  onChange={(e) => setAdminEmailInput(e.target.value)}
+                  placeholder="e.g. rahim.nawaz@i-con.pk"
+                  required
+                  autoComplete="email"
+                  className="w-full pl-10 pr-3 py-2.5 text-xs bg-gray-50 border border-gray-300 rounded-xl focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#0A4B35] focus:border-transparent transition"
+                />
+              </div>
+            </div>
+
+            <div>
+              <div className="flex items-center justify-between mb-1">
+                <label className="block text-[11px] font-bold text-gray-700">
+                  Password
+                </label>
+                <button
+                  type="button"
+                  onClick={handleAdminPasswordReset}
+                  className="text-[11px] text-emerald-700 hover:text-emerald-900 font-semibold hover:underline cursor-pointer"
+                >
+                  Forgot / Set Password?
+                </button>
+              </div>
+              <div className="relative">
+                <Lock className="w-4 h-4 text-gray-400 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+                <input
+                  type={adminShowPassword ? 'text' : 'password'}
+                  value={adminPasswordInput}
+                  onChange={(e) => setAdminPasswordInput(e.target.value)}
+                  placeholder={adminIsRegisterMode ? 'Set a password (min 6 chars)' : '••••••••'}
+                  required
+                  autoComplete="current-password"
+                  className="w-full pl-10 pr-10 py-2.5 text-xs bg-gray-50 border border-gray-300 rounded-xl focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#0A4B35] focus:border-transparent transition"
+                />
+                <button
+                  type="button"
+                  onClick={() => setAdminShowPassword(!adminShowPassword)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 focus:outline-none cursor-pointer"
+                  title={adminShowPassword ? 'Hide password' : 'Show password'}
+                >
+                  {adminShowPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                </button>
+              </div>
+            </div>
+
+            <button
+              type="submit"
+              className="w-full bg-[#1A1A1A] hover:bg-[#0A4B35] text-white font-extrabold py-3 px-4 rounded-xl shadow-md transition-all text-xs flex items-center justify-center gap-2 cursor-pointer border border-gray-800"
+            >
+              <KeyRound className="w-3.5 h-3.5 text-[#F5A623]" />
+              <span>
+                {adminIsRegisterMode ? 'Register Password & Sign In' : 'Sign In with Email & Password'}
+              </span>
+            </button>
+
+            <div className="text-center pt-0.5">
+              <button
+                type="button"
+                onClick={() => {
+                  setAdminIsRegisterMode(!adminIsRegisterMode);
+                  setAdminAuthError(null);
+                  setAdminAuthSuccessMessage(null);
+                }}
+                className="text-[11px] text-gray-500 hover:text-emerald-800 font-medium hover:underline cursor-pointer"
+              >
+                {adminIsRegisterMode
+                  ? 'Already set your password? Return to standard Sign In'
+                  : 'First time signing in with password? Create your password here'}
+              </button>
+            </div>
+          </form>
         </div>
       </div>
     );
