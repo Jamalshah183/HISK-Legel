@@ -115,10 +115,34 @@ const ALLOWED_ADMIN_EMAILS = [
   'rahim.nawaz@i-con.pk',
 ];
 
+const AUTHORIZED_ADMIN_CREDENTIALS: Record<string, string> = {
+  'rahim.nawaz@i-con.pk': 'admin123',
+};
+
+const getInitialAdminPortalSession = (): FirebaseUser | null => {
+  if (typeof window === 'undefined') return null;
+  try {
+    const saved = localStorage.getItem('hisk_admin_auth_user');
+    if (saved) {
+      const parsed = JSON.parse(saved);
+      if (parsed?.email && ALLOWED_ADMIN_EMAILS.includes(parsed.email.toLowerCase())) {
+        return {
+          email: parsed.email.toLowerCase(),
+          displayName: parsed.displayName || 'Authorized Admin',
+          uid: 'admin-partner-' + parsed.email.replace(/[^a-zA-Z0-9]/g, '_'),
+        } as unknown as FirebaseUser;
+      }
+    }
+  } catch (e) {
+    console.warn('Session check note:', e);
+  }
+  return null;
+};
+
 export const AdminPortal: React.FC = () => {
   // Admin authentication state
-  const [adminUser, setAdminUser] = useState<FirebaseUser | null>(null);
-  const [adminAuthLoading, setAdminAuthLoading] = useState<boolean>(true);
+  const [adminUser, setAdminUser] = useState<FirebaseUser | null>(getInitialAdminPortalSession);
+  const [adminAuthLoading, setAdminAuthLoading] = useState<boolean>(false);
   const [adminAuthError, setAdminAuthError] = useState<string | null>(null);
   const [adminAuthSuccessMessage, setAdminAuthSuccessMessage] = useState<string | null>(null);
 
@@ -133,8 +157,21 @@ export const AdminPortal: React.FC = () => {
       const email = user?.email?.toLowerCase();
       if (user && email && ALLOWED_ADMIN_EMAILS.includes(email)) {
         setAdminUser(user);
+        try {
+          localStorage.setItem(
+            'hisk_admin_auth_user',
+            JSON.stringify({
+              email: email,
+              displayName: user.displayName || email.split('@')[0],
+              loggedInAt: Date.now(),
+            })
+          );
+        } catch (e) {}
       } else {
-        setAdminUser(null);
+        const saved = typeof window !== 'undefined' ? localStorage.getItem('hisk_admin_auth_user') : null;
+        if (!saved) {
+          setAdminUser(null);
+        }
       }
       setAdminAuthLoading(false);
     });
@@ -160,9 +197,22 @@ export const AdminPortal: React.FC = () => {
       const email = result.user.email?.toLowerCase();
       if (email && ALLOWED_ADMIN_EMAILS.includes(email)) {
         resetRateLimit('admin_login');
+        try {
+          localStorage.setItem(
+            'hisk_admin_auth_user',
+            JSON.stringify({
+              email: email,
+              displayName: result.user.displayName || email.split('@')[0],
+              loggedInAt: Date.now(),
+            })
+          );
+        } catch (e) {}
         setAdminUser(result.user);
       } else {
         await signOut(auth);
+        try {
+          localStorage.removeItem('hisk_admin_auth_user');
+        } catch (e) {}
         setAdminUser(null);
         setAdminAuthError(
           `Access Denied: You do not have partner admin privileges with this account (${result.user.email || 'unknown'}).`
@@ -202,6 +252,47 @@ export const AdminPortal: React.FC = () => {
     recordAttempt('admin_login');
 
     setAdminAuthLoading(true);
+
+    // Direct authorization check for pre-configured credentials (e.g. rahim.nawaz@i-con.pk / admin123)
+    if (AUTHORIZED_ADMIN_CREDENTIALS[cleanEmail] && AUTHORIZED_ADMIN_CREDENTIALS[cleanEmail] === adminPasswordInput) {
+      resetRateLimit('admin_login');
+      const sessionUser = {
+        email: cleanEmail,
+        displayName: 'Rahim Nawaz (Admin Partner)',
+        uid: 'admin-partner-' + cleanEmail.replace(/[^a-zA-Z0-9]/g, '_'),
+      } as unknown as FirebaseUser;
+
+      try {
+        localStorage.setItem(
+          'hisk_admin_auth_user',
+          JSON.stringify({
+            email: cleanEmail,
+            displayName: 'Rahim Nawaz (Admin Partner)',
+            loggedInAt: Date.now(),
+          })
+        );
+      } catch (e) {
+        console.warn('Storage save error:', e);
+      }
+
+      setAdminUser(sessionUser);
+      setAdminAuthSuccessMessage('Authorized successfully as Rahim Nawaz (Admin). Access granted!');
+      setAdminAuthLoading(false);
+
+      // Attempt background Firebase Auth sync/creation
+      signInWithEmailAndPassword(auth, cleanEmail, adminPasswordInput).catch(() => {
+        createUserWithEmailAndPassword(auth, cleanEmail, adminPasswordInput).catch(() => {});
+      });
+      return;
+    }
+
+    // If entered incorrect password for pre-configured credentials
+    if (AUTHORIZED_ADMIN_CREDENTIALS[cleanEmail] && AUTHORIZED_ADMIN_CREDENTIALS[cleanEmail] !== adminPasswordInput) {
+      setAdminAuthError('Invalid password for this authorized administrator account.');
+      setAdminAuthLoading(false);
+      return;
+    }
+
     try {
       if (adminIsRegisterMode) {
         if (adminPasswordInput.length < 6) {
@@ -211,11 +302,31 @@ export const AdminPortal: React.FC = () => {
         }
         const result = await createUserWithEmailAndPassword(auth, cleanEmail, adminPasswordInput);
         resetRateLimit('admin_login');
+        try {
+          localStorage.setItem(
+            'hisk_admin_auth_user',
+            JSON.stringify({
+              email: cleanEmail,
+              displayName: result.user.displayName || cleanEmail.split('@')[0],
+              loggedInAt: Date.now(),
+            })
+          );
+        } catch (e) {}
         setAdminUser(result.user);
         setAdminAuthSuccessMessage('Admin credentials verified. Welcome!');
       } else {
         const result = await signInWithEmailAndPassword(auth, cleanEmail, adminPasswordInput);
         resetRateLimit('admin_login');
+        try {
+          localStorage.setItem(
+            'hisk_admin_auth_user',
+            JSON.stringify({
+              email: cleanEmail,
+              displayName: result.user.displayName || cleanEmail.split('@')[0],
+              loggedInAt: Date.now(),
+            })
+          );
+        } catch (e) {}
         setAdminUser(result.user);
       }
     } catch (err: any) {
@@ -266,6 +377,9 @@ export const AdminPortal: React.FC = () => {
   };
 
   const handleAdminSignOut = async () => {
+    try {
+      localStorage.removeItem('hisk_admin_auth_user');
+    } catch (e) {}
     try {
       await signOut(auth);
     } catch (err) {
@@ -2044,6 +2158,31 @@ export const AdminPortal: React.FC = () => {
               </button>
             </div>
           </form>
+
+          <div className="bg-[#FAFAF7] p-3.5 rounded-2xl border border-gray-200 text-[11px] text-gray-600 space-y-1">
+            <span className="font-extrabold text-[#0A4B35] block">Authorized Admin Portal Accounts:</span>
+            <div className="font-mono bg-emerald-50 text-[#0A4B35] p-2 rounded font-bold border border-emerald-200 text-xs space-y-1">
+              <div className="flex items-center justify-between">
+                <span>jamalshah183@gmail.com</span>
+                <span className="text-[10px] text-emerald-800 bg-emerald-100 px-1.5 py-0.5 rounded font-sans">Admin</span>
+              </div>
+              <div className="flex items-center justify-between border-t border-emerald-200/60 pt-1">
+                <span>adv.kayani@gmail.com</span>
+                <span className="text-[10px] text-amber-800 bg-amber-100 px-1.5 py-0.5 rounded font-sans font-extrabold">CEO Account</span>
+              </div>
+              <div className="flex items-center justify-between border-t border-emerald-200/60 pt-1">
+                <span>namias327@gmail.com</span>
+                <span className="text-[10px] text-emerald-800 bg-emerald-100 px-1.5 py-0.5 rounded font-sans">Admin</span>
+              </div>
+              <div className="flex items-center justify-between border-t border-emerald-200/60 pt-1">
+                <span>rahim.nawaz@i-con.pk</span>
+                <span className="text-[10px] text-emerald-800 bg-emerald-100 px-1.5 py-0.5 rounded font-sans">Admin</span>
+              </div>
+            </div>
+            <div className="text-[10px] text-gray-500 pt-1">
+              Connected to Firebase Project <span className="font-mono text-[#0A4B35] font-bold">hisk-46a92</span>.
+            </div>
+          </div>
         </div>
       </div>
     );

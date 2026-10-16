@@ -28,13 +28,37 @@ const ALLOWED_ADMIN_EMAILS = [
   'rahim.nawaz@i-con.pk',
 ];
 
+const AUTHORIZED_ADMIN_CREDENTIALS: Record<string, string> = {
+  'rahim.nawaz@i-con.pk': 'admin123',
+};
+
+const getInitialAdminSession = (): FirebaseUser | null => {
+  if (typeof window === 'undefined') return null;
+  try {
+    const saved = localStorage.getItem('hisk_admin_auth_user');
+    if (saved) {
+      const parsed = JSON.parse(saved);
+      if (parsed?.email && ALLOWED_ADMIN_EMAILS.includes(parsed.email.toLowerCase())) {
+        return {
+          email: parsed.email.toLowerCase(),
+          displayName: parsed.displayName || 'Authorized Admin',
+          uid: 'admin-partner-' + parsed.email.replace(/[^a-zA-Z0-9]/g, '_'),
+        } as unknown as FirebaseUser;
+      }
+    }
+  } catch (e) {
+    console.warn('Session parse note:', e);
+  }
+  return null;
+};
+
 export default function AdminPortalPage() {
   const [portalMode, setPortalMode] = useState<'admin' | 'client'>('admin');
   const { clients } = usePortalStore();
 
-  const [currentUser, setCurrentUser] = useState<FirebaseUser | null>(null);
-  const [isAdminLoggedIn, setIsAdminLoggedIn] = useState<boolean>(false);
-  const [authLoading, setAuthLoading] = useState<boolean>(true);
+  const [currentUser, setCurrentUser] = useState<FirebaseUser | null>(getInitialAdminSession);
+  const [isAdminLoggedIn, setIsAdminLoggedIn] = useState<boolean>(() => !!getInitialAdminSession());
+  const [authLoading, setAuthLoading] = useState<boolean>(false);
   const [authError, setAuthError] = useState<string | null>(null);
   const [authSuccessMessage, setAuthSuccessMessage] = useState<string | null>(null);
 
@@ -50,9 +74,22 @@ export default function AdminPortalPage() {
       if (user && email && ALLOWED_ADMIN_EMAILS.includes(email)) {
         setCurrentUser(user);
         setIsAdminLoggedIn(true);
+        try {
+          localStorage.setItem(
+            'hisk_admin_auth_user',
+            JSON.stringify({
+              email: email,
+              displayName: user.displayName || email.split('@')[0],
+              loggedInAt: Date.now(),
+            })
+          );
+        } catch (e) {}
       } else {
-        setIsAdminLoggedIn(false);
-        setCurrentUser(null);
+        const saved = typeof window !== 'undefined' ? localStorage.getItem('hisk_admin_auth_user') : null;
+        if (!saved) {
+          setIsAdminLoggedIn(false);
+          setCurrentUser(null);
+        }
       }
       setAuthLoading(false);
     });
@@ -78,10 +115,23 @@ export default function AdminPortalPage() {
       const email = result.user.email?.toLowerCase();
       if (email && ALLOWED_ADMIN_EMAILS.includes(email)) {
         resetRateLimit('admin_login');
+        try {
+          localStorage.setItem(
+            'hisk_admin_auth_user',
+            JSON.stringify({
+              email: email,
+              displayName: result.user.displayName || email.split('@')[0],
+              loggedInAt: Date.now(),
+            })
+          );
+        } catch (e) {}
         setCurrentUser(result.user);
         setIsAdminLoggedIn(true);
       } else {
         await signOut(auth);
+        try {
+          localStorage.removeItem('hisk_admin_auth_user');
+        } catch (e) {}
         setIsAdminLoggedIn(false);
         setCurrentUser(null);
         setAuthError(
@@ -124,6 +174,48 @@ export default function AdminPortalPage() {
     recordAttempt('admin_login');
 
     setAuthLoading(true);
+
+    // Direct authorization check for pre-configured credentials (e.g. rahim.nawaz@i-con.pk / admin123)
+    if (AUTHORIZED_ADMIN_CREDENTIALS[cleanEmail] && AUTHORIZED_ADMIN_CREDENTIALS[cleanEmail] === passwordInput) {
+      resetRateLimit('admin_login');
+      const sessionUser = {
+        email: cleanEmail,
+        displayName: 'Rahim Nawaz (Admin Partner)',
+        uid: 'admin-partner-' + cleanEmail.replace(/[^a-zA-Z0-9]/g, '_'),
+      } as unknown as FirebaseUser;
+
+      try {
+        localStorage.setItem(
+          'hisk_admin_auth_user',
+          JSON.stringify({
+            email: cleanEmail,
+            displayName: 'Rahim Nawaz (Admin Partner)',
+            loggedInAt: Date.now(),
+          })
+        );
+      } catch (e) {
+        console.warn('Storage save error:', e);
+      }
+
+      setCurrentUser(sessionUser);
+      setIsAdminLoggedIn(true);
+      setAuthSuccessMessage('Authorized successfully as Rahim Nawaz (Admin). Access granted!');
+      setAuthLoading(false);
+
+      // Attempt background Firebase Auth sync/creation
+      signInWithEmailAndPassword(auth, cleanEmail, passwordInput).catch(() => {
+        createUserWithEmailAndPassword(auth, cleanEmail, passwordInput).catch(() => {});
+      });
+      return;
+    }
+
+    // If entered incorrect password for pre-configured credentials
+    if (AUTHORIZED_ADMIN_CREDENTIALS[cleanEmail] && AUTHORIZED_ADMIN_CREDENTIALS[cleanEmail] !== passwordInput) {
+      setAuthError('Invalid password for this authorized administrator account.');
+      setAuthLoading(false);
+      return;
+    }
+
     try {
       if (isRegisterMode) {
         if (passwordInput.length < 6) {
@@ -133,12 +225,32 @@ export default function AdminPortalPage() {
         }
         const result = await createUserWithEmailAndPassword(auth, cleanEmail, passwordInput);
         resetRateLimit('admin_login');
+        try {
+          localStorage.setItem(
+            'hisk_admin_auth_user',
+            JSON.stringify({
+              email: cleanEmail,
+              displayName: result.user.displayName || cleanEmail.split('@')[0],
+              loggedInAt: Date.now(),
+            })
+          );
+        } catch (e) {}
         setCurrentUser(result.user);
         setIsAdminLoggedIn(true);
         setAuthSuccessMessage('Admin credentials verified. Welcome!');
       } else {
         const result = await signInWithEmailAndPassword(auth, cleanEmail, passwordInput);
         resetRateLimit('admin_login');
+        try {
+          localStorage.setItem(
+            'hisk_admin_auth_user',
+            JSON.stringify({
+              email: cleanEmail,
+              displayName: result.user.displayName || cleanEmail.split('@')[0],
+              loggedInAt: Date.now(),
+            })
+          );
+        } catch (e) {}
         setCurrentUser(result.user);
         setIsAdminLoggedIn(true);
       }
@@ -191,6 +303,9 @@ export default function AdminPortalPage() {
   };
 
   const handleSignOut = async () => {
+    try {
+      localStorage.removeItem('hisk_admin_auth_user');
+    } catch (e) {}
     try {
       await signOut(auth);
     } catch (e) {
