@@ -10,7 +10,6 @@ import {
   Users, 
   CheckCircle2, 
   Scale, 
-  Globe, 
   MapPin
 } from 'lucide-react';
 import { buildWhatsAppUrl } from '@/lib/whatsapp';
@@ -23,7 +22,7 @@ interface HeroProps {
 
 export const Hero: React.FC<HeroProps> = ({ onNavigateToPractice }) => {
   const [currentCityIndex, setCurrentCityIndex] = useState<number>(0);
-  const videoRef = useRef<HTMLVideoElement>(null);
+  const videoRefs = useRef<(HTMLVideoElement | null)[]>([]);
 
   const activeCity: CityVideo = HERO_CITY_VIDEOS[currentCityIndex];
 
@@ -40,13 +39,20 @@ export const Hero: React.FC<HeroProps> = ({ onNavigateToPractice }) => {
     return () => clearInterval(timer);
   }, []);
 
-  // Programmatically trigger video playback when current city changes
+  // Programmatically enforce muted autoplay on active video whenever city changes
   useEffect(() => {
-    if (videoRef.current) {
-      videoRef.current.currentTime = 0;
-      videoRef.current.play().catch(() => {
-        // Handle browser autoplay policy gracefully
-      });
+    const activeVid = videoRefs.current[currentCityIndex];
+    if (activeVid) {
+      activeVid.defaultMuted = true;
+      activeVid.muted = true;
+      activeVid.playsInline = true;
+      activeVid.currentTime = 0;
+      const playPromise = activeVid.play();
+      if (playPromise !== undefined) {
+        playPromise.catch(() => {
+          // Browser autoplay handling
+        });
+      }
     }
   }, [currentCityIndex]);
 
@@ -56,42 +62,67 @@ export const Hero: React.FC<HeroProps> = ({ onNavigateToPractice }) => {
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       transition={{ duration: 0.8 }}
-      className="scroll-mt-24 relative overflow-hidden min-h-[85vh] sm:min-h-[90vh] flex flex-col items-center justify-between pt-16 sm:pt-20 lg:pt-24 pb-12 sm:pb-16 bg-[#0F3E2E] text-white"
+      className="scroll-mt-24 relative overflow-hidden min-h-[85vh] sm:min-h-[90vh] flex flex-col items-center justify-between pt-16 sm:pt-20 lg:pt-24 pb-12 sm:pb-16 bg-[#061A13] text-white"
     >
       {/* Background Video Layer with Smooth Transitions */}
       <div className="absolute inset-0 w-full h-full overflow-hidden pointer-events-none z-0">
-        <AnimatePresence mode="wait">
+        
+        {/* Instant Fallback / City Poster Image Backdrop */}
+        <div 
+          className="absolute inset-0 w-full h-full bg-cover bg-center transition-all duration-1000 transform scale-105"
+          style={{ backgroundImage: `url(${activeCity.posterUrl})` }}
+        />
+
+        {/* Dynamic Video Crossfade with Seamless Autoplay */}
+        <AnimatePresence>
           <motion.div
             key={activeCity.id}
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            transition={{ duration: 0.8 }}
+            transition={{ duration: 1.0 }}
             className="absolute inset-0 w-full h-full"
           >
             <video
-              ref={videoRef}
+              ref={(el) => {
+                videoRefs.current[currentCityIndex] = el;
+                if (el) {
+                  el.defaultMuted = true;
+                  el.muted = true;
+                  el.playsInline = true;
+                  el.play().catch(() => {});
+                }
+              }}
               autoPlay
               loop
               muted
               playsInline
               preload="auto"
+              poster={activeCity.posterUrl}
               src={activeCity.videoUrl}
-              className="w-full h-full object-cover scale-105 opacity-80 transition-opacity duration-1000"
+              onCanPlay={(e) => {
+                e.currentTarget.muted = true;
+                e.currentTarget.play().catch(() => {});
+              }}
+              onLoadedData={(e) => {
+                e.currentTarget.muted = true;
+                e.currentTarget.play().catch(() => {});
+              }}
+              className="w-full h-full object-cover scale-105 opacity-90 transition-opacity duration-1000"
             />
           </motion.div>
         </AnimatePresence>
 
-        {/* Luminous Gradient Overlay */}
-        <div className="absolute inset-0 bg-gradient-to-b from-[#061A13]/70 via-[#0A4B35]/45 to-[#061A13]/85" />
-        <div className="absolute inset-0 bg-black/20" />
+        {/* Luminous Gradient Overlay - Calibrated to keep video crystal-clear while text is 100% legible */}
+        <div className="absolute inset-0 bg-gradient-to-b from-[#061A13]/70 via-[#061A13]/30 to-[#061A13]/85" />
+        <div className="absolute inset-0 bg-radial from-transparent via-[#061A13]/30 to-[#061A13]/70" />
       </div>
 
-      {/* Atmospheric Ambient Glows */}
-      <div className="absolute top-1/4 right-1/4 w-72 h-72 sm:w-[550px] sm:h-[550px] rounded-full bg-[#0F6B4C]/50 blur-3xl pointer-events-none z-0" />
-      <div className="absolute bottom-1/4 left-1/4 w-72 h-72 sm:w-[550px] sm:h-[550px] rounded-full bg-[#F5A623]/30 blur-3xl pointer-events-none z-0" />
+      {/* Atmospheric Ambient Glows (Positioned subtly at edges so they don't obscure video) */}
+      <div className="absolute top-1/4 right-1/4 w-72 h-72 sm:w-[500px] sm:h-[500px] rounded-full bg-[#0F6B4C]/25 blur-3xl pointer-events-none z-0" />
+      <div className="absolute bottom-1/4 left-1/4 w-72 h-72 sm:w-[500px] sm:h-[500px] rounded-full bg-[#F5A623]/15 blur-3xl pointer-events-none z-0" />
 
-      {/* Active City Floating Pill (Minimalist Indicator) */}
+      {/* Active City Floating Pill Indicator (Minimalist, No Click Selector) */}
       <div className="absolute top-20 right-4 sm:right-8 z-20 pointer-events-none">
         <motion.div
           key={activeCity.id}
@@ -99,7 +130,7 @@ export const Hero: React.FC<HeroProps> = ({ onNavigateToPractice }) => {
           animate={{ opacity: 1, x: 0 }}
           exit={{ opacity: 0, x: -20 }}
           transition={{ duration: 0.5 }}
-          className="bg-[#061A13]/80 backdrop-blur-md border border-[#0F6B4C]/80 px-3.5 py-1.5 rounded-full text-xs font-semibold text-emerald-200 shadow-xl flex items-center gap-2"
+          className="bg-[#061A13]/85 backdrop-blur-md border border-[#0F6B4C]/80 px-3.5 py-1.5 rounded-full text-xs font-semibold text-emerald-200 shadow-xl flex items-center gap-2"
         >
           <span className="flex h-2 w-2 relative">
             <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[#F5A623] opacity-75"></span>
@@ -107,7 +138,8 @@ export const Hero: React.FC<HeroProps> = ({ onNavigateToPractice }) => {
           </span>
           <span>{activeCity.flagEmoji}</span>
           <span className="text-white font-bold">{activeCity.cityName}</span>
-          <span className="text-[#F5A623] text-[10px] hidden sm:inline">• {activeCity.regionTag}</span>
+          <span className="text-[#F5A623] text-[10px] hidden sm:inline">• {activeCity.landmark}</span>
+          <span className="text-emerald-300/80 text-[10px] hidden md:inline">({activeCity.regionTag})</span>
         </motion.div>
       </div>
 
@@ -121,7 +153,7 @@ export const Hero: React.FC<HeroProps> = ({ onNavigateToPractice }) => {
           transition={{ duration: 0.5, delay: 0.1 }}
           className="flex justify-center w-full"
         >
-          <div className="inline-flex items-center gap-2 bg-[#0F6B4C]/60 backdrop-blur-md border border-[#0F6B4C] px-4 py-1.5 rounded-full text-xs sm:text-sm font-semibold text-[#F5A623] shadow-lg">
+          <div className="inline-flex items-center gap-2 bg-[#0F6B4C]/70 backdrop-blur-md border border-[#0F6B4C] px-4 py-1.5 rounded-full text-xs sm:text-sm font-semibold text-[#F5A623] shadow-lg">
             <ShieldCheck className="w-4 h-4 text-[#F5A623]" />
             <span>Trusted Advocacy Solutions Exceeding Expectations</span>
           </div>
@@ -132,7 +164,7 @@ export const Hero: React.FC<HeroProps> = ({ onNavigateToPractice }) => {
           initial={{ opacity: 0, y: 25 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.6, delay: 0.2 }}
-          className="font-heading font-extrabold text-3xl sm:text-4xl lg:text-5xl lg:leading-[1.18] text-white tracking-tight max-w-4xl text-center drop-shadow-md"
+          className="font-heading font-extrabold text-3xl sm:text-4xl lg:text-5xl lg:leading-[1.18] text-white tracking-tight max-w-4xl text-center drop-shadow-lg"
         >
           <span className="text-transparent bg-clip-text bg-gradient-to-r from-[#F5A623] via-[#FFD07B] to-[#F5A623]">Strategic Legal Representation</span>{' '}
           For Individuals, Businesses &amp; Corporate Clients{' '}
@@ -144,7 +176,7 @@ export const Hero: React.FC<HeroProps> = ({ onNavigateToPractice }) => {
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.6, delay: 0.3 }}
-          className="text-sm sm:text-base lg:text-lg text-[#C2D8D0] font-normal leading-relaxed max-w-3xl text-center drop-shadow-sm"
+          className="text-sm sm:text-base lg:text-lg text-[#C2D8D0] font-normal leading-relaxed max-w-3xl text-center drop-shadow-md"
         >
           <strong className="font-semibold text-white">20+ Years of Legal Excellence</strong> — Trusted advocates with over two decades of experience in civil, criminal, family, rent, corporate and tax litigation, successfully safeguarding the interests of 5,000+ businesses and high-net-worth clients under one roof.
         </motion.p>
@@ -172,7 +204,7 @@ export const Hero: React.FC<HeroProps> = ({ onNavigateToPractice }) => {
             <button
               onClick={onNavigateToPractice}
               type="button"
-              className="w-full sm:w-auto bg-[#0F6B4C]/50 hover:bg-[#0F6B4C]/80 backdrop-blur-md text-white border border-[#0F6B4C]/70 hover:border-[#F5A623]/60 font-heading font-bold text-base px-6 py-3.5 rounded-xl sm:rounded-2xl transition-all inline-flex items-center justify-center gap-2"
+              className="w-full sm:w-auto bg-[#0F6B4C]/60 hover:bg-[#0F6B4C]/90 backdrop-blur-md text-white border border-[#0F6B4C]/80 hover:border-[#F5A623]/60 font-heading font-bold text-base px-6 py-3.5 rounded-xl sm:rounded-2xl transition-all inline-flex items-center justify-center gap-2 shadow-lg"
             >
               <Scale className="w-5 h-5 text-[#F5A623]" />
               <span>Explore Practice Areas</span>
@@ -185,7 +217,7 @@ export const Hero: React.FC<HeroProps> = ({ onNavigateToPractice }) => {
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.6, delay: 0.5 }}
-          className="mt-2 pt-3 sm:pt-4 w-full max-w-4xl bg-[#0A4B35]/60 backdrop-blur-md rounded-2xl p-3 sm:p-4 border border-[#0F6B4C]/60 shadow-xl grid grid-cols-1 sm:grid-cols-3 gap-2 sm:gap-4 text-xs sm:text-sm text-emerald-100 font-medium"
+          className="mt-2 pt-3 sm:pt-4 w-full max-w-4xl bg-[#0A4B35]/75 backdrop-blur-md rounded-2xl p-3 sm:p-4 border border-[#0F6B4C]/70 shadow-2xl grid grid-cols-1 sm:grid-cols-3 gap-2 sm:gap-4 text-xs sm:text-sm text-emerald-100 font-medium"
         >
           <div className="flex items-center justify-center gap-1.5 sm:gap-2 py-1 whitespace-nowrap">
             <CheckCircle2 className="w-4 h-4 text-[#F5A623] shrink-0" />
@@ -212,4 +244,3 @@ export const Hero: React.FC<HeroProps> = ({ onNavigateToPractice }) => {
     </motion.section>
   );
 };
-

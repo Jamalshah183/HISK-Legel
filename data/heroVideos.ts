@@ -4,7 +4,9 @@ export interface CityVideo {
   country: string;
   regionTag: string;
   flagEmoji: string;
+  landmark: string;
   videoUrl: string;
+  posterUrl: string;
   description: string;
 }
 
@@ -14,8 +16,10 @@ export const HERO_CITY_VIDEOS: CityVideo[] = [
     cityName: 'Islamabad',
     country: 'Pakistan',
     regionTag: 'Capital & Supreme Court Hub',
+    landmark: 'Faisal Mosque & Margalla Hills',
     flagEmoji: '🇵🇰',
-    videoUrl: 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerBlazes.mp4',
+    videoUrl: '/videos/islamabad.mp4',
+    posterUrl: '/images/cities/islamabad.jpg',
     description: 'Federal Capital, Supreme Court of Pakistan & Islamabad High Court Legal Practice Hub'
   },
   {
@@ -23,8 +27,10 @@ export const HERO_CITY_VIDEOS: CityVideo[] = [
     cityName: 'Karachi',
     country: 'Pakistan',
     regionTag: 'Financial Capital & Sindh High Court',
+    landmark: 'Karachi Port & Marine Skyline',
     flagEmoji: '🇵🇰',
-    videoUrl: 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerEscapes.mp4',
+    videoUrl: '/videos/karachi.mp4',
+    posterUrl: '/images/cities/karachi.jpg',
     description: 'Financial Capital, Port City, Sindh High Court & Corporate Tax Litigation Desk'
   },
   {
@@ -32,8 +38,10 @@ export const HERO_CITY_VIDEOS: CityVideo[] = [
     cityName: 'Lahore',
     country: 'Pakistan',
     regionTag: 'Cultural Capital & Lahore High Court',
+    landmark: 'Badshahi Mosque & Mall Road',
     flagEmoji: '🇵🇰',
-    videoUrl: 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerFun.mp4',
+    videoUrl: '/videos/lahore.mp4',
+    posterUrl: '/images/cities/lahore.jpg',
     description: 'Cultural & Commercial Capital, Lahore High Court Principal Seat & FBR Revenue Practice'
   },
   {
@@ -41,8 +49,10 @@ export const HERO_CITY_VIDEOS: CityVideo[] = [
     cityName: 'Rawalpindi',
     country: 'Pakistan',
     regionTag: 'Twin City Commerce & Defence Hub',
+    landmark: 'Rawal Lake & Potohar Gateway',
     flagEmoji: '🇵🇰',
-    videoUrl: 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerJoyflights.mp4',
+    videoUrl: '/videos/rawalpindi.mp4',
+    posterUrl: '/images/cities/rawalpindi.jpg',
     description: 'Twin City Hub, Corporate Taxation, Customs & Revenue Appellate Practice'
   },
   {
@@ -50,8 +60,10 @@ export const HERO_CITY_VIDEOS: CityVideo[] = [
     cityName: 'Peshawar',
     country: 'Pakistan',
     regionTag: 'KPK Gateway & High Court',
+    landmark: 'Islamia College & Bab-e-Khyber',
     flagEmoji: '🇵🇰',
-    videoUrl: 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerMeltdown.mp4',
+    videoUrl: '/videos/peshawar.mp4',
+    posterUrl: '/images/cities/peshawar.jpg',
     description: 'KPK Commercial Hub, Peshawar High Court & Regional Cross-Border Customs Practice'
   },
   {
@@ -59,8 +71,10 @@ export const HERO_CITY_VIDEOS: CityVideo[] = [
     cityName: 'Faisalabad',
     country: 'Pakistan',
     regionTag: 'Industrial & Textile Tax Hub',
+    landmark: 'Historic Clock Tower (Ghanta Ghar)',
     flagEmoji: '🇵🇰',
-    videoUrl: 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/SubaruOutbackOnStreetAndDirt.mp4',
+    videoUrl: '/videos/faisalabad.mp4',
+    posterUrl: '/images/cities/faisalabad.jpg',
     description: 'Industrial Powerhouse, Sales Tax, Excise, Customs & Corporate Dispute Resolution'
   },
   {
@@ -68,8 +82,10 @@ export const HERO_CITY_VIDEOS: CityVideo[] = [
     cityName: 'Multan',
     country: 'Pakistan',
     regionTag: 'South Punjab Commercial & Tax Hub',
+    landmark: 'Tomb of Shah Rukn-e-Alam',
     flagEmoji: '🇵🇰',
-    videoUrl: 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/WeAreGoingOnBullrun.mp4',
+    videoUrl: '/videos/multan.mp4',
+    posterUrl: '/images/cities/multan.jpg',
     description: 'Southern Punjab Regional Legal Desk, High Court Bench & Commercial Advisory'
   },
   {
@@ -77,10 +93,10 @@ export const HERO_CITY_VIDEOS: CityVideo[] = [
     cityName: 'Quetta',
     country: 'Pakistan',
     regionTag: 'Balochistan & Trade Gateway',
+    landmark: 'Hanna Lake & Rugged Mountain Pass',
     flagEmoji: '🇵🇰',
-    videoUrl: 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/WhatCarCanYouGetForAGrand.mp4',
+    videoUrl: '/videos/quetta.mp4',
+    posterUrl: '/images/cities/quetta.jpg',
     description: 'Balochistan High Court Seat, Transit Trade, Energy Sector & Commercial Litigation'
   }
 ];
-
-
