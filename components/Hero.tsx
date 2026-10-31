@@ -11,10 +11,6 @@ import {
   CheckCircle2, 
   Scale, 
   Globe, 
-  Play, 
-  Pause, 
-  ChevronLeft, 
-  ChevronRight,
   MapPin
 } from 'lucide-react';
 import { buildWhatsAppUrl } from '@/lib/whatsapp';
@@ -27,8 +23,6 @@ interface HeroProps {
 
 export const Hero: React.FC<HeroProps> = ({ onNavigateToPractice }) => {
   const [currentCityIndex, setCurrentCityIndex] = useState<number>(0);
-  const [isAutoPlay, setIsAutoPlay] = useState<boolean>(true);
-  const [videoError, setVideoError] = useState<boolean>(false);
   const videoRef = useRef<HTMLVideoElement>(null);
 
   const activeCity: CityVideo = HERO_CITY_VIDEOS[currentCityIndex];
@@ -37,32 +31,24 @@ export const Hero: React.FC<HeroProps> = ({ onNavigateToPractice }) => {
     customMessage: 'Assalamu Alaikum HISK LEGAL, I would like to book a free tax consultation with a High Court Advocate regarding my FBR tax matter.'
   });
 
-  // Auto-cycle city videos every 9 seconds if autoPlay is enabled
+  // Auto-switch city videos automatically every 5 seconds (5000ms)
   useEffect(() => {
-    if (!isAutoPlay) return;
-
     const timer = setInterval(() => {
       setCurrentCityIndex((prevIndex) => (prevIndex + 1) % HERO_CITY_VIDEOS.length);
-      setVideoError(false);
-    }, 9000);
+    }, 5000);
 
     return () => clearInterval(timer);
-  }, [isAutoPlay]);
+  }, []);
 
-  const handleSelectCity = (index: number) => {
-    setCurrentCityIndex(index);
-    setVideoError(false);
-  };
-
-  const handlePrevCity = () => {
-    setCurrentCityIndex((prev) => (prev - 1 + HERO_CITY_VIDEOS.length) % HERO_CITY_VIDEOS.length);
-    setVideoError(false);
-  };
-
-  const handleNextCity = () => {
-    setCurrentCityIndex((prev) => (prev + 1) % HERO_CITY_VIDEOS.length);
-    setVideoError(false);
-  };
+  // Programmatically trigger video playback when current city changes
+  useEffect(() => {
+    if (videoRef.current) {
+      videoRef.current.currentTime = 0;
+      videoRef.current.play().catch(() => {
+        // Handle browser autoplay policy gracefully
+      });
+    }
+  }, [currentCityIndex]);
 
   return (
     <motion.section
@@ -70,7 +56,7 @@ export const Hero: React.FC<HeroProps> = ({ onNavigateToPractice }) => {
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       transition={{ duration: 0.8 }}
-      className="scroll-mt-24 relative overflow-hidden min-h-[88vh] sm:min-h-[92vh] flex flex-col items-center justify-between pt-16 sm:pt-20 lg:pt-22 pb-10 sm:pb-14 lg:pb-16 bg-[#0F3E2E] text-white"
+      className="scroll-mt-24 relative overflow-hidden min-h-[85vh] sm:min-h-[90vh] flex flex-col items-center justify-between pt-16 sm:pt-20 lg:pt-24 pb-12 sm:pb-16 bg-[#0F3E2E] text-white"
     >
       {/* Background Video Layer with Smooth Transitions */}
       <div className="absolute inset-0 w-full h-full overflow-hidden pointer-events-none z-0">
@@ -89,26 +75,41 @@ export const Hero: React.FC<HeroProps> = ({ onNavigateToPractice }) => {
               loop
               muted
               playsInline
-              onError={() => setVideoError(true)}
-              className="w-full h-full object-cover scale-105 opacity-85 transition-opacity duration-1000"
-            >
-              <source 
-                src={videoError && activeCity.fallbackUrl ? activeCity.fallbackUrl : activeCity.videoUrl} 
-                type="video/mp4" 
-              />
-              Your browser does not support the video tag.
-            </video>
+              preload="auto"
+              src={activeCity.videoUrl}
+              className="w-full h-full object-cover scale-105 opacity-80 transition-opacity duration-1000"
+            />
           </motion.div>
         </AnimatePresence>
 
         {/* Luminous Gradient Overlay */}
-        <div className="absolute inset-0 bg-gradient-to-b from-[#061A13]/65 via-[#0A4B35]/40 to-[#061A13]/75" />
-        <div className="absolute inset-0 bg-black/15" />
+        <div className="absolute inset-0 bg-gradient-to-b from-[#061A13]/70 via-[#0A4B35]/45 to-[#061A13]/85" />
+        <div className="absolute inset-0 bg-black/20" />
       </div>
 
       {/* Atmospheric Ambient Glows */}
       <div className="absolute top-1/4 right-1/4 w-72 h-72 sm:w-[550px] sm:h-[550px] rounded-full bg-[#0F6B4C]/50 blur-3xl pointer-events-none z-0" />
       <div className="absolute bottom-1/4 left-1/4 w-72 h-72 sm:w-[550px] sm:h-[550px] rounded-full bg-[#F5A623]/30 blur-3xl pointer-events-none z-0" />
+
+      {/* Active City Floating Pill (Minimalist Indicator) */}
+      <div className="absolute top-20 right-4 sm:right-8 z-20 pointer-events-none">
+        <motion.div
+          key={activeCity.id}
+          initial={{ opacity: 0, x: 20 }}
+          animate={{ opacity: 1, x: 0 }}
+          exit={{ opacity: 0, x: -20 }}
+          transition={{ duration: 0.5 }}
+          className="bg-[#061A13]/80 backdrop-blur-md border border-[#0F6B4C]/80 px-3.5 py-1.5 rounded-full text-xs font-semibold text-emerald-200 shadow-xl flex items-center gap-2"
+        >
+          <span className="flex h-2 w-2 relative">
+            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[#F5A623] opacity-75"></span>
+            <span className="relative inline-flex rounded-full h-2 w-2 bg-[#F5A623]"></span>
+          </span>
+          <span>{activeCity.flagEmoji}</span>
+          <span className="text-white font-bold">{activeCity.cityName}</span>
+          <span className="text-[#F5A623] text-[10px] hidden sm:inline">• {activeCity.regionTag}</span>
+        </motion.div>
+      </div>
 
       {/* Main Hero Content Container */}
       <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10 w-full flex flex-col items-center text-center space-y-5 sm:space-y-7 my-auto">
@@ -208,116 +209,7 @@ export const Hero: React.FC<HeroProps> = ({ onNavigateToPractice }) => {
           </div>
         </motion.div>
       </div>
-
-      {/* Major Cities of Pakistan Hero Video Switcher Bar */}
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.6, delay: 0.6 }}
-        className="w-full max-w-5xl mx-auto px-4 sm:px-6 relative z-10 mt-6"
-      >
-        <div className="bg-[#061A13]/80 backdrop-blur-md rounded-2xl p-3 sm:p-4 border border-[#0F6B4C]/70 shadow-2xl flex flex-col gap-3">
-          
-          {/* Header Row with Active City Info & Play/Pause Controls */}
-          <div className="flex flex-wrap items-center justify-between gap-2 border-b border-[#0F6B4C]/40 pb-2.5">
-            <div className="flex items-center gap-2 text-xs sm:text-sm font-semibold text-emerald-200">
-              <div className="flex items-center justify-center w-7 h-7 rounded-lg bg-[#0F6B4C]/70 text-[#F5A623] border border-[#0F6B4C]">
-                <Globe className="w-4 h-4 animate-spin-slow" />
-              </div>
-              <div className="flex flex-col sm:flex-row sm:items-center gap-1">
-                <span className="text-[#F5A623] font-bold uppercase tracking-wider text-[11px] sm:text-xs">
-                  Major Cities of Pakistan:
-                </span>
-                <span className="text-white font-bold inline-flex items-center gap-1.5 bg-[#0F6B4C]/50 px-2.5 py-0.5 rounded-md border border-[#0F6B4C]/60 text-xs sm:text-sm">
-                  <span>{activeCity.flagEmoji}</span>
-                  <span>{activeCity.cityName}, {activeCity.country}</span>
-                  <span className="text-[#F5A623] text-[10px] font-normal hidden md:inline">({activeCity.regionTag})</span>
-                </span>
-              </div>
-            </div>
-
-            {/* Play/Pause & Arrow Navigation Controls */}
-            <div className="flex items-center gap-1.5 ml-auto">
-              <button
-                onClick={handlePrevCity}
-                type="button"
-                title="Previous City Video"
-                className="p-1.5 rounded-lg bg-[#0F6B4C]/40 hover:bg-[#0F6B4C] text-emerald-200 hover:text-white transition-all border border-[#0F6B4C]/60"
-              >
-                <ChevronLeft className="w-4 h-4" />
-              </button>
-
-              <button
-                onClick={() => setIsAutoPlay(!isAutoPlay)}
-                type="button"
-                title={isAutoPlay ? 'Pause Auto-Rotating Videos' : 'Auto-Rotate City Videos'}
-                className={`px-2.5 py-1 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-all border ${
-                  isAutoPlay
-                    ? 'bg-[#F5A623]/20 border-[#F5A623]/60 text-[#F5A623]'
-                    : 'bg-[#0F6B4C]/40 border-[#0F6B4C]/60 text-emerald-200 hover:text-white'
-                }`}
-              >
-                {isAutoPlay ? (
-                  <>
-                    <Pause className="w-3.5 h-3.5" />
-                    <span className="hidden sm:inline">Auto-Rotate ON</span>
-                  </>
-                ) : (
-                  <>
-                    <Play className="w-3.5 h-3.5" />
-                    <span className="hidden sm:inline">Auto-Rotate OFF</span>
-                  </>
-                )}
-              </button>
-
-              <button
-                onClick={handleNextCity}
-                type="button"
-                title="Next City Video"
-                className="p-1.5 rounded-lg bg-[#0F6B4C]/40 hover:bg-[#0F6B4C] text-emerald-200 hover:text-white transition-all border border-[#0F6B4C]/60"
-              >
-                <ChevronRight className="w-4 h-4" />
-              </button>
-            </div>
-          </div>
-
-          {/* Scrollable City Selection Tabs / Badges */}
-          <div className="flex items-center gap-2 overflow-x-auto pb-1 scrollbar-thin scrollbar-thumb-[#0F6B4C] scrollbar-track-transparent">
-            {HERO_CITY_VIDEOS.map((city, idx) => {
-              const isActive = idx === currentCityIndex;
-              return (
-                <button
-                  key={city.id}
-                  onClick={() => handleSelectCity(idx)}
-                  type="button"
-                  className={`shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs sm:text-sm font-medium transition-all border ${
-                    isActive
-                      ? 'bg-gradient-to-r from-[#F5A623] to-[#E09415] text-[#1A1A1A] font-bold border-[#F5A623] shadow-lg scale-105'
-                      : 'bg-[#0A4B35]/50 hover:bg-[#0F6B4C]/60 text-emerald-100 border-[#0F6B4C]/50 hover:border-[#F5A623]/40'
-                  }`}
-                >
-                  <span className="text-sm">{city.flagEmoji}</span>
-                  <span>{city.cityName}</span>
-                  {isActive && (
-                    <MapPin className="w-3.5 h-3.5 text-[#1A1A1A] animate-bounce shrink-0 ml-0.5" />
-                  )}
-                </button>
-              );
-            })}
-          </div>
-
-          {/* Active City Description Note */}
-          <div className="text-[11px] sm:text-xs text-emerald-300/90 flex items-center justify-between gap-2 px-1 pt-0.5">
-            <span className="truncate">
-              📍 <strong className="text-white">{activeCity.cityName}:</strong> {activeCity.description}
-            </span>
-            <span className="text-[10px] text-emerald-400/70 shrink-0 font-mono">
-              City {currentCityIndex + 1} of {HERO_CITY_VIDEOS.length}
-            </span>
-          </div>
-
-        </div>
-      </motion.div>
     </motion.section>
   );
 };
+
