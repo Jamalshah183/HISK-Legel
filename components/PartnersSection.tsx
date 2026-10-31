@@ -3,7 +3,7 @@
 import React from 'react';
 import Image from 'next/image';
 import { motion } from 'motion/react';
-import { Award, Building2 } from 'lucide-react';
+import { Building2 } from 'lucide-react';
 import { usePortalStore } from '@/lib/portalStore';
 import { INITIAL_PARTNERS } from '@/data/portalSeedData';
 
@@ -42,11 +42,6 @@ export const PartnersSection: React.FC = () => {
           transition={{ duration: 0.6 }}
           className="text-center max-w-3xl mx-auto mb-10 sm:mb-12"
         >
-          <div className="inline-flex items-center gap-2 bg-[#E8F5F0] text-[#0F6B4C] border border-[#0F6B4C]/20 px-3.5 py-1 rounded-full text-xs font-extrabold tracking-wide uppercase mb-3">
-            <Award className="w-3.5 h-3.5 text-[#C5A059]" />
-            <span>Official Affiliations &amp; Accreditations</span>
-          </div>
-
           <h2 className="font-heading font-extrabold text-3xl sm:text-4xl lg:text-5xl text-[#1A1A1A] tracking-tight mb-4">
             Membership and Partners
           </h2>
