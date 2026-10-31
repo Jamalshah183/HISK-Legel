@@ -7,6 +7,7 @@ import { ServicesSection } from '@/components/ServicesSection';
 import { AboutSection } from '@/components/AboutSection';
 import { BlogSection } from '@/components/BlogSection';
 import { ReviewsSection } from '@/components/ReviewsSection';
+import { PartnersSection } from '@/components/PartnersSection';
 import { WhatsAppFloatingButton } from '@/components/WhatsAppFloatingButton';
 import { Footer } from '@/components/Footer';
 
@@ -130,6 +131,9 @@ export default function Home() {
 
         {/* Reviews & Testimonials Section */}
         <ReviewsSection />
+
+        {/* Membership and Partners Section */}
+        <PartnersSection />
       </main>
 
       {/* Sticky Floating WhatsApp Quick Chat Desk */}

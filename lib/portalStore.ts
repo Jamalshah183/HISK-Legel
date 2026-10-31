@@ -18,7 +18,8 @@ import {
   PracticeArea,
   TeamMember,
   ReviewItem,
-  LegalInsightItem
+  LegalInsightItem,
+  PartnerItem
 } from '@/types/portal';
 import {
   INITIAL_CLIENTS,
@@ -34,7 +35,8 @@ import {
   INITIAL_PRACTICE_AREAS,
   INITIAL_TEAM_MEMBERS,
   INITIAL_REVIEWS,
-  INITIAL_INSIGHTS
+  INITIAL_INSIGHTS,
+  INITIAL_PARTNERS
 } from '@/data/portalSeedData';
 import { db } from './firebase';
 import { collection, onSnapshot, doc, setDoc, deleteDoc } from 'firebase/firestore';
@@ -53,7 +55,8 @@ const STORAGE_KEYS = {
   PRACTICE_AREAS: 'hisk_portal_practice_areas_v3',
   TEAM_MEMBERS: 'hisk_portal_team_members_v2',
   REVIEWS: 'hisk_portal_reviews_v2',
-  INSIGHTS: 'hisk_portal_insights_v2'
+  INSIGHTS: 'hisk_portal_insights_v2',
+  PARTNERS: 'hisk_portal_partners_v2'
 };
 
 const createUniqueId = (prefix: string) => `${prefix}-${Date.now().toString().slice(-4)}`;
@@ -200,6 +203,16 @@ export function usePortalStore() {
       return saved ? JSON.parse(saved) : INITIAL_INSIGHTS;
     } catch {
       return INITIAL_INSIGHTS;
+    }
+  });
+
+  const [partners, setPartners] = useState<PartnerItem[]>(() => {
+    if (typeof window === 'undefined') return INITIAL_PARTNERS;
+    try {
+      const saved = localStorage.getItem(STORAGE_KEYS.PARTNERS);
+      return saved ? JSON.parse(saved) : INITIAL_PARTNERS;
+    } catch {
+      return INITIAL_PARTNERS;
     }
   });
 
@@ -394,6 +407,18 @@ export function usePortalStore() {
       }
     }, (err) => console.warn('Legal Insights snapshot error:', err));
 
+    // 15. Membership & Partners
+    const unsubPartners = onSnapshot(collection(db, 'membership_partners'), (snap) => {
+      if (snap.empty) {
+        INITIAL_PARTNERS.forEach((p) => saveToFirestoreDoc('membership_partners', p.id, p));
+      } else {
+        const items = snap.docs.map((d) => d.data() as PartnerItem);
+        items.sort((a, b) => (a.order || 99) - (b.order || 99));
+        setPartners(items);
+        saveToStorage(STORAGE_KEYS.PARTNERS, items);
+      }
+    }, (err) => console.warn('Membership Partners snapshot error:', err));
+
     return () => {
       unsubClients();
       unsubCases();
@@ -409,6 +434,7 @@ export function usePortalStore() {
       unsubTeam();
       unsubReviews();
       unsubInsights();
+      unsubPartners();
     };
   }, []);
 
@@ -1196,6 +1222,53 @@ export function usePortalStore() {
     INITIAL_INSIGHTS.forEach((ins) => saveToFirestoreDoc('legal_insights', ins.id, ins));
   };
 
+  // --- MEMBERSHIP & PARTNERS ACTIONS ---
+  const addPartner = (partnerData: Omit<PartnerItem, 'id' | 'createdAt'>) => {
+    const newId = createUniqueId('partner');
+    const newPartner: PartnerItem = {
+      ...partnerData,
+      id: newId,
+      status: partnerData.status || 'published',
+      order: partnerData.order || (partners.length + 1),
+      createdAt: getTodayDateString(),
+      updatedAt: getTodayDateString()
+    };
+    const updated = [...partners, newPartner];
+    setPartners(updated);
+    saveToStorage(STORAGE_KEYS.PARTNERS, updated);
+    saveToFirestoreDoc('membership_partners', newId, newPartner);
+    return newPartner;
+  };
+
+  const updatePartner = (id: string, updates: Partial<PartnerItem>) => {
+    let targetDoc: PartnerItem | null = null;
+    const updated = partners.map((p) => {
+      if (p.id === id) {
+        targetDoc = { ...p, ...updates, updatedAt: getTodayDateString() };
+        return targetDoc;
+      }
+      return p;
+    });
+    setPartners(updated);
+    saveToStorage(STORAGE_KEYS.PARTNERS, updated);
+    if (targetDoc) {
+      saveToFirestoreDoc('membership_partners', id, targetDoc);
+    }
+  };
+
+  const deletePartner = (id: string) => {
+    const updated = partners.filter((p) => p.id !== id);
+    setPartners(updated);
+    saveToStorage(STORAGE_KEYS.PARTNERS, updated);
+    deleteFromFirestoreDoc('membership_partners', id);
+  };
+
+  const resetPartners = () => {
+    setPartners(INITIAL_PARTNERS);
+    saveToStorage(STORAGE_KEYS.PARTNERS, INITIAL_PARTNERS);
+    INITIAL_PARTNERS.forEach((p) => saveToFirestoreDoc('membership_partners', p.id, p));
+  };
+
   return {
     isLoaded,
     clients,
@@ -1212,6 +1285,7 @@ export function usePortalStore() {
     teamMembers,
     reviews,
     insights,
+    partners,
     addClient,
     addClientCredential,
     addCase,
@@ -1246,6 +1320,10 @@ export function usePortalStore() {
     addInsight,
     updateInsight,
     deleteInsight,
-    resetInsights
+    resetInsights,
+    addPartner,
+    updatePartner,
+    deletePartner,
+    resetPartners
   };
 }

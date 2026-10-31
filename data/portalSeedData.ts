@@ -11,7 +11,8 @@ import {
   PracticeArea,
   TeamMember,
   ReviewItem,
-  LegalInsightItem
+  LegalInsightItem,
+  PartnerItem
 } from '@/types/portal';
 import { ATTORNEYS, TESTIMONIALS, BLOG_POSTS } from '@/data/lawFirmData';
 
@@ -719,6 +720,90 @@ export const INITIAL_INSIGHTS: LegalInsightItem[] = BLOG_POSTS.map((post) => ({
   status: 'published',
   createdAt: '2026-01-01'
 }));
+
+export const INITIAL_PARTNERS: PartnerItem[] = [
+  {
+    id: 'partner-fbr',
+    name: 'Federal Board of Revenue (FBR)',
+    logoUrl: 'https://images.unsplash.com/photo-1589829545856-d10d557cf95f?auto=format&fit=crop&q=80&w=300',
+    websiteUrl: 'https://fbr.gov.pk',
+    category: 'Tax & Regulatory Body',
+    description: 'Federal Revenue & Tax Statutory Authority of Pakistan',
+    status: 'published',
+    order: 1
+  },
+  {
+    id: 'partner-ihcba',
+    name: 'Islamabad High Court Bar Association',
+    logoUrl: 'https://images.unsplash.com/photo-1589994965851-a8f479c573a9?auto=format&fit=crop&q=80&w=300',
+    websiteUrl: 'https://ihcbar.org.pk',
+    category: 'Bar Association',
+    description: 'High Court Advocates Governing Bar Association',
+    status: 'published',
+    order: 2
+  },
+  {
+    id: 'partner-pbc',
+    name: 'Pakistan Bar Council (PBC)',
+    logoUrl: 'https://images.unsplash.com/photo-1450133064473-71024230f91b?auto=format&fit=crop&q=80&w=300',
+    websiteUrl: 'https://pakistanbarcouncil.org',
+    category: 'Apex Governing Body',
+    description: 'Supreme Regulatory Body of Legal Profession in Pakistan',
+    status: 'published',
+    order: 3
+  },
+  {
+    id: 'partner-secp',
+    name: 'Securities & Exchange Commission of Pakistan',
+    logoUrl: 'https://images.unsplash.com/photo-1486406146926-c627a92ad1ab?auto=format&fit=crop&q=80&w=300',
+    websiteUrl: 'https://secp.gov.pk',
+    category: 'Corporate Regulator',
+    description: 'Financial & Corporate Sector Regulatory Authority',
+    status: 'published',
+    order: 4
+  },
+  {
+    id: 'partner-scbap',
+    name: 'Supreme Court Bar Association of Pakistan',
+    logoUrl: 'https://images.unsplash.com/photo-1505664194779-8beaceb93744?auto=format&fit=crop&q=80&w=300',
+    websiteUrl: 'https://scbap.org.pk',
+    category: 'Bar Association',
+    description: 'Apex Court Advocates Statutory Association',
+    status: 'published',
+    order: 5
+  },
+  {
+    id: 'partner-lhcba',
+    name: 'Lahore High Court Bar Association',
+    logoUrl: 'https://images.unsplash.com/photo-1521791136064-7986c2920216?auto=format&fit=crop&q=80&w=300',
+    websiteUrl: 'https://lhcba.org',
+    category: 'Bar Association',
+    description: 'High Court Bar Association',
+    status: 'published',
+    order: 6
+  },
+  {
+    id: 'partner-ipo',
+    name: 'Intellectual Property Organization of Pakistan',
+    logoUrl: 'https://images.unsplash.com/photo-1507679799987-c73779587ccf?auto=format&fit=crop&q=80&w=300',
+    websiteUrl: 'https://ipo.gov.pk',
+    category: 'IP Statutory Body',
+    description: 'Trademarks, Patents & Copyright Authority',
+    status: 'published',
+    order: 7
+  },
+  {
+    id: 'partner-itba',
+    name: 'Islamabad Tax Bar Association',
+    logoUrl: 'https://images.unsplash.com/photo-1454165804606-c3d57bc86b40?auto=format&fit=crop&q=80&w=300',
+    websiteUrl: '#',
+    category: 'Tax Bar Association',
+    description: 'Professional Association of Tax Advocates & Consultants',
+    status: 'published',
+    order: 8
+  }
+];
+
 
 
 

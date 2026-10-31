@@ -97,7 +97,8 @@ import {
   PracticeArea,
   TeamMember,
   ReviewItem,
-  LegalInsightItem
+  LegalInsightItem,
+  PartnerItem
 } from '@/types/portal';
 import { buildGoogleCalendarUrl } from '@/lib/googleCalendar';
 import { buildWhatsAppUrl } from '@/lib/whatsapp';
@@ -448,11 +449,16 @@ export const AdminPortal: React.FC = () => {
     addInsight,
     updateInsight,
     deleteInsight,
-    resetInsights
+    resetInsights,
+    partners,
+    addPartner,
+    updatePartner,
+    deletePartner,
+    resetPartners
   } = usePortalStore();
 
   const [activeTab, setActiveTab] = useState<
-    'dashboard' | 'cases' | 'calendar' | 'documents' | 'tasks' | 'billing' | 'notifications' | 'practiceAreas' | 'team' | 'reviews' | 'insights'
+    'dashboard' | 'cases' | 'calendar' | 'documents' | 'tasks' | 'billing' | 'notifications' | 'practiceAreas' | 'team' | 'reviews' | 'insights' | 'partners'
   >('dashboard');
 
   // Calendar Month Navigation State
@@ -1326,6 +1332,134 @@ export const AdminPortal: React.FC = () => {
     }
   };
 
+  // Membership & Partners Search, Filters & Modal States
+  const [partnerSearchTerm, setPartnerSearchTerm] = useState('');
+  const [partnerCategoryFilter, setPartnerCategoryFilter] = useState('All');
+  const [partnerStatusFilter, setPartnerStatusFilter] = useState('All');
+  const [showPartnerModal, setShowPartnerModal] = useState(false);
+  const [editingPartner, setEditingPartner] = useState<PartnerItem | null>(null);
+  const [deleteConfirmPartner, setDeleteConfirmPartner] = useState<PartnerItem | null>(null);
+  const [partnerActionSuccess, setPartnerActionSuccess] = useState<string | null>(null);
+
+  // Partner Form State
+  const [partnerFormData, setPartnerFormData] = useState({
+    name: '',
+    category: 'Bar Association',
+    logoUrl: 'https://images.unsplash.com/photo-1589829545856-d10d557cf95f?auto=format&fit=crop&q=80&w=300',
+    websiteUrl: 'https://',
+    description: '',
+    order: 1,
+    status: 'published' as 'published' | 'archived'
+  });
+
+  // Membership & Partners Filtering & Handlers
+  const partnerCategories = Array.from(new Set((partners || []).map((p) => p.category).filter(Boolean)));
+
+  const filteredPartners = (partners || []).filter((p) => {
+    const q = partnerSearchTerm.trim().toLowerCase();
+    const matchesSearch =
+      q === '' ||
+      p.name.toLowerCase().includes(q) ||
+      (p.category && p.category.toLowerCase().includes(q)) ||
+      (p.description && p.description.toLowerCase().includes(q));
+
+    const matchesCategory =
+      partnerCategoryFilter === 'All' || p.category === partnerCategoryFilter;
+
+    const matchesStatus =
+      partnerStatusFilter === 'All' ||
+      (partnerStatusFilter === 'published' && (p.status === 'published' || !p.status)) ||
+      p.status === partnerStatusFilter;
+
+    return matchesSearch && matchesCategory && matchesStatus;
+  });
+
+  const handleOpenAddPartner = () => {
+    setEditingPartner(null);
+    setPartnerFormData({
+      name: '',
+      category: 'Bar Association',
+      logoUrl: 'https://images.unsplash.com/photo-1589829545856-d10d557cf95f?auto=format&fit=crop&q=80&w=300',
+      websiteUrl: 'https://',
+      description: '',
+      order: (partners?.length || 0) + 1,
+      status: 'published'
+    });
+    setShowPartnerModal(true);
+  };
+
+  const handleOpenEditPartner = (partner: PartnerItem) => {
+    setEditingPartner(partner);
+    setPartnerFormData({
+      name: partner.name,
+      category: partner.category || 'Bar Association',
+      logoUrl: partner.logoUrl || '',
+      websiteUrl: partner.websiteUrl || '',
+      description: partner.description || '',
+      order: partner.order || 1,
+      status: partner.status || 'published'
+    });
+    setShowPartnerModal(true);
+  };
+
+  const handleSavePartner = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!partnerFormData.name.trim()) return;
+
+    if (editingPartner) {
+      updatePartner(editingPartner.id, {
+        name: partnerFormData.name.trim(),
+        category: partnerFormData.category.trim() || 'Bar Association',
+        logoUrl: partnerFormData.logoUrl.trim() || 'https://images.unsplash.com/photo-1589829545856-d10d557cf95f?auto=format&fit=crop&q=80&w=300',
+        websiteUrl: partnerFormData.websiteUrl.trim() || '#',
+        description: partnerFormData.description.trim() || undefined,
+        order: Number(partnerFormData.order) || 1,
+        status: partnerFormData.status
+      });
+      setPartnerActionSuccess(`Updated partner "${partnerFormData.name.trim()}".`);
+    } else {
+      addPartner({
+        name: partnerFormData.name.trim(),
+        category: partnerFormData.category.trim() || 'Bar Association',
+        logoUrl: partnerFormData.logoUrl.trim() || 'https://images.unsplash.com/photo-1589829545856-d10d557cf95f?auto=format&fit=crop&q=80&w=300',
+        websiteUrl: partnerFormData.websiteUrl.trim() || '#',
+        description: partnerFormData.description.trim() || undefined,
+        order: Number(partnerFormData.order) || ((partners?.length || 0) + 1),
+        status: partnerFormData.status
+      });
+      setPartnerActionSuccess(`Added new affiliate partner "${partnerFormData.name.trim()}".`);
+    }
+
+    setShowPartnerModal(false);
+    setTimeout(() => setPartnerActionSuccess(null), 4000);
+  };
+
+  const handleDeletePartner = (partner: PartnerItem) => {
+    deletePartner(partner.id);
+    setDeleteConfirmPartner(null);
+    setPartnerActionSuccess(`Removed partner "${partner.name}".`);
+    setTimeout(() => setPartnerActionSuccess(null), 4000);
+  };
+
+  const handleTogglePartnerStatus = (partner: PartnerItem) => {
+    const nextStatus = partner.status === 'archived' ? 'published' : 'archived';
+    updatePartner(partner.id, { status: nextStatus });
+    setPartnerActionSuccess(
+      nextStatus === 'published'
+        ? `Published partner "${partner.name}" on main website marquee.`
+        : `Archived partner "${partner.name}".`
+    );
+    setTimeout(() => setPartnerActionSuccess(null), 4000);
+  };
+
+  const handleResetPartners = () => {
+    if (typeof window !== 'undefined' && window.confirm('Reset partners to default firm affiliations?')) {
+      resetPartners();
+      setPartnerActionSuccess('Restored default partner affiliations.');
+      setTimeout(() => setPartnerActionSuccess(null), 4000);
+    }
+  };
+
   // Calendar State
   const [selectedCalendarDate, setSelectedCalendarDate] = useState<string | null>(null);
 
@@ -2187,7 +2321,8 @@ export const AdminPortal: React.FC = () => {
               { id: 'practiceAreas', label: 'Practice Areas', icon: Scale, badge: practiceAreas?.length || 0 },
               { id: 'team', label: 'Our Team', icon: Users, badge: teamMembers?.length || 0 },
               { id: 'reviews', label: 'Client Reviews', icon: MessageSquareQuote, badge: reviews?.length || 0 },
-              { id: 'insights', label: 'Legal Insights', icon: BookOpen, badge: insights?.length || 0 }
+              { id: 'insights', label: 'Legal Insights', icon: BookOpen, badge: insights?.length || 0 },
+              { id: 'partners', label: 'Membership & Partners', icon: Award, badge: partners?.length || 0 }
             ].map((item) => {
               const Icon = item.icon;
               const isActive = activeTab === item.id;
@@ -4703,6 +4838,243 @@ export const AdminPortal: React.FC = () => {
                     <span>Restore default firm articles</span>
                   </button>
                 </div>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* --- TAB 12: MEMBERSHIP & PARTNERS MANAGEMENT --- */}
+        {activeTab === 'partners' && (
+          <div className="space-y-6">
+            {/* Header & Action Toolbar */}
+            <div className="bg-white p-6 rounded-3xl border border-[#0F6B4C]/15 shadow-sm space-y-4">
+              <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+                <div>
+                  <span className="text-[10px] font-extrabold text-[#F5A623] uppercase tracking-wider block">
+                    Institutional Affiliations &amp; Accreditations
+                  </span>
+                  <h1 className="text-2xl font-heading font-extrabold text-[#1A1A1A]">
+                    Membership &amp; Partners Management
+                  </h1>
+                  <p className="text-xs text-[#5A6275]">
+                    Manage official logos, bar associations, judicial councils, and statutory partner affiliations displayed on the main website marquee.
+                  </p>
+                </div>
+
+                <div className="flex items-center gap-2 flex-wrap">
+                  <button
+                    type="button"
+                    onClick={handleOpenAddPartner}
+                    className="bg-[#F5A623] hover:bg-[#E09415] text-[#1A1A1A] font-extrabold px-4 py-2.5 rounded-2xl text-xs flex items-center gap-1.5 shadow-sm transition-all cursor-pointer"
+                  >
+                    <Plus className="w-4 h-4" />
+                    <span>Add Partner Logo</span>
+                  </button>
+
+                  <a
+                    href="/#partners"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="bg-[#0A4B35] hover:bg-[#0F6B4C] text-white font-extrabold px-4 py-2.5 rounded-2xl text-xs flex items-center gap-1.5 shadow-sm transition-all cursor-pointer"
+                  >
+                    <ExternalLink className="w-4 h-4 text-[#F5A623]" />
+                    <span>View Public Marquee</span>
+                  </a>
+
+                  <button
+                    type="button"
+                    onClick={handleResetPartners}
+                    className="bg-gray-100 hover:bg-gray-200 text-gray-700 font-bold px-3 py-2.5 rounded-2xl text-xs flex items-center gap-1 transition-all cursor-pointer"
+                    title="Restore default partner affiliations"
+                  >
+                    <RefreshCw className="w-3.5 h-3.5" />
+                    <span>Reset</span>
+                  </button>
+                </div>
+              </div>
+
+              {partnerActionSuccess && (
+                <div className="bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs p-3 rounded-2xl font-medium flex items-center gap-2">
+                  <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+                  <span>{partnerActionSuccess}</span>
+                </div>
+              )}
+
+              {/* Search & Filter Toolbar */}
+              <div className="pt-3 border-t border-gray-100 flex flex-col sm:flex-row items-center justify-between gap-3">
+                <div className="relative w-full sm:w-80">
+                  <Search className="w-4 h-4 text-gray-400 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+                  <input
+                    type="text"
+                    value={partnerSearchTerm}
+                    onChange={(e) => setPartnerSearchTerm(e.target.value)}
+                    placeholder="Search partners by name or category..."
+                    className="w-full pl-10 pr-3 py-2 text-xs bg-[#FAFAF7] border border-gray-200 rounded-xl focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#0F6B4C] focus:border-transparent transition"
+                  />
+                  {partnerSearchTerm && (
+                    <button
+                      onClick={() => setPartnerSearchTerm('')}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                    >
+                      <X className="w-3.5 h-3.5" />
+                    </button>
+                  )}
+                </div>
+
+                <div className="flex items-center gap-2 w-full sm:w-auto">
+                  {/* Category Filter */}
+                  <select
+                    value={partnerCategoryFilter}
+                    onChange={(e) => setPartnerCategoryFilter(e.target.value)}
+                    className="py-2 px-3 text-xs bg-[#FAFAF7] border border-gray-200 rounded-xl focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#0F6B4C] font-semibold text-gray-700"
+                  >
+                    <option value="All">All Categories ({partners.length})</option>
+                    {partnerCategories.map((cat) => (
+                      <option key={cat} value={cat}>
+                        {cat}
+                      </option>
+                    ))}
+                  </select>
+
+                  {/* Status Filter */}
+                  <select
+                    value={partnerStatusFilter}
+                    onChange={(e) => setPartnerStatusFilter(e.target.value)}
+                    className="py-2 px-3 text-xs bg-[#FAFAF7] border border-gray-200 rounded-xl focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#0F6B4C] font-semibold text-gray-700"
+                  >
+                    <option value="All">All Statuses</option>
+                    <option value="published">Published</option>
+                    <option value="archived">Archived</option>
+                  </select>
+                </div>
+              </div>
+            </div>
+
+            {/* Partners List Grid */}
+            {filteredPartners.length === 0 ? (
+              <div className="bg-white rounded-3xl p-12 text-center border border-gray-200 space-y-3">
+                <Award className="w-12 h-12 text-gray-300 mx-auto" />
+                <h3 className="text-base font-extrabold text-[#1A1A1A]">No Membership Partners Found</h3>
+                <p className="text-xs text-gray-500 max-w-sm mx-auto">
+                  No partner items match your current search parameters. Try clearing filters or add a new partner logo.
+                </p>
+                <button
+                  type="button"
+                  onClick={handleOpenAddPartner}
+                  className="bg-[#0F6B4C] hover:bg-[#0A4B35] text-white px-4 py-2 rounded-xl text-xs font-bold inline-flex items-center gap-1.5 cursor-pointer"
+                >
+                  <Plus className="w-3.5 h-3.5" />
+                  <span>Add First Partner</span>
+                </button>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                {filteredPartners.map((partner) => (
+                  <div
+                    key={partner.id}
+                    className="bg-white rounded-3xl p-5 border border-[#0F6B4C]/15 shadow-sm hover:shadow-md transition-all flex flex-col justify-between relative overflow-hidden group"
+                  >
+                    <div>
+                      {/* Top Badges */}
+                      <div className="flex items-center justify-between gap-2 mb-3 pb-2 border-b border-gray-100">
+                        <span className="text-[10px] font-extrabold text-[#0F6B4C] bg-[#E8F5F0] border border-[#0F6B4C]/10 px-2.5 py-0.5 rounded-full flex items-center gap-1">
+                          <ShieldCheck className="w-3 h-3 text-[#0F6B4C]" />
+                          <span>{partner.category || 'Bar Association'}</span>
+                        </span>
+
+                        <span
+                          className={`text-[10px] font-extrabold px-2.5 py-0.5 rounded-full uppercase tracking-wider ${
+                            partner.status === 'archived'
+                              ? 'bg-gray-100 text-gray-600'
+                              : 'bg-emerald-100 text-emerald-800'
+                          }`}
+                        >
+                          {partner.status === 'archived' ? 'Archived' : 'Published on Site'}
+                        </span>
+                      </div>
+
+                      {/* Logo Frame */}
+                      <div className="h-20 w-full bg-[#FAFAF7] rounded-2xl border border-gray-100 p-2 mb-3 flex items-center justify-center relative overflow-hidden">
+                        {partner.logoUrl ? (
+                          <div className="relative w-full h-full flex items-center justify-center">
+                            <Image
+                              src={partner.logoUrl}
+                              alt={partner.name}
+                              fill
+                              className="object-contain p-1"
+                              referrerPolicy="no-referrer"
+                              unoptimized
+                            />
+                          </div>
+                        ) : (
+                          <div className="flex items-center gap-2 text-[#0F6B4C] font-extrabold text-xs">
+                            <Award className="w-5 h-5 text-[#C5A059]" />
+                            <span>{partner.name}</span>
+                          </div>
+                        )}
+                      </div>
+
+                      <h3 className="font-heading font-extrabold text-base text-[#1A1A1A] line-clamp-1 mb-1">
+                        {partner.name}
+                      </h3>
+
+                      {partner.description && (
+                        <p className="text-xs text-gray-500 line-clamp-2 leading-relaxed mb-3">
+                          {partner.description}
+                        </p>
+                      )}
+                    </div>
+
+                    <div className="pt-3 border-t border-gray-100 flex items-center justify-between">
+                      {partner.websiteUrl && partner.websiteUrl !== '#' ? (
+                        <a
+                          href={partner.websiteUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-[11px] font-bold text-[#0F6B4C] hover:underline flex items-center gap-1"
+                        >
+                          <span>Website Link</span>
+                          <ExternalLink className="w-3 h-3" />
+                        </a>
+                      ) : (
+                        <span className="text-[11px] text-gray-400 font-medium">No Link</span>
+                      )}
+
+                      <div className="flex items-center gap-1.5">
+                        <button
+                          type="button"
+                          onClick={() => handleTogglePartnerStatus(partner)}
+                          className={`p-1.5 rounded-lg text-xs font-bold transition-colors cursor-pointer ${
+                            partner.status === 'archived'
+                              ? 'bg-emerald-50 hover:bg-emerald-100 text-emerald-700'
+                              : 'bg-gray-100 hover:bg-gray-200 text-gray-700'
+                          }`}
+                          title={partner.status === 'archived' ? 'Publish to Marquee' : 'Archive from Marquee'}
+                        >
+                          {partner.status === 'archived' ? <Eye className="w-3.5 h-3.5" /> : <Lock className="w-3.5 h-3.5" />}
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={() => handleOpenEditPartner(partner)}
+                          className="p-1.5 rounded-lg bg-gray-100 hover:bg-gray-200 text-gray-700 text-xs font-bold transition-colors cursor-pointer"
+                          title="Edit Partner Details"
+                        >
+                          <Edit3 className="w-3.5 h-3.5" />
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={() => setDeleteConfirmPartner(partner)}
+                          className="p-1.5 rounded-lg bg-red-50 hover:bg-red-100 text-red-600 text-xs font-bold transition-colors cursor-pointer"
+                          title="Delete Partner"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                ))}
               </div>
             )}
           </div>
@@ -8173,6 +8545,226 @@ export const AdminPortal: React.FC = () => {
               <button
                 type="button"
                 onClick={() => handleDeleteInsight(deleteConfirmInsight)}
+                className="bg-red-600 hover:bg-red-700 text-white font-extrabold px-4 py-2 rounded-xl text-xs flex items-center gap-1.5 transition-colors shadow-sm cursor-pointer"
+              >
+                <Trash2 className="w-3.5 h-3.5" />
+                <span>Confirm Delete</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* --- MODAL: ADD / EDIT PARTNER LOGO --- */}
+      {showPartnerModal && (
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-white rounded-3xl max-w-lg w-full p-6 border border-[#0F6B4C]/20 shadow-2xl max-h-[92vh] overflow-y-auto">
+            <div className="flex justify-between items-center mb-4 border-b pb-3">
+              <div>
+                <span className="text-[10px] font-bold text-[#F5A623] uppercase tracking-wider block">
+                  Membership &amp; Partners Desk
+                </span>
+                <h3 className="text-lg font-heading font-extrabold text-[#1A1A1A]">
+                  {editingPartner ? 'Edit Partner Details' : 'Add Membership Partner Logo'}
+                </h3>
+              </div>
+              <button
+                onClick={() => setShowPartnerModal(false)}
+                className="text-gray-400 hover:text-black font-bold cursor-pointer"
+              >
+                ✕
+              </button>
+            </div>
+
+            <form onSubmit={handleSavePartner} className="space-y-4 text-xs">
+              {/* Field 1: Name */}
+              <div>
+                <label className="font-bold text-gray-800 block mb-1">
+                  Partner / Organization Name <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="text"
+                  required
+                  placeholder="e.g. Islamabad High Court Bar Association"
+                  value={partnerFormData.name}
+                  onChange={(e) => setPartnerFormData({ ...partnerFormData, name: e.target.value })}
+                  className="w-full bg-[#FAFAF7] px-3 py-2.5 rounded-xl border border-gray-200 text-xs focus:outline-none focus:border-[#0F6B4C]"
+                />
+              </div>
+
+              {/* Field 2: Category */}
+              <div>
+                <label className="font-bold text-gray-800 block mb-1">
+                  Category / Classification
+                </label>
+                <input
+                  type="text"
+                  placeholder="e.g. Bar Association, Statutory Regulator, Corporate Partner"
+                  value={partnerFormData.category}
+                  onChange={(e) => setPartnerFormData({ ...partnerFormData, category: e.target.value })}
+                  className="w-full bg-[#FAFAF7] px-3 py-2.5 rounded-xl border border-gray-200 text-xs focus:outline-none focus:border-[#0F6B4C]"
+                />
+                <div className="flex flex-wrap gap-1.5 mt-1.5">
+                  {[
+                    'Bar Association',
+                    'Tax & Regulatory Body',
+                    'Apex Governing Body',
+                    'Corporate Regulator',
+                    'IP Statutory Body',
+                    'Tax Bar Association'
+                  ].map((cat) => (
+                    <button
+                      key={cat}
+                      type="button"
+                      onClick={() => setPartnerFormData({ ...partnerFormData, category: cat })}
+                      className="bg-gray-100 hover:bg-[#0F6B4C]/10 text-gray-700 hover:text-[#0F6B4C] text-[10px] font-semibold px-2.5 py-1 rounded-lg transition"
+                    >
+                      + {cat}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Field 3: Logo Image URL */}
+              <div>
+                <label className="font-bold text-gray-800 block mb-1">
+                  Logo Image URL
+                </label>
+                <input
+                  type="url"
+                  placeholder="https://example.com/logo.png"
+                  value={partnerFormData.logoUrl}
+                  onChange={(e) => setPartnerFormData({ ...partnerFormData, logoUrl: e.target.value })}
+                  className="w-full bg-[#FAFAF7] px-3 py-2.5 rounded-xl border border-gray-200 text-xs focus:outline-none focus:border-[#0F6B4C]"
+                />
+                {partnerFormData.logoUrl && (
+                  <div className="mt-2 h-16 w-full bg-gray-50 border rounded-xl p-2 flex items-center justify-center relative">
+                    <Image
+                      src={partnerFormData.logoUrl}
+                      alt="Logo Preview"
+                      fill
+                      className="object-contain p-1"
+                      referrerPolicy="no-referrer"
+                      unoptimized
+                    />
+                  </div>
+                )}
+              </div>
+
+              {/* Field 4: Website URL */}
+              <div>
+                <label className="font-bold text-gray-800 block mb-1">
+                  Official Website Link
+                </label>
+                <input
+                  type="text"
+                  placeholder="e.g. https://fbr.gov.pk or https://ihcbar.org.pk"
+                  value={partnerFormData.websiteUrl}
+                  onChange={(e) => setPartnerFormData({ ...partnerFormData, websiteUrl: e.target.value })}
+                  className="w-full bg-[#FAFAF7] px-3 py-2.5 rounded-xl border border-gray-200 text-xs focus:outline-none focus:border-[#0F6B4C]"
+                />
+              </div>
+
+              {/* Field 5: Description */}
+              <div>
+                <label className="font-bold text-gray-800 block mb-1">
+                  Brief Subtitle / Description
+                </label>
+                <textarea
+                  rows={2}
+                  placeholder="Short summary of official affiliation or regulatory scope..."
+                  value={partnerFormData.description}
+                  onChange={(e) => setPartnerFormData({ ...partnerFormData, description: e.target.value })}
+                  className="w-full bg-[#FAFAF7] px-3 py-2.5 rounded-xl border border-gray-200 text-xs focus:outline-none focus:border-[#0F6B4C]"
+                />
+              </div>
+
+              {/* Field 6 & 7: Order & Status */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="font-bold text-gray-800 block mb-1">
+                    Display Order
+                  </label>
+                  <input
+                    type="number"
+                    min={1}
+                    value={partnerFormData.order}
+                    onChange={(e) => setPartnerFormData({ ...partnerFormData, order: Number(e.target.value) || 1 })}
+                    className="w-full bg-[#FAFAF7] px-3 py-2.5 rounded-xl border border-gray-200 text-xs focus:outline-none focus:border-[#0F6B4C]"
+                  />
+                </div>
+
+                <div>
+                  <label className="font-bold text-gray-800 block mb-1">
+                    Status
+                  </label>
+                  <select
+                    value={partnerFormData.status}
+                    onChange={(e) => setPartnerFormData({ ...partnerFormData, status: e.target.value as 'published' | 'archived' })}
+                    className="w-full bg-[#FAFAF7] px-3 py-2.5 rounded-xl border border-gray-200 text-xs focus:outline-none focus:border-[#0F6B4C]"
+                  >
+                    <option value="published">Published (Visible on Marquee)</option>
+                    <option value="archived">Archived (Hidden)</option>
+                  </select>
+                </div>
+              </div>
+
+              {/* Buttons */}
+              <div className="flex items-center justify-end gap-3 pt-4 border-t">
+                <button
+                  type="button"
+                  onClick={() => setShowPartnerModal(false)}
+                  className="px-4 py-2 rounded-xl bg-gray-100 hover:bg-gray-200 text-gray-700 font-bold transition-colors cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="px-5 py-2 rounded-xl bg-[#0A4B35] hover:bg-[#0F6B4C] text-white font-extrabold shadow-sm transition-colors cursor-pointer"
+                >
+                  {editingPartner ? 'Save Partner Changes' : 'Add Partner Logo'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* --- MODAL: CONFIRM DELETE PARTNER --- */}
+      {deleteConfirmPartner && (
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-white rounded-3xl max-w-md w-full p-6 border border-red-200 shadow-2xl space-y-4">
+            <div className="w-12 h-12 rounded-2xl bg-red-50 text-red-600 flex items-center justify-center mx-auto">
+              <AlertTriangle className="w-6 h-6" />
+            </div>
+
+            <div className="text-center space-y-2">
+              <h3 className="font-heading font-extrabold text-base text-[#1A1A1A]">
+                Delete Partner Affiliation?
+              </h3>
+              <p className="text-xs text-gray-600">
+                Are you sure you want to delete{' '}
+                <strong className="text-black font-extrabold">
+                  &quot;{deleteConfirmPartner.name}&quot;
+                </strong>
+                ?
+              </p>
+              <p className="text-[11px] text-red-700 font-medium bg-red-50 p-2 rounded-xl">
+                This logo will be immediately removed from the live website marquee.
+              </p>
+            </div>
+
+            <div className="flex items-center justify-end gap-2.5 pt-2">
+              <button
+                type="button"
+                onClick={() => setDeleteConfirmPartner(null)}
+                className="bg-gray-100 hover:bg-gray-200 text-gray-700 font-bold px-4 py-2 rounded-xl text-xs transition-colors cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={() => handleDeletePartner(deleteConfirmPartner)}
                 className="bg-red-600 hover:bg-red-700 text-white font-extrabold px-4 py-2 rounded-xl text-xs flex items-center gap-1.5 transition-colors shadow-sm cursor-pointer"
               >
                 <Trash2 className="w-3.5 h-3.5" />

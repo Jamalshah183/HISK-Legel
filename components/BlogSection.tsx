@@ -25,8 +25,8 @@ export const BlogSection: React.FC = () => {
   const singleCycle = Array(cycleMultiplier).fill(basePosts).flat();
   const marqueePosts = [...singleCycle, ...singleCycle];
 
-  // Match velocity of Reviews Section cards (~49 px/s -> ~8 seconds per blog card)
-  const marqueeDuration = Math.max(30, Math.round(singleCycle.length * 8));
+  // Match velocity of Reviews Section cards exactly
+  const marqueeDuration = Math.max(30, Math.round(singleCycle.length * 10));
 
   return (
     <motion.section

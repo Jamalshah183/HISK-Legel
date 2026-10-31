@@ -254,4 +254,18 @@ export interface LegalInsightItem {
   updatedAt?: string;
 }
 
+export interface PartnerItem {
+  id: string;
+  name: string;
+  logoUrl: string;
+  websiteUrl?: string;
+  category?: string;
+  description?: string;
+  order?: number;
+  status?: 'published' | 'archived';
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+
 
