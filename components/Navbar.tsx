@@ -45,6 +45,7 @@ export const Navbar: React.FC<NavbarProps> = ({ activeTab, setActiveTab, onOpenP
     { id: 'about', label: 'About Firm' },
     { id: 'insights', label: 'Legal Insights' },
     { id: 'reviews', label: 'Reviews' },
+    { id: 'partners', label: 'Partners' },
   ];
 
   const handleNavClick = (id: string) => {

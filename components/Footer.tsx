@@ -98,6 +98,7 @@ export const Footer: React.FC<FooterProps> = ({ setActiveTab }) => {
                 { id: 'about', label: 'About HISK LEGAL' },
                 { id: 'insights', label: 'Legal Insights & Blog' },
                 { id: 'reviews', label: 'Client Reviews' },
+                { id: 'partners', label: 'Membership & Partners' },
               ].map((item) => (
                 <li key={item.id}>
                   <button

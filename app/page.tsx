@@ -33,7 +33,7 @@ export default function Home() {
     if (isPortalOpen) return;
 
     const handleScroll = () => {
-      const sections = ['home', 'services', 'about', 'insights', 'reviews'];
+      const sections = ['home', 'services', 'about', 'insights', 'reviews', 'partners'];
       const scrollPosition = window.scrollY + 200;
 
       for (const sectionId of sections) {
