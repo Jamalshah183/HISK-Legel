@@ -16,10 +16,26 @@ export const Navbar: React.FC<NavbarProps> = ({ activeTab, setActiveTab, onOpenP
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   useEffect(() => {
+    let ticking = false;
     const handleScroll = () => {
-      setIsScrolled(window.scrollY > 20);
+      if (!ticking) {
+        window.requestAnimationFrame(() => {
+          const scrollY = window.scrollY;
+          // Use hysteresis to prevent threshold oscillation jitter when header resizes
+          setIsScrolled((prev) => {
+            if (!prev && scrollY > 50) return true;
+            if (prev && scrollY < 15) return false;
+            return prev;
+          });
+          ticking = false;
+        });
+        ticking = true;
+      }
     };
-    window.addEventListener('scroll', handleScroll);
+
+    handleScroll();
+
+    window.addEventListener('scroll', handleScroll, { passive: true });
     return () => window.removeEventListener('scroll', handleScroll);
   }, []);
 
@@ -51,7 +67,7 @@ export const Navbar: React.FC<NavbarProps> = ({ activeTab, setActiveTab, onOpenP
   };
 
   return (
-    <header className="sticky top-0 z-50 w-full transition-all duration-300">
+    <header className="sticky top-0 z-50 w-full">
       {/* Top Banner (Hidden on mobile) */}
       <div className="hidden sm:block bg-[#0A4B35] text-white text-[11px] py-2 px-4">
         <div className="max-w-7xl mx-auto flex flex-col lg:flex-row justify-between items-center gap-2">
@@ -118,9 +134,9 @@ export const Navbar: React.FC<NavbarProps> = ({ activeTab, setActiveTab, onOpenP
 
       {/* Main Navbar */}
       <nav
-        className={`w-full transition-all duration-300 ${
+        className={`w-full transition-all duration-300 ease-in-out transform-gpu ${
           isScrolled
-            ? 'bg-[#FAFAF7]/95 backdrop-blur-md shadow-sm border-b border-[#0F6B4C]/10 py-1 sm:py-2.5'
+            ? 'bg-[#FAFAF7]/95 backdrop-blur-md shadow-sm border-b border-[#0F6B4C]/10 py-1 sm:py-2'
             : 'bg-[#FAFAF7] border-b border-[#0F6B4C]/10 py-1.5 sm:py-3.5'
         }`}
       >
@@ -132,10 +148,10 @@ export const Navbar: React.FC<NavbarProps> = ({ activeTab, setActiveTab, onOpenP
             id="nav-logo-btn"
           >
             <div
-              className={`relative shrink-0 transition-all duration-300 ${
+              className={`relative shrink-0 transition-all duration-300 ease-in-out transform-gpu aspect-[13/11] ${
                 isScrolled
-                  ? 'h-[66px] w-[72px] sm:h-[78px] sm:w-[84px] md:h-[86px] md:w-[92px] lg:h-[94px] lg:w-[102px]'
-                  : 'h-[80px] w-[86px] sm:h-[96px] sm:w-[104px] md:h-[108px] md:w-[116px] lg:h-[120px] lg:w-[130px]'
+                  ? 'h-[62px] sm:h-[74px] md:h-[82px] lg:h-[90px]'
+                  : 'h-[76px] sm:h-[92px] md:h-[104px] lg:h-[116px]'
               }`}
             >
               <Image
