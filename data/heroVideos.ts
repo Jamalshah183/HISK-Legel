@@ -19,7 +19,7 @@ export const HERO_CITY_VIDEOS: CityVideo[] = [
     landmark: 'Faisal Mosque & Margalla Hills',
     flagEmoji: '🇵🇰',
     videoUrl: '/videos/islamabad.mp4',
-    posterUrl: '/images/cities/islamabad.jpg',
+    posterUrl: 'https://images.unsplash.com/photo-1584285418191-8848149e6d12?auto=format&fit=crop&w=1920&q=80',
     description: 'Federal Capital, Supreme Court of Pakistan & Islamabad High Court Legal Practice Hub'
   },
   {
