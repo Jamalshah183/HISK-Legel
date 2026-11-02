@@ -6,6 +6,7 @@ import { motion } from 'motion/react';
 import { Building2 } from 'lucide-react';
 import { usePortalStore } from '@/lib/portalStore';
 import { INITIAL_PARTNERS } from '@/data/portalSeedData';
+import { InfiniteSlider } from '@/components/ui/infinite-slider';
 
 export const PartnersSection: React.FC = () => {
   const { partners } = usePortalStore();
@@ -15,14 +16,6 @@ export const PartnersSection: React.FC = () => {
     : INITIAL_PARTNERS;
 
   const displayPartners = activePartners.length > 0 ? activePartners : INITIAL_PARTNERS;
-
-  // Determine marquee list with identical cycles for seamless continuous horizontal scroll
-  const cycleCount = Math.max(1, Math.ceil(6 / (displayPartners.length || 1)));
-  const singleCycle = Array(cycleCount).fill(displayPartners).flat();
-  const marqueeItems = [...singleCycle, ...singleCycle];
-
-  // Match velocity of Reviews Section cards (~8s-10s per item multiplier)
-  const marqueeDuration = Math.max(25, Math.round(singleCycle.length * 8));
 
   return (
     <motion.section
@@ -46,22 +39,18 @@ export const PartnersSection: React.FC = () => {
             Membership and Partners
           </h2>
           <p className="text-base sm:text-lg text-[#5A6275] font-normal leading-relaxed">
-            Proudly affiliated with premier bar associations, judicial bodies, corporate regulators, and statutory tax authorities across Pakistan.
+            Proudly affiliated with premier bar associations, judicial bodies, corporate regulators, and statutory bodies across Pakistan.
           </p>
         </motion.div>
 
-        {/* Partners Infinite Logo Marquee (Moving Right to Left, Pauses on Hover) */}
-        <div className="relative w-full overflow-hidden py-4 group">
+        {/* Partners Infinite Slider Marquee Container */}
+        <div className="relative w-full overflow-hidden py-4">
           {/* Edge Gradient Fades */}
-          <div className="absolute left-0 top-0 bottom-0 w-12 sm:w-28 bg-gradient-to-r from-white via-white/90 to-transparent z-10 pointer-events-none" />
-          <div className="absolute right-0 top-0 bottom-0 w-12 sm:w-28 bg-gradient-to-l from-white via-white/90 to-transparent z-10 pointer-events-none" />
+          <div className="absolute left-0 top-0 bottom-0 w-12 sm:w-28 bg-gradient-to-r from-white via-white/85 to-transparent z-10 pointer-events-none" />
+          <div className="absolute right-0 top-0 bottom-0 w-12 sm:w-28 bg-gradient-to-l from-white via-white/85 to-transparent z-10 pointer-events-none" />
 
-          {/* Marquee Track */}
-          <div
-            className="flex gap-4 sm:gap-6 lg:gap-8 animate-marquee-rtl group-hover:[animation-play-state:paused] w-max py-2"
-            style={{ animationDuration: `${marqueeDuration}s` }}
-          >
-            {marqueeItems.map((partner, idx) => {
+          <InfiniteSlider gap={24} duration={30} durationOnHover={55} className="w-full py-2">
+            {displayPartners.map((partner) => {
               const hasWebsite = partner.websiteUrl && partner.websiteUrl !== '#';
 
               const CardContent = (
@@ -72,7 +61,7 @@ export const PartnersSection: React.FC = () => {
                         src={partner.logoUrl}
                         alt={partner.name}
                         fill
-                        className="object-contain p-1 filter grayscale group-hover/card:grayscale-0 group-hover/card:scale-105 transition-all duration-300"
+                        className="object-contain p-2 filter grayscale group-hover/card:grayscale-0 group-hover/card:scale-105 transition-all duration-300"
                         referrerPolicy="no-referrer"
                         unoptimized
                       />
@@ -89,7 +78,7 @@ export const PartnersSection: React.FC = () => {
               if (hasWebsite) {
                 return (
                   <a
-                    key={`${partner.id}-${idx}`}
+                    key={partner.id}
                     href={partner.websiteUrl}
                     target="_blank"
                     rel="noopener noreferrer"
@@ -102,15 +91,14 @@ export const PartnersSection: React.FC = () => {
               }
 
               return (
-                <div key={`${partner.id}-${idx}`} title={partner.name} className="shrink-0">
+                <div key={partner.id} title={partner.name} className="shrink-0">
                   {CardContent}
                 </div>
               );
             })}
-          </div>
+          </InfiniteSlider>
         </div>
       </div>
     </motion.section>
   );
 };
-
