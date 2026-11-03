@@ -83,33 +83,40 @@ export const Hero: React.FC<HeroProps> = ({ onNavigateToPractice }) => {
             transition={{ duration: 1.0 }}
             className="absolute inset-0 w-full h-full"
           >
-            <video
-              ref={(el) => {
-                videoRefs.current[currentCityIndex] = el;
-                if (el) {
-                  el.defaultMuted = true;
-                  el.muted = true;
-                  el.playsInline = true;
-                  el.play().catch(() => {});
-                }
-              }}
-              autoPlay
-              loop
-              muted
-              playsInline
-              preload="auto"
-              poster={activeCity.posterUrl}
-              src={activeCity.videoUrl}
-              onCanPlay={(e) => {
-                e.currentTarget.muted = true;
-                e.currentTarget.play().catch(() => {});
-              }}
-              onLoadedData={(e) => {
-                e.currentTarget.muted = true;
-                e.currentTarget.play().catch(() => {});
-              }}
-              className="w-full h-full object-cover scale-105 opacity-90 transition-opacity duration-1000"
-            />
+            {activeCity.videoUrl.endsWith('.mp4') ? (
+              <video
+                ref={(el) => {
+                  videoRefs.current[currentCityIndex] = el;
+                  if (el) {
+                    el.defaultMuted = true;
+                    el.muted = true;
+                    el.playsInline = true;
+                    el.play().catch(() => {});
+                  }
+                }}
+                autoPlay
+                loop
+                muted
+                playsInline
+                preload="auto"
+                poster={activeCity.posterUrl}
+                src={activeCity.videoUrl}
+                onCanPlay={(e) => {
+                  e.currentTarget.muted = true;
+                  e.currentTarget.play().catch(() => {});
+                }}
+                onLoadedData={(e) => {
+                  e.currentTarget.muted = true;
+                  e.currentTarget.play().catch(() => {});
+                }}
+                className="w-full h-full object-cover scale-105 opacity-90 transition-opacity duration-1000"
+              />
+            ) : (
+              <div
+                className="absolute inset-0 w-full h-full bg-cover bg-center scale-105 opacity-90 transition-opacity duration-1000"
+                style={{ backgroundImage: `url(${activeCity.videoUrl})` }}
+              />
+            )}
           </motion.div>
         </AnimatePresence>
 
