@@ -73,49 +73,43 @@ export const Hero: React.FC<HeroProps> = ({ onNavigateToPractice }) => {
           style={{ backgroundImage: `url(${activeCity.posterUrl})` }}
         />
 
-        {/* Dynamic City Image/Video Crossfade with Seamless Autoplay */}
-        <AnimatePresence mode="wait">
+        {/* Dynamic Video Crossfade with Seamless Autoplay */}
+        <AnimatePresence>
           <motion.div
             key={activeCity.id}
-            initial={{ opacity: 0, scale: 1.02 }}
-            animate={{ opacity: 1, scale: 1 }}
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             transition={{ duration: 1.0 }}
             className="absolute inset-0 w-full h-full"
           >
-            <div 
-              className="absolute inset-0 w-full h-full bg-cover bg-center transform scale-105 transition-all duration-1000"
-              style={{ backgroundImage: `url(${activeCity.posterUrl})` }}
+            <video
+              ref={(el) => {
+                videoRefs.current[currentCityIndex] = el;
+                if (el) {
+                  el.defaultMuted = true;
+                  el.muted = true;
+                  el.playsInline = true;
+                  el.play().catch(() => {});
+                }
+              }}
+              autoPlay
+              loop
+              muted
+              playsInline
+              preload="auto"
+              poster={activeCity.posterUrl}
+              src={activeCity.videoUrl}
+              onCanPlay={(e) => {
+                e.currentTarget.muted = true;
+                e.currentTarget.play().catch(() => {});
+              }}
+              onLoadedData={(e) => {
+                e.currentTarget.muted = true;
+                e.currentTarget.play().catch(() => {});
+              }}
+              className="w-full h-full object-cover scale-105 opacity-90 transition-opacity duration-1000"
             />
-            {activeCity.videoUrl && (
-              <video
-                ref={(el) => {
-                  videoRefs.current[currentCityIndex] = el;
-                  if (el) {
-                    el.defaultMuted = true;
-                    el.muted = true;
-                    el.playsInline = true;
-                    el.play().catch(() => {});
-                  }
-                }}
-                autoPlay
-                loop
-                muted
-                playsInline
-                preload="auto"
-                poster={activeCity.posterUrl}
-                src={activeCity.videoUrl}
-                onCanPlay={(e) => {
-                  e.currentTarget.muted = true;
-                  e.currentTarget.play().catch(() => {});
-                }}
-                onLoadedData={(e) => {
-                  e.currentTarget.muted = true;
-                  e.currentTarget.play().catch(() => {});
-                }}
-                className="absolute inset-0 w-full h-full object-cover scale-105 opacity-90 transition-opacity duration-1000"
-              />
-            )}
           </motion.div>
         </AnimatePresence>
 

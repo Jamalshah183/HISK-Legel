@@ -18,7 +18,7 @@ export const HERO_CITY_VIDEOS: CityVideo[] = [
     regionTag: 'Capital & Supreme Court Hub',
     landmark: 'Faisal Mosque & Margalla Hills',
     flagEmoji: '🇵🇰',
-    videoUrl: '',
+    videoUrl: '/videos/islamabad.mp4',
     posterUrl: 'https://images.pexels.com/photos/5258953/pexels-photo-5258953.jpeg',
     description: 'Federal Capital, Supreme Court of Pakistan & Islamabad High Court Legal Practice Hub'
   },
@@ -29,8 +29,8 @@ export const HERO_CITY_VIDEOS: CityVideo[] = [
     regionTag: 'Financial Capital & Sindh High Court',
     landmark: 'Karachi Port & Marine Skyline',
     flagEmoji: '🇵🇰',
-    videoUrl: '',
-    posterUrl: 'https://images.pexels.com/photos/15438992/pexels-photo-15438992.jpeg',
+    videoUrl: '/videos/karachi.mp4',
+    posterUrl: '/images/cities/karachi.jpg',
     description: 'Financial Capital, Port City, Sindh High Court & Corporate Tax Litigation Desk'
   },
   {
@@ -40,8 +40,8 @@ export const HERO_CITY_VIDEOS: CityVideo[] = [
     regionTag: 'Cultural Capital & Lahore High Court',
     landmark: 'Badshahi Mosque & Mall Road',
     flagEmoji: '🇵🇰',
-    videoUrl: '',
-    posterUrl: 'https://images.pexels.com/photos/15714421/pexels-photo-15714421.jpeg',
+    videoUrl: '/videos/lahore.mp4',
+    posterUrl: '/images/cities/lahore.jpg',
     description: 'Cultural & Commercial Capital, Lahore High Court Principal Seat & FBR Revenue Practice'
   },
   {
@@ -51,8 +51,8 @@ export const HERO_CITY_VIDEOS: CityVideo[] = [
     regionTag: 'Twin City Commerce & Defence Hub',
     landmark: 'Rawal Lake & Potohar Gateway',
     flagEmoji: '🇵🇰',
-    videoUrl: '',
-    posterUrl: 'https://images.pexels.com/photos/3881104/pexels-photo-3881104.jpeg',
+    videoUrl: '/videos/rawalpindi.mp4',
+    posterUrl: '/images/cities/rawalpindi.jpg',
     description: 'Twin City Hub, Corporate Taxation, Customs & Revenue Appellate Practice'
   },
   {
@@ -62,8 +62,8 @@ export const HERO_CITY_VIDEOS: CityVideo[] = [
     regionTag: 'KPK Gateway & High Court',
     landmark: 'Islamia College & Bab-e-Khyber',
     flagEmoji: '🇵🇰',
-    videoUrl: '',
-    posterUrl: 'https://images.pexels.com/photos/11545107/pexels-photo-11545107.jpeg',
+    videoUrl: '/videos/peshawar.mp4',
+    posterUrl: '/images/cities/peshawar.jpg',
     description: 'KPK Commercial Hub, Peshawar High Court & Regional Cross-Border Customs Practice'
   },
   {
@@ -73,8 +73,8 @@ export const HERO_CITY_VIDEOS: CityVideo[] = [
     regionTag: 'Industrial & Textile Tax Hub',
     landmark: 'Historic Clock Tower (Ghanta Ghar)',
     flagEmoji: '🇵🇰',
-    videoUrl: '',
-    posterUrl: 'https://images.pexels.com/photos/3881104/pexels-photo-3881104.jpeg',
+    videoUrl: '/videos/faisalabad.mp4',
+    posterUrl: '/images/cities/faisalabad.jpg',
     description: 'Industrial Powerhouse, Sales Tax, Excise, Customs & Corporate Dispute Resolution'
   },
   {
@@ -84,8 +84,8 @@ export const HERO_CITY_VIDEOS: CityVideo[] = [
     regionTag: 'South Punjab Commercial & Tax Hub',
     landmark: 'Tomb of Shah Rukn-e-Alam',
     flagEmoji: '🇵🇰',
-    videoUrl: '',
-    posterUrl: 'https://images.pexels.com/photos/3881104/pexels-photo-3881104.jpeg',
+    videoUrl: '/videos/multan.mp4',
+    posterUrl: '/images/cities/multan.jpg',
     description: 'Southern Punjab Regional Legal Desk, High Court Bench & Commercial Advisory'
   },
   {
@@ -95,8 +95,8 @@ export const HERO_CITY_VIDEOS: CityVideo[] = [
     regionTag: 'Balochistan & Trade Gateway',
     landmark: 'Hanna Lake & Rugged Mountain Pass',
     flagEmoji: '🇵🇰',
-    videoUrl: '',
-    posterUrl: 'https://images.pexels.com/photos/417173/pexels-photo-417173.jpeg',
-    description: 'Balochistan High Court Seat, Transit Trade, Energy Sector & Corporate Litigation'
+    videoUrl: '/videos/quetta.mp4',
+    posterUrl: '/images/cities/quetta.jpg',
+    description: 'Balochistan High Court Seat, Transit Trade, Energy Sector & Commercial Litigation'
   }
 ];
