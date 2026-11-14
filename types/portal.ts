@@ -17,7 +17,42 @@ export type LegalForum =
   | 'Commissioner Inland Revenue (Appeals)'
   | 'Appellate Tribunal Inland Revenue (ATIR)'
   | 'Islamabad High Court (IHC)'
-  | 'Supreme Court of Pakistan';
+  | 'Lahore High Court (LHC)'
+  | 'Sindh High Court (SHC)'
+  | 'Supreme Court of Pakistan'
+  | 'Civil Court / District Court'
+  | 'Sessions Court / Criminal Court'
+  | 'Family & Guardian Court'
+  | 'Rent Controller Tribunal'
+  | 'Banking Court'
+  | 'SECP / Regulatory Tribunal';
+
+export type ClientType = 'Tax Client' | 'Other Category';
+
+export type ClientCategory =
+  | 'Tax Client'
+  | 'Corporate'
+  | 'High Net Worth Individual'
+  | 'IT & Freelancer'
+  | 'SME'
+  | 'Property Owner'
+  | 'Civil Litigation'
+  | 'Criminal Defense'
+  | 'Family Law'
+  | 'Rent & Real Estate'
+  | 'Banking & Finance'
+  | 'Other';
+
+export type CaseCategory =
+  | 'Tax & FBR Litigation'
+  | 'Corporate & SECP'
+  | 'Civil Litigation'
+  | 'Criminal Defense'
+  | 'Family Law'
+  | 'Property & Rent'
+  | 'Banking & Finance'
+  | 'High Court Writs'
+  | 'Other Legal Matter';
 
 export interface Client {
   id: string;
@@ -25,7 +60,8 @@ export interface Client {
   businessName?: string;
   cnic: string;
   ntn: string;
-  category: 'Corporate' | 'High Net Worth Individual' | 'IT & Freelancer' | 'SME' | 'Property Owner';
+  clientType?: ClientType;
+  category: ClientCategory;
   phone: string;
   email: string;
   city: string;
@@ -71,6 +107,7 @@ export interface CaseFile {
   caseId?: string;
   clientId: string;
   caseTitle: string;
+  caseCategory?: CaseCategory;
   clientName: string;
   clientNtn: string;
   caseRef: string;

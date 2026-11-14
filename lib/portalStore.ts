@@ -19,7 +19,8 @@ import {
   TeamMember,
   ReviewItem,
   LegalInsightItem,
-  PartnerItem
+  PartnerItem,
+  CaseCategory
 } from '@/types/portal';
 import {
   INITIAL_CLIENTS,
@@ -466,6 +467,22 @@ export function usePortalStore() {
     return newClient;
   };
 
+  const updateClient = (clientId: string, updatedData: Partial<Client>) => {
+    let targetClient: Client | null = null;
+    const updated = clients.map((c) => {
+      if (c.id === clientId) {
+        targetClient = { ...c, ...updatedData };
+        return targetClient;
+      }
+      return c;
+    });
+    setClients(updated);
+    saveToStorage(STORAGE_KEYS.CLIENTS, updated);
+    if (targetClient) {
+      saveToFirestoreDoc('clients', clientId, targetClient);
+    }
+  };
+
   const addClientCredential = (cred: Omit<ClientCredential, 'id' | 'createdAt'>) => {
     const newCred: ClientCredential = {
       ...cred,
@@ -488,6 +505,7 @@ export function usePortalStore() {
   const addCase = (caseData: {
     title: string;
     clientId: string;
+    caseCategory?: CaseCategory;
     assignedCounsel: string;
     forum: LegalForum;
     taxYear: string;
@@ -508,6 +526,7 @@ export function usePortalStore() {
       clientName: client ? client.name : 'Corporate Client',
       clientNtn: client ? client.ntn : 'N/A',
       caseTitle: caseData.title,
+      caseCategory: caseData.caseCategory || 'Tax & FBR Litigation',
       assignedCounsel: caseData.assignedCounsel,
       assignedCounselTitle: 'Advocate High Court | HISK LEGAL',
       forum: caseData.forum,
@@ -1290,6 +1309,7 @@ export function usePortalStore() {
     insights,
     partners,
     addClient,
+    updateClient,
     addClientCredential,
     addCase,
     updateCase,

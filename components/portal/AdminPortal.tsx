@@ -98,7 +98,10 @@ import {
   TeamMember,
   ReviewItem,
   LegalInsightItem,
-  PartnerItem
+  PartnerItem,
+  ClientType,
+  ClientCategory,
+  CaseCategory
 } from '@/types/portal';
 import { buildGoogleCalendarUrl } from '@/lib/googleCalendar';
 import { buildWhatsAppUrl } from '@/lib/whatsapp';
@@ -413,6 +416,7 @@ export const AdminPortal: React.FC = () => {
     clientCredentials,
     addClientCredential,
     addClient,
+    updateClient,
     addCase,
     updateCase,
     updateCaseStatus,
@@ -458,7 +462,7 @@ export const AdminPortal: React.FC = () => {
   } = usePortalStore();
 
   const [activeTab, setActiveTab] = useState<
-    'dashboard' | 'cases' | 'calendar' | 'documents' | 'tasks' | 'billing' | 'notifications' | 'practiceAreas' | 'team' | 'reviews' | 'insights' | 'partners'
+    'dashboard' | 'clients' | 'cases' | 'calendar' | 'documents' | 'tasks' | 'billing' | 'notifications' | 'practiceAreas' | 'team' | 'reviews' | 'insights' | 'partners'
   >('dashboard');
 
   // Calendar Month Navigation State
@@ -555,8 +559,110 @@ export const AdminPortal: React.FC = () => {
     featured: true
   });
 
+  // Client & Case Classification Constants and Helpers
+  const NON_TAX_CLIENT_CATEGORIES: ClientCategory[] = [
+    'Civil Litigation',
+    'Criminal Defense',
+    'Family Law',
+    'Rent & Real Estate',
+    'Banking & Finance',
+    'Other'
+  ];
+
+  const ALL_CLIENT_CATEGORIES: ClientCategory[] = [
+    'Tax Client',
+    'Corporate',
+    'High Net Worth Individual',
+    'IT & Freelancer',
+    'SME',
+    'Property Owner',
+    'Civil Litigation',
+    'Criminal Defense',
+    'Family Law',
+    'Rent & Real Estate',
+    'Banking & Finance',
+    'Other'
+  ];
+
+  const ALL_CASE_CATEGORIES: CaseCategory[] = [
+    'Tax & FBR Litigation',
+    'Corporate & SECP',
+    'Civil Litigation',
+    'Criminal Defense',
+    'Family Law',
+    'Property & Rent',
+    'Banking & Finance',
+    'High Court Writs',
+    'Other Legal Matter'
+  ];
+
+  const getClientGroup = (client?: Client | null): ClientType => {
+    if (!client) return 'Tax Client';
+    if (client.clientType === 'Tax Client' || client.clientType === 'Other Category') {
+      return client.clientType;
+    }
+    if (NON_TAX_CLIENT_CATEGORIES.includes(client.category)) {
+      return 'Other Category';
+    }
+    return 'Tax Client';
+  };
+
+  const getCaseCategory = (c: CaseFile): CaseCategory => {
+    if (c.caseCategory) return c.caseCategory;
+    const text = `${c.caseTitle} ${c.caseRef} ${c.forum} ${c.summary}`.toLowerCase();
+    if (
+      text.includes('fbr') ||
+      text.includes('atir') ||
+      text.includes('inland revenue') ||
+      text.includes('7e') ||
+      text.includes('122(') ||
+      text.includes('154a') ||
+      text.includes('section 111') ||
+      text.includes('tax')
+    ) {
+      return 'Tax & FBR Litigation';
+    }
+    if (text.includes('family') || text.includes('dowry') || text.includes('custody') || text.includes('guardian')) {
+      return 'Family Law';
+    }
+    if (text.includes('fir') || text.includes('bail') || text.includes('criminal') || text.includes('sessions')) {
+      return 'Criminal Defense';
+    }
+    if (text.includes('rent') || text.includes('eviction') || text.includes('tenancy')) {
+      return 'Property & Rent';
+    }
+    if (text.includes('secp') || text.includes('corporate') || text.includes('company')) {
+      return 'Corporate & SECP';
+    }
+    if (text.includes('banking') || text.includes('fio')) {
+      return 'Banking & Finance';
+    }
+    if (text.includes('civil') || text.includes('suit') || text.includes('injunction')) {
+      return 'Civil Litigation';
+    }
+    return 'Tax & FBR Litigation';
+  };
+
+  const isTaxCase = (c: CaseFile): boolean => {
+    return getCaseCategory(c) === 'Tax & FBR Litigation';
+  };
+
+  // Clients Directory Search & Filters
+  const [clientSearchTerm, setClientSearchTerm] = useState('');
+  const [clientGroupFilter, setClientGroupFilter] = useState<'All' | ClientType>('All');
+  const [clientCategoryFilter, setClientCategoryFilter] = useState<string>('All');
+  const [clientStatusFilter, setClientStatusFilter] = useState<string>('All');
+  const [editingClient, setEditingClient] = useState<Client | null>(null);
+  const [editClientForm, setEditClientForm] = useState<Partial<Client>>({});
+
+  // Dashboard Quick Case Filter
+  const [dashboardCaseGroupFilter, setDashboardCaseGroupFilter] = useState<'All' | 'Tax' | 'Other'>('All');
+
   // Case Management Search & Filters
   const [searchTerm, setSearchTerm] = useState('');
+  const [caseGroupFilter, setCaseGroupFilter] = useState<'All' | 'Tax' | 'Other'>('All');
+  const [caseCategoryFilter, setCaseCategoryFilter] = useState<string>('All');
+  const [caseClientTypeFilter, setCaseClientTypeFilter] = useState<string>('All');
   const [statusFilter, setStatusFilter] = useState<string>('All');
   const [counselFilter, setCounselFilter] = useState<string>('All');
   const [forumFilter, setForumFilter] = useState<string>('All');
@@ -592,9 +698,40 @@ export const AdminPortal: React.FC = () => {
   const caseTaxYears = Array.from(new Set(cases.map((c) => c.taxYear)));
   const caseAdvocates = Array.from(new Set(cases.map((c) => c.assignedCounsel).concat(ADVOCATES)));
 
-  // Comprehensive Filtered Collections by Unique Data (CNO #, Section Code, Tax Year, Forum, Case Ref, NTN, File Size, Date, Author, Invoice #, etc.)
+  const taxClientsCount = clients.filter((cl) => getClientGroup(cl) === 'Tax Client').length;
+  const otherClientsCount = clients.filter((cl) => getClientGroup(cl) === 'Other Category').length;
+  const taxCasesCount = cases.filter((c) => isTaxCase(c)).length;
+  const otherCasesCount = cases.filter((c) => !isTaxCase(c)).length;
+
+  const filteredClients = clients.filter((cl) => {
+    const q = clientSearchTerm.trim().toLowerCase();
+    const group = getClientGroup(cl);
+    const matchesSearch =
+      q === '' ||
+      cl.name.toLowerCase().includes(q) ||
+      (cl.businessName && cl.businessName.toLowerCase().includes(q)) ||
+      cl.ntn.toLowerCase().includes(q) ||
+      cl.cnic.toLowerCase().includes(q) ||
+      cl.phone.toLowerCase().includes(q) ||
+      cl.email.toLowerCase().includes(q) ||
+      cl.city.toLowerCase().includes(q) ||
+      cl.category.toLowerCase().includes(q) ||
+      group.toLowerCase().includes(q);
+
+    const matchesGroup = clientGroupFilter === 'All' || group === clientGroupFilter;
+    const matchesCategory = clientCategoryFilter === 'All' || cl.category === clientCategoryFilter;
+    const matchesStatus = clientStatusFilter === 'All' || cl.status === clientStatusFilter;
+
+    return matchesSearch && matchesGroup && matchesCategory && matchesStatus;
+  });
+
+  // Comprehensive Filtered Collections by Unique Data (CNO #, Section Code, Tax Year, Forum, Case Ref, NTN, File Size, Date, Author, Invoice #, Category, Client Type, etc.)
   const filteredCases = cases.filter((c) => {
     const q = searchTerm.trim().toLowerCase();
+    const linkedClient = clients.find((cl) => cl.id === c.clientId);
+    const clientGroup = getClientGroup(linkedClient);
+    const resolvedCategory = getCaseCategory(c);
+    const taxFlag = isTaxCase(c);
 
     // Find linked notices to match CNO number, Section code, issuing officer
     const linkedNotices = notices.filter((n) => n.caseId === c.id || n.cnoNumber === c.caseRef);
@@ -609,6 +746,9 @@ export const AdminPortal: React.FC = () => {
       (c.caseId && c.caseId.toLowerCase().includes(q)) ||
       c.clientName.toLowerCase().includes(q) ||
       c.clientNtn.toLowerCase().includes(q) ||
+      resolvedCategory.toLowerCase().includes(q) ||
+      clientGroup.toLowerCase().includes(q) ||
+      (linkedClient?.category && linkedClient.category.toLowerCase().includes(q)) ||
       c.forum.toLowerCase().includes(q) ||
       c.taxYear.toLowerCase().includes(q) ||
       c.assignedCounsel.toLowerCase().includes(q) ||
@@ -621,12 +761,27 @@ export const AdminPortal: React.FC = () => {
       linkedSections.includes(q) ||
       linkedOfficers.includes(q);
 
+    const matchesGroup =
+      caseGroupFilter === 'All' ||
+      (caseGroupFilter === 'Tax' && taxFlag) ||
+      (caseGroupFilter === 'Other' && !taxFlag);
+    const matchesCategory = caseCategoryFilter === 'All' || resolvedCategory === caseCategoryFilter;
+    const matchesClientType = caseClientTypeFilter === 'All' || clientGroup === caseClientTypeFilter;
     const matchesStatus = statusFilter === 'All' || c.status === statusFilter;
     const matchesCounsel = counselFilter === 'All' || c.assignedCounsel === counselFilter;
     const matchesForum = forumFilter === 'All' || c.forum === forumFilter;
     const matchesTaxYear = taxYearFilter === 'All' || c.taxYear === taxYearFilter;
 
-    return matchesSearch && matchesStatus && matchesCounsel && matchesForum && matchesTaxYear;
+    return (
+      matchesSearch &&
+      matchesGroup &&
+      matchesCategory &&
+      matchesClientType &&
+      matchesStatus &&
+      matchesCounsel &&
+      matchesForum &&
+      matchesTaxYear
+    );
   });
 
   const filteredDocuments = documents.filter((doc) => {
@@ -1560,6 +1715,7 @@ export const AdminPortal: React.FC = () => {
       );
       setEditCaseForm({
         caseTitle: selectedCase.caseTitle,
+        caseCategory: getCaseCategory(selectedCase),
         caseRef: selectedCase.caseRef,
         taxYear: selectedCase.taxYear,
         forum: selectedCase.forum,
@@ -1689,6 +1845,7 @@ export const AdminPortal: React.FC = () => {
   const [newCaseData, setNewCaseData] = useState(() => ({
     title: '',
     clientId: clients[0]?.id || '',
+    caseCategory: 'Tax & FBR Litigation' as CaseCategory,
     cnoNumber: '',
     sectionCode: '122(5A)',
     assignedCounsel: 'Hafiz Irfan Shabber Kayani',
@@ -1709,17 +1866,32 @@ export const AdminPortal: React.FC = () => {
     clientLoginPassword: ''
   }));
 
-  const [newClientData, setNewClientData] = useState({
+  const [newClientData, setNewClientData] = useState<{
+    name: string;
+    businessName: string;
+    cnic: string;
+    ntn: string;
+    clientType: ClientType;
+    category: ClientCategory;
+    phone: string;
+    email: string;
+    city: string;
+    registeredAddress: string;
+    status: 'Active' | 'On Hold' | 'Archived';
+    clientLoginEmail: string;
+    clientLoginPassword: string;
+  }>({
     name: '',
     businessName: '',
     cnic: '',
     ntn: '',
-    category: 'Corporate' as const,
+    clientType: 'Tax Client',
+    category: 'Tax Client',
     phone: '',
     email: '',
     city: 'Islamabad',
     registeredAddress: '',
-    status: 'Active' as const,
+    status: 'Active',
     clientLoginEmail: '',
     clientLoginPassword: 'Password123!'
   });
@@ -1795,6 +1967,7 @@ export const AdminPortal: React.FC = () => {
     const created = addCase({
       title: newCaseData.title,
       clientId: newCaseData.clientId,
+      caseCategory: newCaseData.caseCategory,
       assignedCounsel: newCaseData.assignedCounsel,
       forum: newCaseData.forum,
       taxYear: newCaseData.taxYear,
@@ -1830,12 +2003,13 @@ export const AdminPortal: React.FC = () => {
     }
 
     setShowAddCaseModal(false);
-    alert(`Tax Litigation Case File ${created.caseRef} registered successfully! ${
+    alert(`Case File ${created.caseRef} (${newCaseData.caseCategory}) registered successfully! ${
       newCaseData.clientLoginEmail ? `Client Portal sign-in credentials created for ${newCaseData.clientLoginEmail}.` : ''
     }`);
     setNewCaseData({
       title: '',
       clientId: clients[0]?.id || '',
+      caseCategory: 'Tax & FBR Litigation',
       cnoNumber: '',
       sectionCode: '122(5A)',
       forum: 'Islamabad High Court (IHC)' as LegalForum,
@@ -1864,7 +2038,46 @@ export const AdminPortal: React.FC = () => {
     
     const createdClient = addClient(newClientData, loginEmail, loginPass);
     setShowAddClientModal(false);
-    alert(`Client Profile created for ${createdClient.name}! Client Portal sign-in credentials created: Email: ${loginEmail}, Password: ${loginPass}`);
+    setNewClientData({
+      name: '',
+      businessName: '',
+      cnic: '',
+      ntn: '',
+      clientType: 'Tax Client',
+      category: 'Tax Client',
+      phone: '',
+      email: '',
+      city: 'Islamabad',
+      registeredAddress: '',
+      status: 'Active',
+      clientLoginEmail: '',
+      clientLoginPassword: 'Password123!'
+    });
+    alert(`Client Profile created for ${createdClient.name} (${createdClient.clientType || newClientData.clientType})! Client Portal sign-in credentials created: Email: ${loginEmail}, Password: ${loginPass}`);
+  };
+
+  const handleStartEditClient = (client: Client) => {
+    setEditingClient(client);
+    setEditClientForm({
+      name: client.name,
+      businessName: client.businessName || '',
+      ntn: client.ntn,
+      cnic: client.cnic,
+      clientType: getClientGroup(client),
+      category: client.category,
+      phone: client.phone,
+      email: client.email,
+      city: client.city,
+      registeredAddress: client.registeredAddress || '',
+      status: client.status
+    });
+  };
+
+  const handleSaveClientEdit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingClient) return;
+    updateClient(editingClient.id, editClientForm);
+    setEditingClient(null);
   };
 
 
@@ -2313,6 +2526,7 @@ export const AdminPortal: React.FC = () => {
           <nav className="space-y-1.5">
             {[
               { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
+              { id: 'clients', label: 'Clients Directory', icon: UserCheck, badge: clients.length },
               { id: 'cases', label: 'Case Management', icon: Briefcase, badge: cases.length },
               { id: 'calendar', label: 'Hearing Calendar', icon: CalendarIcon, badge: hearings.length },
               { id: 'documents', label: 'Document Vault', icon: FolderOpen },
@@ -2515,20 +2729,58 @@ export const AdminPortal: React.FC = () => {
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
               {/* Active Litigation Cases (2 Cols) */}
               <div className="lg:col-span-2 bg-white p-6 rounded-3xl border border-[#0F6B4C]/15 shadow-sm space-y-4">
-                <div className="flex items-center justify-between">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                   <div>
-                    <h3 className="font-heading font-extrabold text-base text-[#1A1A1A]">Active Tax Litigation Repository</h3>
-                    <p className="text-xs text-[#5A6275]">Click any case file to view all synced documents, invoices, tasks, notes, and WhatsApp dispatches.</p>
+                    <h3 className="font-heading font-extrabold text-base text-[#1A1A1A]">Active Case &amp; Litigation Repository</h3>
+                    <p className="text-xs text-[#5A6275]">Separate Tax cases from other legal categories or open any case file.</p>
                   </div>
-                  <button onClick={() => setActiveTab('cases')} className="text-xs font-extrabold text-[#0F6B4C] hover:underline shrink-0">
-                    View All ({cases.length}) →
-                  </button>
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <div className="inline-flex bg-[#FAFAF7] p-1 rounded-xl border border-gray-200 text-[11px] font-bold">
+                      <button
+                        type="button"
+                        onClick={() => setDashboardCaseGroupFilter('All')}
+                        className={`px-2.5 py-1 rounded-lg transition-all ${
+                          dashboardCaseGroupFilter === 'All' ? 'bg-[#0A4B35] text-white' : 'text-gray-600 hover:text-[#1A1A1A]'
+                        }`}
+                      >
+                        All ({cases.length})
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setDashboardCaseGroupFilter('Tax')}
+                        className={`px-2.5 py-1 rounded-lg transition-all ${
+                          dashboardCaseGroupFilter === 'Tax' ? 'bg-[#0F6B4C] text-white' : 'text-gray-600 hover:text-[#1A1A1A]'
+                        }`}
+                      >
+                        Tax ({taxCasesCount})
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setDashboardCaseGroupFilter('Other')}
+                        className={`px-2.5 py-1 rounded-lg transition-all ${
+                          dashboardCaseGroupFilter === 'Other' ? 'bg-[#F5A623] text-[#1A1A1A]' : 'text-gray-600 hover:text-[#1A1A1A]'
+                        }`}
+                      >
+                        Other ({otherCasesCount})
+                      </button>
+                    </div>
+                    <button onClick={() => setActiveTab('cases')} className="text-xs font-extrabold text-[#0F6B4C] hover:underline shrink-0">
+                      View All →
+                    </button>
+                  </div>
                 </div>
 
                 <div className="space-y-3">
-                  {cases.map((c) => {
+                  {cases
+                    .filter((c) => {
+                      if (dashboardCaseGroupFilter === 'Tax') return isTaxCase(c);
+                      if (dashboardCaseGroupFilter === 'Other') return !isTaxCase(c);
+                      return true;
+                    })
+                    .map((c) => {
                     const caseDocs = documents.filter((d) => d.caseId === c.id);
                     const caseInvs = invoices.filter((i) => i.caseId === c.id);
+                    const cat = getCaseCategory(c);
                     return (
                       <div
                         key={c.id}
@@ -2540,9 +2792,18 @@ export const AdminPortal: React.FC = () => {
                             <span className="text-[10px] font-mono font-bold bg-[#0A4B35] text-white px-2 py-0.5 rounded">
                               {c.caseRef}
                             </span>
+                            <span
+                              className={`text-[10px] font-extrabold px-2 py-0.5 rounded ${
+                                isTaxCase(c)
+                                  ? 'bg-[#0F6B4C]/15 text-[#0F6B4C]'
+                                  : 'bg-amber-100 text-amber-900'
+                              }`}
+                            >
+                              {cat}
+                            </span>
                             <span className="text-xs font-extrabold text-[#1A1A1A]">{c.clientName}</span>
                             <span className="text-[10px] font-bold bg-emerald-100 text-[#0F6B4C] px-2 py-0.5 rounded">
-                              Tax Year {c.taxYear}
+                              {c.taxYear}
                             </span>
                           </div>
                           <h4 className="font-heading font-extrabold text-sm text-[#1A1A1A]">{c.caseTitle}</h4>
@@ -2658,47 +2919,84 @@ export const AdminPortal: React.FC = () => {
           </div>
         )}
 
-        {/* --- TAB 2: CASE MANAGEMENT --- */}
-        {activeTab === 'cases' && (
+        {/* --- TAB 1B: CLIENTS DIRECTORY (TAX CLIENTS VS OTHER CATEGORIES) --- */}
+        {activeTab === 'clients' && (
           <div className="space-y-6">
             <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 bg-white p-6 rounded-3xl border border-[#0F6B4C]/15 shadow-sm">
               <div>
-                <h1 className="text-2xl font-heading font-extrabold text-[#1A1A1A]">Tax Litigation Repository</h1>
-                <p className="text-xs text-[#5A6275]">Filter active tax appeals, High Court writs, and show cause responses.</p>
+                <h1 className="text-2xl font-heading font-extrabold text-[#1A1A1A]">Clients Directory</h1>
+                <p className="text-xs text-[#5A6275]">
+                  Separate Tax Clients from Civil, Criminal, Family, Corporate, Property &amp; Other Category Clients.
+                </p>
               </div>
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2 flex-wrap">
                 <button
-                  onClick={() => setShowAddHearingModal(true)}
-                  className="bg-[#0A4B35] hover:bg-[#0F6B4C] text-white font-extrabold px-4 py-2.5 rounded-2xl text-xs flex items-center gap-2 shadow-sm transition-all"
+                  onClick={() => setShowAddClientModal(true)}
+                  className="bg-[#0A4B35] hover:bg-[#0F6B4C] text-white font-extrabold px-5 py-2.5 rounded-2xl text-xs flex items-center gap-2 shadow-sm transition-all cursor-pointer"
                 >
-                  <CalendarIcon className="w-4 h-4 text-[#F5A623]" />
-                  <span>Schedule Hearing</span>
-                </button>
-
-                <button
-                  onClick={() => setShowAddCaseModal(true)}
-                  className="bg-[#F5A623] hover:bg-[#E09415] text-[#1A1A1A] font-extrabold px-5 py-2.5 rounded-2xl text-xs flex items-center gap-2 shadow-sm transition-all"
-                >
-                  <Plus className="w-4 h-4" />
-                  <span>Register New Case</span>
+                  <Plus className="w-4 h-4 text-[#F5A623]" />
+                  <span>Register New Client</span>
                 </button>
               </div>
             </div>
 
-            {/* Filter Bar */}
+            {/* Client Separation Tabs (All / Tax Clients / Other Categories) */}
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+              <button
+                type="button"
+                onClick={() => setClientGroupFilter('All')}
+                className={`p-4 rounded-2xl border text-left transition-all cursor-pointer ${
+                  clientGroupFilter === 'All'
+                    ? 'bg-[#0A4B35] text-white border-[#0A4B35] shadow-md'
+                    : 'bg-white text-[#1A1A1A] border-[#0F6B4C]/15 hover:border-[#0F6B4C]/40'
+                }`}
+              >
+                <div className="text-[11px] font-bold uppercase tracking-wider opacity-80">All Registered Clients</div>
+                <div className="text-2xl font-heading font-extrabold mt-1">{clients.length} Clients</div>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setClientGroupFilter('Tax Client')}
+                className={`p-4 rounded-2xl border text-left transition-all cursor-pointer ${
+                  clientGroupFilter === 'Tax Client'
+                    ? 'bg-[#0F6B4C] text-white border-[#0F6B4C] shadow-md'
+                    : 'bg-white text-[#1A1A1A] border-[#0F6B4C]/15 hover:border-[#0F6B4C]/40'
+                }`}
+              >
+                <div className="text-[11px] font-bold uppercase tracking-wider opacity-80">Tax Clients (FBR / ATIR / NTN)</div>
+                <div className="text-2xl font-heading font-extrabold mt-1">{taxClientsCount} Tax Clients</div>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setClientGroupFilter('Other Category')}
+                className={`p-4 rounded-2xl border text-left transition-all cursor-pointer ${
+                  clientGroupFilter === 'Other Category'
+                    ? 'bg-[#F5A623] text-[#1A1A1A] border-[#F5A623] shadow-md'
+                    : 'bg-white text-[#1A1A1A] border-[#0F6B4C]/15 hover:border-[#F5A623]/60'
+                }`}
+              >
+                <div className="text-[11px] font-bold uppercase tracking-wider opacity-80">Other Categories (Civil / Family / Corporate)</div>
+                <div className="text-2xl font-heading font-extrabold mt-1">{otherClientsCount} Other Clients</div>
+              </button>
+            </div>
+
+            {/* Client Search & Category Filter Bar */}
             <div className="bg-white p-4 rounded-2xl border border-[#0F6B4C]/15 flex flex-wrap items-center justify-between gap-3 text-xs">
-              <div className="flex items-center gap-2 flex-1 min-w-[280px]">
+              <div className="flex items-center gap-2 flex-1 min-w-[260px]">
                 <Search className="w-4 h-4 text-[#0F6B4C] shrink-0" />
                 <input
                   type="text"
-                  placeholder="Search by Case Title, Ref #, CNO No, Section Code, NTN, Client, Forum, Tax Year, Counsel..."
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
+                  placeholder="Search clients by Name, Business, NTN, CNIC, Phone, Email, City, or Category..."
+                  value={clientSearchTerm}
+                  onChange={(e) => setClientSearchTerm(e.target.value)}
                   className="w-full bg-[#FAFAF7] p-2.5 rounded-xl border border-gray-200 focus:outline-none focus:border-[#0F6B4C] text-xs font-medium"
                 />
-                {searchTerm && (
+                {clientSearchTerm && (
                   <button
-                    onClick={() => setSearchTerm('')}
+                    type="button"
+                    onClick={() => setClientSearchTerm('')}
                     className="p-1 hover:bg-gray-200 rounded-full text-gray-500 shrink-0"
                     title="Clear search"
                   >
@@ -2708,6 +3006,341 @@ export const AdminPortal: React.FC = () => {
               </div>
 
               <div className="flex flex-wrap items-center gap-2">
+                <select
+                  value={clientCategoryFilter}
+                  onChange={(e) => setClientCategoryFilter(e.target.value)}
+                  className="bg-[#FAFAF7] p-2.5 rounded-xl border border-gray-200 font-bold text-xs"
+                >
+                  <option value="All">All Specific Categories</option>
+                  {ALL_CLIENT_CATEGORIES.map((cat) => (
+                    <option key={cat} value={cat}>
+                      {cat}
+                    </option>
+                  ))}
+                </select>
+
+                <select
+                  value={clientStatusFilter}
+                  onChange={(e) => setClientStatusFilter(e.target.value)}
+                  className="bg-[#FAFAF7] p-2.5 rounded-xl border border-gray-200 font-bold text-xs"
+                >
+                  <option value="All">All Statuses</option>
+                  <option value="Active">Active</option>
+                  <option value="On Hold">On Hold</option>
+                  <option value="Archived">Archived</option>
+                </select>
+
+                {(clientSearchTerm || clientGroupFilter !== 'All' || clientCategoryFilter !== 'All' || clientStatusFilter !== 'All') && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setClientSearchTerm('');
+                      setClientGroupFilter('All');
+                      setClientCategoryFilter('All');
+                      setClientStatusFilter('All');
+                    }}
+                    className="px-3 py-2 rounded-xl bg-gray-100 hover:bg-gray-200 text-gray-700 font-bold text-xs"
+                  >
+                    Reset
+                  </button>
+                )}
+
+                <div className="bg-[#0A4B35]/10 text-[#0A4B35] font-extrabold px-3 py-2 rounded-xl text-xs shrink-0">
+                  {filteredClients.length} / {clients.length} Clients
+                </div>
+              </div>
+            </div>
+
+            {/* Clients Grid */}
+            {filteredClients.length === 0 ? (
+              <div className="bg-white p-10 rounded-3xl border border-gray-200 text-center space-y-3">
+                <p className="text-sm font-bold text-gray-700">No clients match the selected separation filters.</p>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setClientSearchTerm('');
+                    setClientGroupFilter('All');
+                    setClientCategoryFilter('All');
+                    setClientStatusFilter('All');
+                  }}
+                  className="bg-[#0A4B35] text-white text-xs font-bold px-4 py-2 rounded-xl"
+                >
+                  Show All Clients
+                </button>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {filteredClients.map((cl) => {
+                  const group = getClientGroup(cl);
+                  const linkedCases = cases.filter((c) => c.clientId === cl.id);
+                  return (
+                    <div
+                      key={cl.id}
+                      className="bg-white p-5 rounded-3xl border border-[#0F6B4C]/15 shadow-sm hover:shadow-md transition-all flex flex-col justify-between gap-4"
+                    >
+                      <div className="space-y-2.5">
+                        <div className="flex flex-wrap items-center justify-between gap-2">
+                          <div className="flex flex-wrap items-center gap-1.5">
+                            <span
+                              className={`text-[10px] font-extrabold px-2.5 py-1 rounded-full ${
+                                group === 'Tax Client'
+                                  ? 'bg-[#0F6B4C] text-white'
+                                  : 'bg-[#F5A623] text-[#1A1A1A]'
+                              }`}
+                            >
+                              {group}
+                            </span>
+                            <span className="text-[10px] font-bold bg-[#E8F5F0] text-[#0F6B4C] px-2.5 py-1 rounded-full">
+                              {cl.category}
+                            </span>
+                          </div>
+                          <span className="text-[10px] font-bold px-2.5 py-0.5 rounded-full bg-gray-100 text-gray-700">
+                            {cl.status}
+                          </span>
+                        </div>
+
+                        <div>
+                          <h3 className="font-heading font-extrabold text-base text-[#1A1A1A]">{cl.name}</h3>
+                          {cl.businessName && (
+                            <p className="text-xs text-[#5A6275] font-medium">{cl.businessName}</p>
+                          )}
+                        </div>
+
+                        <div className="grid grid-cols-2 gap-2 text-[11px] text-[#5A6275] bg-[#FAFAF7] p-3 rounded-2xl border border-gray-100">
+                          <div>
+                            <span className="font-bold text-[#1A1A1A]">NTN:</span> <span className="font-mono">{cl.ntn || 'N/A'}</span>
+                          </div>
+                          <div>
+                            <span className="font-bold text-[#1A1A1A]">CNIC:</span> <span className="font-mono">{cl.cnic}</span>
+                          </div>
+                          <div>
+                            <span className="font-bold text-[#1A1A1A]">Phone:</span> {cl.phone}
+                          </div>
+                          <div>
+                            <span className="font-bold text-[#1A1A1A]">City:</span> {cl.city}
+                          </div>
+                          <div className="col-span-2 truncate">
+                            <span className="font-bold text-[#1A1A1A]">Email:</span> {cl.email}
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="flex flex-wrap items-center justify-between gap-2 pt-3 border-t border-gray-100">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setSearchTerm(cl.name);
+                            setCaseGroupFilter('All');
+                            setCaseCategoryFilter('All');
+                            setCaseClientTypeFilter('All');
+                            setActiveTab('cases');
+                          }}
+                          className="text-xs font-extrabold text-[#0F6B4C] hover:underline flex items-center gap-1 cursor-pointer"
+                        >
+                          <Briefcase className="w-3.5 h-3.5" />
+                          <span>{linkedCases.length} Linked Cases →</span>
+                        </button>
+
+                        <div className="flex items-center gap-2">
+                          <button
+                            type="button"
+                            onClick={() => handleStartEditClient(cl)}
+                            className="px-3 py-1.5 rounded-xl bg-gray-100 hover:bg-gray-200 text-[#1A1A1A] text-xs font-bold flex items-center gap-1 cursor-pointer"
+                          >
+                            <Edit3 className="w-3.5 h-3.5 text-[#0F6B4C]" />
+                            <span>Edit / Category</span>
+                          </button>
+
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setNewCaseData((prev) => ({
+                                ...prev,
+                                clientId: cl.id,
+                                caseCategory: group === 'Tax Client' ? 'Tax & FBR Litigation' : 'Civil Litigation'
+                              }));
+                              setShowAddCaseModal(true);
+                            }}
+                            className="px-3 py-1.5 rounded-xl bg-[#0A4B35] hover:bg-[#0F6B4C] text-white text-xs font-bold flex items-center gap-1 cursor-pointer"
+                          >
+                            <Plus className="w-3.5 h-3.5 text-[#F5A623]" />
+                            <span>Add Case</span>
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* --- TAB 2: CASE MANAGEMENT --- */}
+        {activeTab === 'cases' && (
+          <div className="space-y-6">
+            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 bg-white p-6 rounded-3xl border border-[#0F6B4C]/15 shadow-sm">
+              <div>
+                <h1 className="text-2xl font-heading font-extrabold text-[#1A1A1A]">Case &amp; Litigation Repository</h1>
+                <p className="text-xs text-[#5A6275]">Separate and filter Tax cases, High Court writs, civil, criminal, family, corporate &amp; rent matters.</p>
+              </div>
+              <div className="flex items-center gap-2 flex-wrap">
+                <button
+                  onClick={() => setShowAddClientModal(true)}
+                  className="bg-white hover:bg-[#FAFAF7] text-[#0A4B35] border border-[#0F6B4C]/30 font-extrabold px-4 py-2.5 rounded-2xl text-xs flex items-center gap-2 shadow-sm transition-all cursor-pointer"
+                >
+                  <UserCheck className="w-4 h-4 text-[#0F6B4C]" />
+                  <span>Add Client</span>
+                </button>
+
+                <button
+                  onClick={() => setShowAddHearingModal(true)}
+                  className="bg-[#0A4B35] hover:bg-[#0F6B4C] text-white font-extrabold px-4 py-2.5 rounded-2xl text-xs flex items-center gap-2 shadow-sm transition-all cursor-pointer"
+                >
+                  <CalendarIcon className="w-4 h-4 text-[#F5A623]" />
+                  <span>Schedule Hearing</span>
+                </button>
+
+                <button
+                  onClick={() => setShowAddCaseModal(true)}
+                  className="bg-[#F5A623] hover:bg-[#E09415] text-[#1A1A1A] font-extrabold px-5 py-2.5 rounded-2xl text-xs flex items-center gap-2 shadow-sm transition-all cursor-pointer"
+                >
+                  <Plus className="w-4 h-4" />
+                  <span>Register New Case</span>
+                </button>
+              </div>
+            </div>
+
+            {/* Quick Case Group Separation Tabs */}
+            <div className="flex flex-wrap items-center gap-2">
+              <button
+                type="button"
+                onClick={() => {
+                  setCaseGroupFilter('All');
+                  setCaseCategoryFilter('All');
+                }}
+                className={`px-4 py-2 rounded-2xl text-xs font-extrabold transition-all cursor-pointer border ${
+                  caseGroupFilter === 'All'
+                    ? 'bg-[#0A4B35] text-white border-[#0A4B35] shadow-sm'
+                    : 'bg-white text-[#1A1A1A] border-[#0F6B4C]/15 hover:border-[#0F6B4C]/40'
+                }`}
+              >
+                All Cases ({cases.length})
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setCaseGroupFilter('Tax');
+                  setCaseCategoryFilter('All');
+                }}
+                className={`px-4 py-2 rounded-2xl text-xs font-extrabold transition-all cursor-pointer border ${
+                  caseGroupFilter === 'Tax'
+                    ? 'bg-[#0F6B4C] text-white border-[#0F6B4C] shadow-sm'
+                    : 'bg-white text-[#0F6B4C] border-[#0F6B4C]/20 hover:bg-[#E8F5F0]'
+                }`}
+              >
+                Tax Cases ({taxCasesCount})
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setCaseGroupFilter('Other');
+                  setCaseCategoryFilter('All');
+                }}
+                className={`px-4 py-2 rounded-2xl text-xs font-extrabold transition-all cursor-pointer border ${
+                  caseGroupFilter === 'Other'
+                    ? 'bg-[#F5A623] text-[#1A1A1A] border-[#F5A623] shadow-sm'
+                    : 'bg-white text-[#1A1A1A] border-amber-300 hover:bg-amber-50'
+                }`}
+              >
+                Other Categories ({otherCasesCount})
+              </button>
+            </div>
+
+            {/* Filter Bar */}
+            <div className="bg-white p-4 rounded-2xl border border-[#0F6B4C]/15 space-y-3 text-xs">
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <div className="flex items-center gap-2 flex-1 min-w-[280px]">
+                  <Search className="w-4 h-4 text-[#0F6B4C] shrink-0" />
+                  <input
+                    type="text"
+                    placeholder="Search by Case Title, Category, Client Type, Ref #, CNO No, Section Code, NTN, Client, Forum, Year, Counsel..."
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    className="w-full bg-[#FAFAF7] p-2.5 rounded-xl border border-gray-200 focus:outline-none focus:border-[#0F6B4C] text-xs font-medium"
+                  />
+                  {searchTerm && (
+                    <button
+                      onClick={() => setSearchTerm('')}
+                      className="p-1 hover:bg-gray-200 rounded-full text-gray-500 shrink-0"
+                      title="Clear search"
+                    >
+                      <X className="w-3.5 h-3.5" />
+                    </button>
+                  )}
+                </div>
+
+                <div className="flex items-center gap-2">
+                  {(searchTerm ||
+                    caseGroupFilter !== 'All' ||
+                    caseCategoryFilter !== 'All' ||
+                    caseClientTypeFilter !== 'All' ||
+                    statusFilter !== 'All' ||
+                    counselFilter !== 'All' ||
+                    forumFilter !== 'All' ||
+                    taxYearFilter !== 'All') && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setSearchTerm('');
+                        setCaseGroupFilter('All');
+                        setCaseCategoryFilter('All');
+                        setCaseClientTypeFilter('All');
+                        setStatusFilter('All');
+                        setCounselFilter('All');
+                        setForumFilter('All');
+                        setTaxYearFilter('All');
+                      }}
+                      className="px-3 py-2 rounded-xl bg-gray-100 hover:bg-gray-200 text-gray-700 font-bold text-xs cursor-pointer"
+                    >
+                      Reset Filters
+                    </button>
+                  )}
+                  <div className="bg-[#0A4B35]/10 text-[#0A4B35] font-extrabold px-3 py-2 rounded-xl text-xs shrink-0">
+                    {filteredCases.length} / {cases.length} Files
+                  </div>
+                </div>
+              </div>
+
+              <div className="flex flex-wrap items-center gap-2 pt-2 border-t border-gray-100">
+                <div className="flex items-center gap-1 text-[11px] font-bold text-[#5A6275] mr-1">
+                  <Filter className="w-3.5 h-3.5 text-[#0F6B4C]" />
+                  <span>Separate By:</span>
+                </div>
+
+                <select
+                  value={caseCategoryFilter}
+                  onChange={(e) => setCaseCategoryFilter(e.target.value)}
+                  className="bg-[#FAFAF7] p-2.5 rounded-xl border border-gray-200 font-bold text-xs text-[#0A4B35]"
+                >
+                  <option value="All">All Case Categories</option>
+                  {ALL_CASE_CATEGORIES.map((cat) => (
+                    <option key={cat} value={cat}>
+                      {cat}
+                    </option>
+                  ))}
+                </select>
+
+                <select
+                  value={caseClientTypeFilter}
+                  onChange={(e) => setCaseClientTypeFilter(e.target.value)}
+                  className="bg-[#FAFAF7] p-2.5 rounded-xl border border-gray-200 font-bold text-xs text-[#0A4B35]"
+                >
+                  <option value="All">All Client Types</option>
+                  <option value="Tax Client">Tax Clients Only</option>
+                  <option value="Other Category">Other Category Clients Only</option>
+                </select>
+
                 <select
                   value={statusFilter}
                   onChange={(e) => setStatusFilter(e.target.value)}
@@ -2722,6 +3355,7 @@ export const AdminPortal: React.FC = () => {
                   <option value="High Court Writ Active">High Court Writ Active</option>
                   <option value="Stay Granted">Stay Granted</option>
                   <option value="Favorable Order Passed">Favorable Order Passed</option>
+                  <option value="Closed & Settled">Closed &amp; Settled</option>
                 </select>
 
                 <select
@@ -2742,7 +3376,7 @@ export const AdminPortal: React.FC = () => {
                   onChange={(e) => setTaxYearFilter(e.target.value)}
                   className="bg-[#FAFAF7] p-2.5 rounded-xl border border-gray-200 font-bold text-xs"
                 >
-                  <option value="All">All Tax Years</option>
+                  <option value="All">All Years / Periods</option>
                   {caseTaxYears.map((y) => (
                     <option key={y} value={y}>
                       {y}
@@ -2750,76 +3384,124 @@ export const AdminPortal: React.FC = () => {
                   ))}
                 </select>
 
-                <div className="bg-[#0A4B35]/10 text-[#0A4B35] font-extrabold px-3 py-2 rounded-xl text-xs shrink-0">
-                  {filteredCases.length} / {cases.length} Files
-                </div>
+                <select
+                  value={counselFilter}
+                  onChange={(e) => setCounselFilter(e.target.value)}
+                  className="bg-[#FAFAF7] p-2.5 rounded-xl border border-gray-200 font-bold text-xs"
+                >
+                  <option value="All">All Lead Counsel</option>
+                  {caseAdvocates.map((adv) => (
+                    <option key={adv} value={adv}>
+                      {adv}
+                    </option>
+                  ))}
+                </select>
               </div>
             </div>
 
             {/* Cases Vertical List */}
-            <div className="flex flex-col gap-4">
-              {filteredCases.map((c) => (
-                <div
-                  key={c.id}
-                  className="bg-white p-6 rounded-3xl border border-[#0F6B4C]/15 shadow-sm space-y-4 hover:shadow-md transition-all flex flex-col md:flex-row md:items-center justify-between gap-6"
+            {filteredCases.length === 0 ? (
+              <div className="bg-white p-10 rounded-3xl border border-gray-200 text-center space-y-3">
+                <p className="text-sm font-bold text-gray-700">No cases match the active search or category filters.</p>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSearchTerm('');
+                    setCaseGroupFilter('All');
+                    setCaseCategoryFilter('All');
+                    setCaseClientTypeFilter('All');
+                    setStatusFilter('All');
+                    setCounselFilter('All');
+                    setForumFilter('All');
+                    setTaxYearFilter('All');
+                  }}
+                  className="bg-[#0A4B35] text-white text-xs font-bold px-4 py-2 rounded-xl"
                 >
-                  <div className="space-y-2 flex-1">
-                    <div className="flex flex-wrap items-center gap-2">
-                      <span className="text-[10px] font-mono font-extrabold bg-[#0A4B35] text-white px-2.5 py-0.5 rounded-md">
-                        {c.caseRef}
-                      </span>
-                      <span className="text-xs font-bold text-[#5A6275]">Tax Year: {c.taxYear}</span>
-                      <span className="text-xs font-extrabold text-[#0F6B4C] bg-emerald-100 px-2.5 py-0.5 rounded-md">
-                        {c.forum}
-                      </span>
-                      <span
-                        className={`text-[10px] font-extrabold px-2.5 py-0.5 rounded-full ${
-                          c.riskLevel === 'Critical'
-                            ? 'bg-red-100 text-red-800'
-                            : c.riskLevel === 'High'
-                            ? 'bg-amber-100 text-amber-800'
-                            : 'bg-emerald-100 text-emerald-800'
-                        }`}
-                      >
-                        {c.riskLevel} Risk
-                      </span>
-                      <span className="text-[10px] font-bold bg-[#F5A623]/20 text-[#1A1A1A] px-2.5 py-0.5 rounded-full">
-                        {c.status}
-                      </span>
-                    </div>
-
-                    <h3 className="font-heading font-extrabold text-lg text-[#1A1A1A]">{c.caseTitle}</h3>
-
-                    <div className="text-xs text-[#5A6275] flex flex-wrap gap-x-4 gap-y-1">
-                      <span>Client: <strong className="text-[#1A1A1A]">{c.clientName}</strong> (NTN: {c.clientNtn})</span>
-                      <span>Lead Counsel: <strong className="text-[#0F6B4C]">{c.assignedCounsel}</strong></span>
-                      <span>Disputed Demand: <strong className="text-red-700">Rs. {(c.demandAmountPkr / 100000).toFixed(1)} Lakh</strong></span>
-                    </div>
-
-                    <p className="text-xs text-gray-700 bg-[#FAFAF7] p-3 rounded-2xl border border-gray-100">
-                      {c.summary}
-                    </p>
-
-                    {c.nextHearingDate && (
-                      <div className="text-xs text-[#0F6B4C] font-semibold flex items-center gap-2 pt-1">
-                        <CalendarIcon className="w-3.5 h-3.5 text-[#F5A623]" />
-                        <span>Next Hearing: <strong className="text-[#1A1A1A]">{c.nextHearingDate}</strong> — {c.nextHearingPurpose || 'Proceedings'}</span>
-                      </div>
-                    )}
-                  </div>
-
-                  <div className="shrink-0 flex md:flex-col items-center md:items-end justify-between border-t md:border-t-0 md:border-l border-gray-100 pt-3 md:pt-0 md:pl-6 gap-3">
-                    <button
-                      onClick={() => setSelectedCase(c)}
-                      className="bg-[#0A4B35] hover:bg-[#0F6B4C] text-white text-xs font-bold px-5 py-2.5 rounded-xl transition-all flex items-center gap-1.5 shadow-sm"
+                  Reset Case Filters
+                </button>
+              </div>
+            ) : (
+              <div className="flex flex-col gap-4">
+                {filteredCases.map((c) => {
+                  const resolvedCategory = getCaseCategory(c);
+                  const linkedClient = clients.find((cl) => cl.id === c.clientId);
+                  const clientGroup = getClientGroup(linkedClient);
+                  return (
+                    <div
+                      key={c.id}
+                      className="bg-white p-6 rounded-3xl border border-[#0F6B4C]/15 shadow-sm space-y-4 hover:shadow-md transition-all flex flex-col md:flex-row md:items-center justify-between gap-6"
                     >
-                      <span>Open Case File</span>
-                      <ChevronRight className="w-4 h-4 text-[#F5A623]" />
-                    </button>
-                  </div>
-                </div>
-              ))}
-            </div>
+                      <div className="space-y-2 flex-1">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <span className="text-[10px] font-mono font-extrabold bg-[#0A4B35] text-white px-2.5 py-0.5 rounded-md">
+                            {c.caseRef}
+                          </span>
+                          <span
+                            className={`text-[10px] font-extrabold px-2.5 py-0.5 rounded-md ${
+                              isTaxCase(c)
+                                ? 'bg-[#0F6B4C] text-white'
+                                : 'bg-[#F5A623] text-[#1A1A1A]'
+                            }`}
+                          >
+                            {resolvedCategory}
+                          </span>
+                          <span className="text-[10px] font-bold bg-gray-100 text-gray-700 px-2.5 py-0.5 rounded-md">
+                            {clientGroup}
+                          </span>
+                          <span className="text-xs font-bold text-[#5A6275]">{c.taxYear}</span>
+                          <span className="text-xs font-extrabold text-[#0F6B4C] bg-emerald-100 px-2.5 py-0.5 rounded-md">
+                            {c.forum}
+                          </span>
+                          <span
+                            className={`text-[10px] font-extrabold px-2.5 py-0.5 rounded-full ${
+                              c.riskLevel === 'Critical'
+                                ? 'bg-red-100 text-red-800'
+                                : c.riskLevel === 'High'
+                                ? 'bg-amber-100 text-amber-800'
+                                : 'bg-emerald-100 text-emerald-800'
+                            }`}
+                          >
+                            {c.riskLevel} Risk
+                          </span>
+                          <span className="text-[10px] font-bold bg-[#F5A623]/20 text-[#1A1A1A] px-2.5 py-0.5 rounded-full">
+                            {c.status}
+                          </span>
+                        </div>
+
+                        <h3 className="font-heading font-extrabold text-lg text-[#1A1A1A]">{c.caseTitle}</h3>
+
+                        <div className="text-xs text-[#5A6275] flex flex-wrap gap-x-4 gap-y-1">
+                          <span>Client: <strong className="text-[#1A1A1A]">{c.clientName}</strong> (NTN: {c.clientNtn})</span>
+                          <span>Lead Counsel: <strong className="text-[#0F6B4C]">{c.assignedCounsel}</strong></span>
+                          <span>Disputed Amount: <strong className="text-red-700">Rs. {(c.demandAmountPkr / 100000).toFixed(1)} Lakh</strong></span>
+                        </div>
+
+                        <p className="text-xs text-gray-700 bg-[#FAFAF7] p-3 rounded-2xl border border-gray-100">
+                          {c.summary}
+                        </p>
+
+                        {c.nextHearingDate && (
+                          <div className="text-xs text-[#0F6B4C] font-semibold flex items-center gap-2 pt-1">
+                            <CalendarIcon className="w-3.5 h-3.5 text-[#F5A623]" />
+                            <span>Next Hearing: <strong className="text-[#1A1A1A]">{c.nextHearingDate}</strong> — {c.nextHearingPurpose || 'Proceedings'}</span>
+                          </div>
+                        )}
+                      </div>
+
+                      <div className="shrink-0 flex md:flex-col items-center md:items-end justify-between border-t md:border-t-0 md:border-l border-gray-100 pt-3 md:pt-0 md:pl-6 gap-3">
+                        <button
+                          onClick={() => setSelectedCase(c)}
+                          className="bg-[#0A4B35] hover:bg-[#0F6B4C] text-white text-xs font-bold px-5 py-2.5 rounded-xl transition-all flex items-center gap-1.5 shadow-sm"
+                        >
+                          <span>Open Case File</span>
+                          <ChevronRight className="w-4 h-4 text-[#F5A623]" />
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
           </div>
         )}
 
@@ -5111,7 +5793,7 @@ export const AdminPortal: React.FC = () => {
                 />
               </div>
 
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                 <div>
                   <label className="font-bold text-gray-700 block mb-1">Select Client</label>
                   <select
@@ -5121,17 +5803,32 @@ export const AdminPortal: React.FC = () => {
                   >
                     {clients.map((c) => (
                       <option key={c.id} value={c.id}>
-                        {c.name} (NTN: {c.ntn})
+                        {c.name} ({getClientGroup(c)})
                       </option>
                     ))}
                   </select>
                 </div>
 
                 <div>
-                  <label className="font-bold text-gray-700 block mb-1">FBR CNO / Order No.</label>
+                  <label className="font-bold text-gray-700 block mb-1">Case Category</label>
+                  <select
+                    value={newCaseData.caseCategory}
+                    onChange={(e) => setNewCaseData({ ...newCaseData, caseCategory: e.target.value as CaseCategory })}
+                    className="w-full bg-[#FAFAF7] p-2.5 rounded-xl border border-gray-200 font-bold text-[#0F6B4C]"
+                  >
+                    {ALL_CASE_CATEGORIES.map((cat) => (
+                      <option key={cat} value={cat}>
+                        {cat}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div>
+                  <label className="font-bold text-gray-700 block mb-1">FBR CNO / Suit / FIR No.</label>
                   <input
                     type="text"
-                    placeholder="e.g. CNO-100008927"
+                    placeholder="e.g. CNO-100008927 or Suit #12"
                     value={newCaseData.cnoNumber}
                     onChange={(e) => setNewCaseData({ ...newCaseData, cnoNumber: e.target.value })}
                     className="w-full bg-[#FAFAF7] p-2.5 rounded-xl border border-gray-200 font-mono"
@@ -5148,32 +5845,40 @@ export const AdminPortal: React.FC = () => {
                     className="w-full bg-[#FAFAF7] p-2.5 rounded-xl border border-gray-200"
                   >
                     <option value="Islamabad High Court (IHC)">Islamabad High Court (IHC)</option>
+                    <option value="Lahore High Court (LHC)">Lahore High Court (LHC)</option>
+                    <option value="Sindh High Court (SHC)">Sindh High Court (SHC)</option>
+                    <option value="Supreme Court of Pakistan">Supreme Court of Pakistan</option>
                     <option value="Appellate Tribunal Inland Revenue (ATIR)">Appellate Tribunal (ATIR)</option>
                     <option value="Commissioner Inland Revenue (Appeals)">CIR (Appeals)</option>
                     <option value="FBR RTO Islamabad">FBR RTO Islamabad</option>
                     <option value="FBR LTO Rawalpindi">FBR LTO Rawalpindi</option>
-                    <option value="Supreme Court of Pakistan">Supreme Court of Pakistan</option>
+                    <option value="Civil Court / District Court">Civil Court / District Court</option>
+                    <option value="Sessions Court / Criminal Court">Sessions Court / Criminal Court</option>
+                    <option value="Family & Guardian Court">Family &amp; Guardian Court</option>
+                    <option value="Rent Controller Tribunal">Rent Controller Tribunal</option>
+                    <option value="Banking Court">Banking Court</option>
+                    <option value="SECP / Regulatory Tribunal">SECP / Regulatory Tribunal</option>
                   </select>
                 </div>
 
                 <div>
-                  <label className="font-bold text-gray-700 block mb-1">Section Code</label>
+                  <label className="font-bold text-gray-700 block mb-1">Section Code / Provision</label>
                   <input
                     type="text"
                     value={newCaseData.sectionCode}
                     onChange={(e) => setNewCaseData({ ...newCaseData, sectionCode: e.target.value })}
-                    placeholder="122(5A), 177, 7E, 214C"
+                    placeholder="122(5A), 7E, Art. 199, Sec 9"
                     className="w-full bg-[#FAFAF7] p-2.5 rounded-xl border border-gray-200 font-bold"
                   />
                 </div>
 
                 <div>
-                  <label className="font-bold text-gray-700 block mb-1">Tax Year</label>
+                  <label className="font-bold text-gray-700 block mb-1">Tax Year / Filing Year</label>
                   <input
                     type="text"
                     value={newCaseData.taxYear}
                     onChange={(e) => setNewCaseData({ ...newCaseData, taxYear: e.target.value })}
-                    placeholder="Tax Year 2025"
+                    placeholder="Tax Year 2026 / Year 2026"
                     className="w-full bg-[#FAFAF7] p-2.5 rounded-xl border border-gray-200"
                   />
                 </div>
@@ -5334,7 +6039,7 @@ export const AdminPortal: React.FC = () => {
       {/* MODAL 2: NEW CLIENT */}
       {showAddClientModal && (
         <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-white rounded-3xl max-w-md w-full p-6 border border-[#0F6B4C]/20 shadow-2xl">
+          <div className="bg-white rounded-3xl max-w-lg w-full p-6 border border-[#0F6B4C]/20 shadow-2xl max-h-[92vh] overflow-y-auto">
             <div className="flex justify-between items-center mb-4">
               <h3 className="text-lg font-heading font-extrabold text-[#1A1A1A]">Register Client Profile</h3>
               <button onClick={() => setShowAddClientModal(false)} className="text-gray-400 hover:text-black">
@@ -5342,6 +6047,54 @@ export const AdminPortal: React.FC = () => {
               </button>
             </div>
             <form onSubmit={handleCreateClient} className="space-y-3 text-xs">
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="font-bold text-gray-700 block mb-1">Client Separation Group</label>
+                  <select
+                    value={newClientData.clientType}
+                    onChange={(e) => {
+                      const nextType = e.target.value as ClientType;
+                      setNewClientData({
+                        ...newClientData,
+                        clientType: nextType,
+                        category:
+                          nextType === 'Tax Client' && NON_TAX_CLIENT_CATEGORIES.includes(newClientData.category)
+                            ? 'Tax Client'
+                            : nextType === 'Other Category' && !NON_TAX_CLIENT_CATEGORIES.includes(newClientData.category)
+                            ? 'Civil Litigation'
+                            : newClientData.category
+                      });
+                    }}
+                    className="w-full bg-[#FAFAF7] p-2.5 rounded-xl border border-gray-200 font-bold text-[#0F6B4C]"
+                  >
+                    <option value="Tax Client">Tax Client</option>
+                    <option value="Other Category">Other Category</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="font-bold text-gray-700 block mb-1">Specific Category</label>
+                  <select
+                    value={newClientData.category}
+                    onChange={(e) => {
+                      const nextCat = e.target.value as ClientCategory;
+                      setNewClientData({
+                        ...newClientData,
+                        category: nextCat,
+                        clientType: NON_TAX_CLIENT_CATEGORIES.includes(nextCat) ? 'Other Category' : 'Tax Client'
+                      });
+                    }}
+                    className="w-full bg-[#FAFAF7] p-2.5 rounded-xl border border-gray-200 font-bold"
+                  >
+                    {ALL_CLIENT_CATEGORIES.map((cat) => (
+                      <option key={cat} value={cat}>
+                        {cat}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+
               <div>
                 <label className="font-bold text-gray-700 block mb-1">Client Full Name / Entity</label>
                 <input
@@ -5356,11 +6109,10 @@ export const AdminPortal: React.FC = () => {
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="font-bold text-gray-700 block mb-1">NTN Number</label>
+                  <label className="font-bold text-gray-700 block mb-1">NTN Number (Optional for Non-Tax)</label>
                   <input
                     type="text"
-                    required
-                    placeholder="3948572-9"
+                    placeholder="3948572-9 or N/A"
                     value={newClientData.ntn}
                     onChange={(e) => setNewClientData({ ...newClientData, ntn: e.target.value })}
                     className="w-full bg-[#FAFAF7] p-2.5 rounded-xl border border-gray-200 font-mono"
@@ -5405,6 +6157,17 @@ export const AdminPortal: React.FC = () => {
               </div>
 
               <div>
+                <label className="font-bold text-gray-700 block mb-1">City</label>
+                <input
+                  type="text"
+                  placeholder="Islamabad"
+                  value={newClientData.city}
+                  onChange={(e) => setNewClientData({ ...newClientData, city: e.target.value })}
+                  className="w-full bg-[#FAFAF7] p-2.5 rounded-xl border border-gray-200"
+                />
+              </div>
+
+              <div>
                 <label className="font-bold text-gray-700 block mb-1">Set Client Portal Password</label>
                 <input
                   type="text"
@@ -5414,11 +6177,10 @@ export const AdminPortal: React.FC = () => {
                   onChange={(e) => setNewClientData({ ...newClientData, clientLoginPassword: e.target.value })}
                   className="w-full bg-[#FAFAF7] p-2.5 rounded-xl border border-gray-200 font-mono"
                 />
-                <span className="text-[10px] text-gray-500 mt-1 block">Client can use this email & password to sign in to their Client Portal</span>
+                <span className="text-[10px] text-gray-500 mt-1 block">Client can use this email &amp; password to sign in to their Client Portal</span>
               </div>
 
               <div className="flex justify-end gap-2 pt-3">
-
                 <button
                   type="button"
                   onClick={() => setShowAddClientModal(false)}
@@ -5431,6 +6193,124 @@ export const AdminPortal: React.FC = () => {
                   className="px-5 py-2 rounded-xl bg-[#0A4B35] text-white font-extrabold shadow-sm"
                 >
                   Save Client
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL 2B: EDIT CLIENT / RECLASSIFY CATEGORY */}
+      {editingClient && (
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-white rounded-3xl max-w-lg w-full p-6 border border-[#0F6B4C]/20 shadow-2xl max-h-[92vh] overflow-y-auto">
+            <div className="flex justify-between items-center mb-4">
+              <h3 className="text-lg font-heading font-extrabold text-[#1A1A1A]">Edit Client &amp; Category</h3>
+              <button onClick={() => setEditingClient(null)} className="text-gray-400 hover:text-black">
+                ✕
+              </button>
+            </div>
+            <form onSubmit={handleSaveClientEdit} className="space-y-3 text-xs">
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="font-bold text-gray-700 block mb-1">Client Separation Group</label>
+                  <select
+                    value={editClientForm.clientType || 'Tax Client'}
+                    onChange={(e) => setEditClientForm({ ...editClientForm, clientType: e.target.value as ClientType })}
+                    className="w-full bg-[#FAFAF7] p-2.5 rounded-xl border border-gray-200 font-bold text-[#0F6B4C]"
+                  >
+                    <option value="Tax Client">Tax Client</option>
+                    <option value="Other Category">Other Category</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="font-bold text-gray-700 block mb-1">Specific Category</label>
+                  <select
+                    value={editClientForm.category || 'Tax Client'}
+                    onChange={(e) => setEditClientForm({ ...editClientForm, category: e.target.value as ClientCategory })}
+                    className="w-full bg-[#FAFAF7] p-2.5 rounded-xl border border-gray-200 font-bold"
+                  >
+                    {ALL_CLIENT_CATEGORIES.map((cat) => (
+                      <option key={cat} value={cat}>
+                        {cat}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+
+              <div>
+                <label className="font-bold text-gray-700 block mb-1">Client Full Name / Entity</label>
+                <input
+                  type="text"
+                  required
+                  value={editClientForm.name || ''}
+                  onChange={(e) => setEditClientForm({ ...editClientForm, name: e.target.value })}
+                  className="w-full bg-[#FAFAF7] p-2.5 rounded-xl border border-gray-200 font-bold"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="font-bold text-gray-700 block mb-1">NTN Number</label>
+                  <input
+                    type="text"
+                    value={editClientForm.ntn || ''}
+                    onChange={(e) => setEditClientForm({ ...editClientForm, ntn: e.target.value })}
+                    className="w-full bg-[#FAFAF7] p-2.5 rounded-xl border border-gray-200 font-mono"
+                  />
+                </div>
+                <div>
+                  <label className="font-bold text-gray-700 block mb-1">CNIC Number</label>
+                  <input
+                    type="text"
+                    required
+                    value={editClientForm.cnic || ''}
+                    onChange={(e) => setEditClientForm({ ...editClientForm, cnic: e.target.value })}
+                    className="w-full bg-[#FAFAF7] p-2.5 rounded-xl border border-gray-200 font-mono"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="font-bold text-gray-700 block mb-1">Phone</label>
+                  <input
+                    type="text"
+                    required
+                    value={editClientForm.phone || ''}
+                    onChange={(e) => setEditClientForm({ ...editClientForm, phone: e.target.value })}
+                    className="w-full bg-[#FAFAF7] p-2.5 rounded-xl border border-gray-200"
+                  />
+                </div>
+                <div>
+                  <label className="font-bold text-gray-700 block mb-1">Status</label>
+                  <select
+                    value={editClientForm.status || 'Active'}
+                    onChange={(e) => setEditClientForm({ ...editClientForm, status: e.target.value as any })}
+                    className="w-full bg-[#FAFAF7] p-2.5 rounded-xl border border-gray-200 font-bold"
+                  >
+                    <option value="Active">Active</option>
+                    <option value="On Hold">On Hold</option>
+                    <option value="Archived">Archived</option>
+                  </select>
+                </div>
+              </div>
+
+              <div className="flex justify-end gap-2 pt-3">
+                <button
+                  type="button"
+                  onClick={() => setEditingClient(null)}
+                  className="px-4 py-2 rounded-xl border text-gray-600 font-bold"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="px-5 py-2 rounded-xl bg-[#0A4B35] text-white font-extrabold shadow-sm"
+                >
+                  Update Client
                 </button>
               </div>
             </form>
@@ -6289,7 +7169,22 @@ export const AdminPortal: React.FC = () => {
                         </div>
 
                         <div>
-                          <label className="font-bold text-gray-700 block mb-1">Tax Year</label>
+                          <label className="font-bold text-gray-700 block mb-1">Case Category</label>
+                          <select
+                            value={editCaseForm.caseCategory || 'Tax & FBR Litigation'}
+                            onChange={(e) => setEditCaseForm({ ...editCaseForm, caseCategory: e.target.value as CaseCategory })}
+                            className="w-full bg-[#FAFAF7] p-2.5 rounded-xl border border-gray-300 font-bold text-[#0F6B4C]"
+                          >
+                            {ALL_CASE_CATEGORIES.map((cat) => (
+                              <option key={cat} value={cat}>
+                                {cat}
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+
+                        <div>
+                          <label className="font-bold text-gray-700 block mb-1">Tax Year / Filing Year</label>
                           <input
                             type="text"
                             required
@@ -6307,11 +7202,19 @@ export const AdminPortal: React.FC = () => {
                             className="w-full bg-[#FAFAF7] p-2.5 rounded-xl border border-gray-300 font-bold"
                           >
                             <option value="Islamabad High Court (IHC)">Islamabad High Court (IHC)</option>
+                            <option value="Lahore High Court (LHC)">Lahore High Court (LHC)</option>
+                            <option value="Sindh High Court (SHC)">Sindh High Court (SHC)</option>
+                            <option value="Supreme Court of Pakistan">Supreme Court of Pakistan</option>
                             <option value="Appellate Tribunal Inland Revenue (ATIR)">Appellate Tribunal (ATIR)</option>
                             <option value="Commissioner Inland Revenue (Appeals)">CIR (Appeals)</option>
                             <option value="FBR RTO Islamabad">FBR RTO Islamabad</option>
                             <option value="FBR LTO Rawalpindi">FBR LTO Rawalpindi</option>
-                            <option value="Supreme Court of Pakistan">Supreme Court of Pakistan</option>
+                            <option value="Civil Court / District Court">Civil Court / District Court</option>
+                            <option value="Sessions Court / Criminal Court">Sessions Court / Criminal Court</option>
+                            <option value="Family & Guardian Court">Family &amp; Guardian Court</option>
+                            <option value="Rent Controller Tribunal">Rent Controller Tribunal</option>
+                            <option value="Banking Court">Banking Court</option>
+                            <option value="SECP / Regulatory Tribunal">SECP / Regulatory Tribunal</option>
                           </select>
                         </div>
 
