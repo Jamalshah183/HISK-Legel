@@ -1177,7 +1177,10 @@ export function usePortalStore() {
 
   // --- LEGAL INSIGHTS ACTIONS ---
   const addInsight = (insight: Omit<LegalInsightItem, 'id' | 'createdAt'>) => {
-    const slug = insight.slug?.trim() || insight.title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
+    const slug = (insight.slug?.trim() || insight.title)
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/(^-|-$)/g, '');
     const newId = slug || createUniqueId('post');
     const newInsight: LegalInsightItem = {
       ...insight,

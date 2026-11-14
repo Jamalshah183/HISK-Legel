@@ -1260,9 +1260,10 @@ export const AdminPortal: React.FC = () => {
           .filter(Boolean)
       : [insightFormData.excerpt.trim() || insightFormData.title.trim()];
 
-    const generatedSlug =
-      insightFormData.slug.trim() ||
-      insightFormData.title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
+    const generatedSlug = (insightFormData.slug.trim() || insightFormData.title)
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/(^-|-$)/g, '');
 
     const authorPayload = {
       name: insightFormData.author.trim() || 'Hafiz Irfan Shabber Kayani',
