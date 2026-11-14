@@ -20,7 +20,10 @@ import {
   ReviewItem,
   LegalInsightItem,
   PartnerItem,
-  CaseCategory
+  CaseCategory,
+  StaffAccount,
+  StaffPermission,
+  StaffRolePreset
 } from '@/types/portal';
 import {
   INITIAL_CLIENTS,
@@ -39,8 +42,10 @@ import {
   INITIAL_INSIGHTS,
   INITIAL_PARTNERS
 } from '@/data/portalSeedData';
-import { db } from './firebase';
-import { collection, onSnapshot, doc, setDoc, deleteDoc } from 'firebase/firestore';
+import { db, auth } from './firebase';
+import { collection, onSnapshot, doc, setDoc, deleteDoc, getDoc } from 'firebase/firestore';
+import { onAuthStateChanged } from 'firebase/auth';
+import { isSuperAdminEmail } from './staffPermissions';
 
 const STORAGE_KEYS = {
   CLIENTS: 'hisk_portal_clients_v2',
@@ -57,7 +62,8 @@ const STORAGE_KEYS = {
   TEAM_MEMBERS: 'hisk_portal_team_members_v2',
   REVIEWS: 'hisk_portal_reviews_v2',
   INSIGHTS: 'hisk_portal_insights_v2',
-  PARTNERS: 'hisk_portal_partners_v2'
+  PARTNERS: 'hisk_portal_partners_v2',
+  STAFF_ACCOUNTS: 'hisk_portal_staff_accounts_v1'
 };
 
 const createUniqueId = (prefix: string) => `${prefix}-${Date.now().toString().slice(-4)}`;
@@ -214,6 +220,16 @@ export function usePortalStore() {
       return saved ? JSON.parse(saved) : INITIAL_PARTNERS;
     } catch {
       return INITIAL_PARTNERS;
+    }
+  });
+
+  const [staffAccounts, setStaffAccounts] = useState<StaffAccount[]>(() => {
+    if (typeof window === 'undefined') return [];
+    try {
+      const saved = localStorage.getItem(STORAGE_KEYS.STAFF_ACCOUNTS);
+      return saved ? JSON.parse(saved) : [];
+    } catch {
+      return [];
     }
   });
 
@@ -420,6 +436,70 @@ export function usePortalStore() {
       }
     }, (err) => console.warn('Membership Partners snapshot error:', err));
 
+    // 16. Staff & Employee Access Control (Auth-scoped to protect staff records)
+    let unsubStaffList: (() => void) | null = null;
+    let unsubSelfStaff: (() => void) | null = null;
+
+    const unsubAuth = onAuthStateChanged(auth, async (user) => {
+      if (unsubStaffList) {
+        unsubStaffList();
+        unsubStaffList = null;
+      }
+      if (unsubSelfStaff) {
+        unsubSelfStaff();
+        unsubSelfStaff = null;
+      }
+
+      const email = user?.email?.trim().toLowerCase();
+      if (!email) return;
+
+      let canManageStaff = isSuperAdminEmail(email);
+
+      if (!canManageStaff) {
+        try {
+          const selfSnap = await getDoc(doc(db, 'staff_accounts', email));
+          if (selfSnap.exists()) {
+            const selfData = selfSnap.data() as StaffAccount;
+            canManageStaff =
+              selfData.status === 'Active' &&
+              Array.isArray(selfData.permissions) &&
+              selfData.permissions.includes('staff_management');
+          }
+        } catch (err) {
+          console.warn('Self staff lookup error:', err);
+        }
+
+        unsubSelfStaff = onSnapshot(
+          doc(db, 'staff_accounts', email),
+          (docSnap) => {
+            if (docSnap.exists()) {
+              const selfData = docSnap.data() as StaffAccount;
+              setStaffAccounts((prev) => {
+                const others = prev.filter((item) => item.id !== selfData.id && item.email.toLowerCase() !== email);
+                const merged = [selfData, ...others];
+                saveToStorage(STORAGE_KEYS.STAFF_ACCOUNTS, merged);
+                return merged;
+              });
+            }
+          },
+          (err) => console.warn('Self staff snapshot error:', err)
+        );
+      }
+
+      if (canManageStaff) {
+        unsubStaffList = onSnapshot(
+          collection(db, 'staff_accounts'),
+          (snap) => {
+            const items = snap.docs.map((d) => d.data() as StaffAccount);
+            items.sort((a, b) => (a.name || '').localeCompare(b.name || ''));
+            setStaffAccounts(items);
+            saveToStorage(STORAGE_KEYS.STAFF_ACCOUNTS, items);
+          },
+          (err) => console.warn('Staff accounts snapshot error:', err)
+        );
+      }
+    });
+
     return () => {
       unsubClients();
       unsubCases();
@@ -436,6 +516,9 @@ export function usePortalStore() {
       unsubReviews();
       unsubInsights();
       unsubPartners();
+      unsubAuth();
+      if (unsubStaffList) unsubStaffList();
+      if (unsubSelfStaff) unsubSelfStaff();
     };
   }, []);
 
@@ -1291,6 +1374,86 @@ export function usePortalStore() {
     INITIAL_PARTNERS.forEach((p) => saveToFirestoreDoc('membership_partners', p.id, p));
   };
 
+  // --- STAFF & EMPLOYEE ACCESS CONTROL ACTIONS ---
+  const addOrUpdateStaffAccount = (staffData: {
+    name: string;
+    email: string;
+    designation: string;
+    phone?: string;
+    role: StaffRolePreset;
+    permissions: StaffPermission[];
+    status?: 'Active' | 'Suspended';
+    notes?: string;
+    authorizedBy?: string;
+  }) => {
+    const normalizedEmail = staffData.email.trim().toLowerCase();
+    const existing = staffAccounts.find((s) => s.id === normalizedEmail || s.email.toLowerCase() === normalizedEmail);
+    const now = getTodayDateString();
+    const staffRecord: StaffAccount = {
+      id: normalizedEmail,
+      name: staffData.name.trim(),
+      email: normalizedEmail,
+      designation: staffData.designation.trim() || 'Team Member',
+      phone: staffData.phone?.trim() || '',
+      role: staffData.role,
+      permissions: Array.from(new Set(staffData.permissions)),
+      status: staffData.status || existing?.status || 'Active',
+      notes: staffData.notes?.trim() || '',
+      authorizedBy: staffData.authorizedBy || existing?.authorizedBy || 'Admin Partner',
+      lastLoginAt: existing?.lastLoginAt,
+      createdAt: existing?.createdAt || now,
+      updatedAt: now
+    };
+
+    const updated = [
+      staffRecord,
+      ...staffAccounts.filter((s) => s.id !== normalizedEmail && s.email.toLowerCase() !== normalizedEmail)
+    ];
+    setStaffAccounts(updated);
+    saveToStorage(STORAGE_KEYS.STAFF_ACCOUNTS, updated);
+    saveToFirestoreDoc('staff_accounts', normalizedEmail, staffRecord);
+    return staffRecord;
+  };
+
+  const updateStaffAccount = (staffId: string, updates: Partial<StaffAccount>) => {
+    const normalizedId = staffId.trim().toLowerCase();
+    let targetDoc: StaffAccount | null = null;
+    const updated = staffAccounts.map((s) => {
+      if (s.id === normalizedId || s.email.toLowerCase() === normalizedId) {
+        targetDoc = {
+          ...s,
+          ...updates,
+          email: (updates.email || s.email).trim().toLowerCase(),
+          updatedAt: getTodayDateString()
+        };
+        return targetDoc;
+      }
+      return s;
+    });
+    setStaffAccounts(updated);
+    saveToStorage(STORAGE_KEYS.STAFF_ACCOUNTS, updated);
+    if (targetDoc) {
+      const target = targetDoc as StaffAccount;
+      saveToFirestoreDoc('staff_accounts', target.id, target);
+    }
+  };
+
+  const toggleStaffStatus = (staffId: string) => {
+    const normalizedId = staffId.trim().toLowerCase();
+    const existing = staffAccounts.find((s) => s.id === normalizedId || s.email.toLowerCase() === normalizedId);
+    if (!existing) return;
+    const nextStatus = existing.status === 'Active' ? 'Suspended' : 'Active';
+    updateStaffAccount(existing.id, { status: nextStatus });
+  };
+
+  const deleteStaffAccount = (staffId: string) => {
+    const normalizedId = staffId.trim().toLowerCase();
+    const updated = staffAccounts.filter((s) => s.id !== normalizedId && s.email.toLowerCase() !== normalizedId);
+    setStaffAccounts(updated);
+    saveToStorage(STORAGE_KEYS.STAFF_ACCOUNTS, updated);
+    deleteFromFirestoreDoc('staff_accounts', normalizedId);
+  };
+
   return {
     isLoaded,
     clients,
@@ -1308,6 +1471,7 @@ export function usePortalStore() {
     reviews,
     insights,
     partners,
+    staffAccounts,
     addClient,
     updateClient,
     addClientCredential,
@@ -1347,6 +1511,10 @@ export function usePortalStore() {
     addPartner,
     updatePartner,
     deletePartner,
-    resetPartners
+    resetPartners,
+    addOrUpdateStaffAccount,
+    updateStaffAccount,
+    toggleStaffStatus,
+    deleteStaffAccount
   };
 }

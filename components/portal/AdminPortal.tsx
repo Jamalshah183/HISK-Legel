@@ -2,7 +2,8 @@
 
 import React, { useState, useEffect } from 'react';
 import Image from 'next/image';
-import { auth, googleProvider } from '@/lib/firebase';
+import { auth, googleProvider, db } from '@/lib/firebase';
+import { doc, getDoc } from 'firebase/firestore';
 import {
   signInWithPopup,
   signInWithEmailAndPassword,
@@ -77,7 +78,11 @@ import {
   MessageSquareQuote,
   BookOpen,
   Newspaper,
-  Pin
+  Pin,
+  UserCog,
+  UserPlus,
+  Ban,
+  ShieldAlert
 } from 'lucide-react';
 import { usePortalStore } from '@/lib/portalStore';
 import { InvoicePdfModal } from '@/components/portal/InvoicePdfModal';
@@ -101,8 +106,21 @@ import {
   PartnerItem,
   ClientType,
   ClientCategory,
-  CaseCategory
+  CaseCategory,
+  StaffAccount,
+  StaffPermission,
+  StaffRolePreset
 } from '@/types/portal';
+import {
+  SUPER_ADMIN_EMAILS,
+  ALL_STAFF_PERMISSIONS,
+  STAFF_PERMISSION_DEFINITIONS,
+  ROLE_PERMISSION_PRESETS,
+  STAFF_ROLE_PRESETS,
+  isSuperAdminEmail,
+  resolveStaffPermissions,
+  getRequiredPermissionForTab
+} from '@/lib/staffPermissions';
 import { buildGoogleCalendarUrl } from '@/lib/googleCalendar';
 import { buildWhatsAppUrl } from '@/lib/whatsapp';
 
@@ -110,17 +128,18 @@ const ADVOCATES = [
   'Hafiz Irfan Shabber Kayani'
 ];
 
-const ALLOWED_ADMIN_EMAILS = [
-  'jamalshah183@gmail.com',
-  'adv.kayani@gmail.com',
-  'adv.kiyani@gmail.com',
-  'aamer222@gmail.com',
-  'namias327@gmail.com',
-  'rahim.nawaz@i-con.pk',
-];
-
 const AUTHORIZED_ADMIN_CREDENTIALS: Record<string, string> = {
   'rahim.nawaz@i-con.pk': 'admin123',
+};
+
+const getStoredStaffAccounts = (): StaffAccount[] => {
+  if (typeof window === 'undefined') return [];
+  try {
+    const raw = localStorage.getItem('hisk_portal_staff_accounts_v1');
+    return raw ? (JSON.parse(raw) as StaffAccount[]) : [];
+  } catch {
+    return [];
+  }
 };
 
 const getInitialAdminPortalSession = (): FirebaseUser | null => {
@@ -129,12 +148,23 @@ const getInitialAdminPortalSession = (): FirebaseUser | null => {
     const saved = localStorage.getItem('hisk_admin_auth_user');
     if (saved) {
       const parsed = JSON.parse(saved);
-      if (parsed?.email && ALLOWED_ADMIN_EMAILS.includes(parsed.email.toLowerCase())) {
+      const email = parsed?.email?.toLowerCase();
+      if (email && isSuperAdminEmail(email)) {
         return {
-          email: parsed.email.toLowerCase(),
+          email,
           displayName: parsed.displayName || 'Authorized Admin',
-          uid: 'admin-partner-' + parsed.email.replace(/[^a-zA-Z0-9]/g, '_'),
+          uid: 'admin-partner-' + email.replace(/[^a-zA-Z0-9]/g, '_'),
         } as unknown as FirebaseUser;
+      }
+      if (email) {
+        const resolved = resolveStaffPermissions(email, getStoredStaffAccounts());
+        if (resolved.authorized) {
+          return {
+            email,
+            displayName: parsed.displayName || resolved.staffAccount?.name || 'Authorized Staff',
+            uid: 'staff-' + email.replace(/[^a-zA-Z0-9]/g, '_'),
+          } as unknown as FirebaseUser;
+        }
       }
     }
   } catch (e) {
@@ -156,21 +186,90 @@ export const AdminPortal: React.FC = () => {
   const [adminShowPassword, setAdminShowPassword] = useState<boolean>(false);
   const [adminIsRegisterMode, setAdminIsRegisterMode] = useState<boolean>(false);
 
+  const verifyAuthorizedAccount = async (
+    rawEmail?: string | null
+  ): Promise<{
+    authorized: boolean;
+    reason?: string;
+    role?: StaffRolePreset;
+    name?: string;
+  }> => {
+    const cleanEmail = rawEmail?.trim().toLowerCase() || '';
+    if (!cleanEmail) {
+      return { authorized: false, reason: 'No email address associated with this account.' };
+    }
+
+    if (isSuperAdminEmail(cleanEmail)) {
+      return { authorized: true, role: 'Super Admin' };
+    }
+
+    // 1. Check live Firestore staff_accounts document
+    try {
+      const snap = await getDoc(doc(db, 'staff_accounts', cleanEmail));
+      if (snap.exists()) {
+        const staff = snap.data() as StaffAccount;
+        if (staff.status !== 'Active') {
+          return {
+            authorized: false,
+            reason: `Access Suspended: Staff account (${cleanEmail}) has been suspended by an Administrator.`,
+          };
+        }
+        return { authorized: true, role: staff.role, name: staff.name };
+      }
+    } catch (err) {
+      console.warn('Firestore staff check note:', err);
+    }
+
+    // 2. Fallback check in local store / localStorage
+    const resolved = resolveStaffPermissions(cleanEmail, getStoredStaffAccounts());
+    if (resolved.authorized) {
+      return {
+        authorized: true,
+        role: resolved.role as StaffRolePreset,
+        name: resolved.staffAccount?.name,
+      };
+    }
+    if (resolved.status === 'Suspended') {
+      return {
+        authorized: false,
+        reason: `Access Suspended: Staff account (${cleanEmail}) has been suspended by an Administrator.`,
+      };
+    }
+
+    return {
+      authorized: false,
+      reason: `Access Denied: ${cleanEmail} is not authorized. Ask an Administrator to authorize your email under Staff & Access Control.`,
+    };
+  };
+
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (user) => {
+    const unsubscribe = onAuthStateChanged(auth, async (user) => {
       const email = user?.email?.toLowerCase();
-      if (user && email && ALLOWED_ADMIN_EMAILS.includes(email)) {
-        setAdminUser(user);
-        try {
-          localStorage.setItem(
-            'hisk_admin_auth_user',
-            JSON.stringify({
-              email: email,
-              displayName: user.displayName || email.split('@')[0],
-              loggedInAt: Date.now(),
-            })
-          );
-        } catch (e) {}
+      if (user && email) {
+        const authCheck = await verifyAuthorizedAccount(email);
+        if (authCheck.authorized) {
+          setAdminUser(user);
+          try {
+            localStorage.setItem(
+              'hisk_admin_auth_user',
+              JSON.stringify({
+                email,
+                displayName: authCheck.name || user.displayName || email.split('@')[0],
+                role: authCheck.role || 'Staff',
+                loggedInAt: Date.now(),
+              })
+            );
+          } catch (e) {}
+        } else {
+          await signOut(auth).catch(() => {});
+          try {
+            localStorage.removeItem('hisk_admin_auth_user');
+          } catch (e) {}
+          setAdminUser(null);
+          if (authCheck.reason) {
+            setAdminAuthError(authCheck.reason);
+          }
+        }
       } else {
         const saved = typeof window !== 'undefined' ? localStorage.getItem('hisk_admin_auth_user') : null;
         if (!saved) {
@@ -199,14 +298,16 @@ export const AdminPortal: React.FC = () => {
     try {
       const result = await signInWithPopup(auth, googleProvider);
       const email = result.user.email?.toLowerCase();
-      if (email && ALLOWED_ADMIN_EMAILS.includes(email)) {
+      const authCheck = await verifyAuthorizedAccount(email);
+      if (email && authCheck.authorized) {
         resetRateLimit('admin_login');
         try {
           localStorage.setItem(
             'hisk_admin_auth_user',
             JSON.stringify({
-              email: email,
-              displayName: result.user.displayName || email.split('@')[0],
+              email,
+              displayName: authCheck.name || result.user.displayName || email.split('@')[0],
+              role: authCheck.role || 'Staff',
               loggedInAt: Date.now(),
             })
           );
@@ -219,7 +320,7 @@ export const AdminPortal: React.FC = () => {
         } catch (e) {}
         setAdminUser(null);
         setAdminAuthError(
-          `Access Denied: You do not have partner admin privileges with this account (${result.user.email || 'unknown'}).`
+          authCheck.reason || `Access Denied: You do not have portal privileges with (${result.user.email || 'unknown'}).`
         );
       }
     } catch (err: any) {
@@ -237,14 +338,7 @@ export const AdminPortal: React.FC = () => {
 
     const cleanEmail = adminEmailInput.trim().toLowerCase();
     if (!cleanEmail || !adminPasswordInput) {
-      setAdminAuthError('Please enter both your authorized admin email and password.');
-      return;
-    }
-
-    if (!ALLOWED_ADMIN_EMAILS.includes(cleanEmail)) {
-      setAdminAuthError(
-        `Access Denied: ${cleanEmail} is not in the list of authorized admin emails.`
-      );
+      setAdminAuthError('Please enter both your authorized email and password.');
       return;
     }
 
@@ -272,6 +366,7 @@ export const AdminPortal: React.FC = () => {
           JSON.stringify({
             email: cleanEmail,
             displayName: 'Rahim Nawaz (Admin Partner)',
+            role: 'Super Admin',
             loggedInAt: Date.now(),
           })
         );
@@ -305,28 +400,54 @@ export const AdminPortal: React.FC = () => {
           return;
         }
         const result = await createUserWithEmailAndPassword(auth, cleanEmail, adminPasswordInput);
+        const authCheck = await verifyAuthorizedAccount(cleanEmail);
+        if (!authCheck.authorized) {
+          await result.user.delete().catch(() => {});
+          await signOut(auth).catch(() => {});
+          setAdminUser(null);
+          setAdminAuthError(
+            authCheck.reason || `Access Denied: ${cleanEmail} is not authorized for the Admin Portal.`
+          );
+          setAdminAuthLoading(false);
+          return;
+        }
         resetRateLimit('admin_login');
         try {
           localStorage.setItem(
             'hisk_admin_auth_user',
             JSON.stringify({
               email: cleanEmail,
-              displayName: result.user.displayName || cleanEmail.split('@')[0],
+              displayName: authCheck.name || result.user.displayName || cleanEmail.split('@')[0],
+              role: authCheck.role || 'Staff',
               loggedInAt: Date.now(),
             })
           );
         } catch (e) {}
         setAdminUser(result.user);
-        setAdminAuthSuccessMessage('Admin credentials verified. Welcome!');
+        setAdminAuthSuccessMessage(`Credentials verified (${authCheck.role || 'Authorized Staff'}). Welcome!`);
       } else {
         const result = await signInWithEmailAndPassword(auth, cleanEmail, adminPasswordInput);
+        const authCheck = await verifyAuthorizedAccount(cleanEmail);
+        if (!authCheck.authorized) {
+          await signOut(auth).catch(() => {});
+          try {
+            localStorage.removeItem('hisk_admin_auth_user');
+          } catch (e) {}
+          setAdminUser(null);
+          setAdminAuthError(
+            authCheck.reason || `Access Denied: ${cleanEmail} is not authorized for the Admin Portal.`
+          );
+          setAdminAuthLoading(false);
+          return;
+        }
         resetRateLimit('admin_login');
         try {
           localStorage.setItem(
             'hisk_admin_auth_user',
             JSON.stringify({
               email: cleanEmail,
-              displayName: result.user.displayName || cleanEmail.split('@')[0],
+              displayName: authCheck.name || result.user.displayName || cleanEmail.split('@')[0],
+              role: authCheck.role || 'Staff',
               loggedInAt: Date.now(),
             })
           );
@@ -365,8 +486,20 @@ export const AdminPortal: React.FC = () => {
       return;
     }
 
-    if (!ALLOWED_ADMIN_EMAILS.includes(cleanEmail)) {
-      setAdminAuthError(`Access Denied: ${cleanEmail} is not an authorized admin email.`);
+    const inKnownStaff =
+      isSuperAdminEmail(cleanEmail) ||
+      getStoredStaffAccounts().some((s) => s.email.toLowerCase() === cleanEmail && s.status === 'Active');
+
+    if (!inKnownStaff) {
+      // Allow Firebase to send reset email only if recognized, or verify via reset attempt
+      try {
+        await sendPasswordResetEmail(auth, cleanEmail);
+        setAdminAuthSuccessMessage(
+          `If ${cleanEmail} is registered and authorized, a password set/reset link has been sent. Check your inbox and spam folder.`
+        );
+      } catch (err: any) {
+        setAdminAuthError(err.message || 'Failed to send password reset email. Please try again.');
+      }
       return;
     }
 
@@ -455,14 +588,19 @@ export const AdminPortal: React.FC = () => {
     deleteInsight,
     resetInsights,
     partners,
+    staffAccounts,
     addPartner,
     updatePartner,
     deletePartner,
-    resetPartners
+    resetPartners,
+    addOrUpdateStaffAccount,
+    updateStaffAccount,
+    toggleStaffStatus,
+    deleteStaffAccount
   } = usePortalStore();
 
   const [activeTab, setActiveTab] = useState<
-    'dashboard' | 'clients' | 'cases' | 'calendar' | 'documents' | 'tasks' | 'billing' | 'notifications' | 'practiceAreas' | 'team' | 'reviews' | 'insights' | 'partners'
+    'dashboard' | 'clients' | 'cases' | 'calendar' | 'documents' | 'tasks' | 'billing' | 'notifications' | 'practiceAreas' | 'team' | 'reviews' | 'insights' | 'partners' | 'staffAccess'
   >('dashboard');
 
   // Calendar Month Navigation State
@@ -654,6 +792,168 @@ export const AdminPortal: React.FC = () => {
   const [clientStatusFilter, setClientStatusFilter] = useState<string>('All');
   const [editingClient, setEditingClient] = useState<Client | null>(null);
   const [editClientForm, setEditClientForm] = useState<Partial<Client>>({});
+
+  // Staff & Employee Access Control State
+  const [staffSearchTerm, setStaffSearchTerm] = useState('');
+  const [staffRoleFilter, setStaffRoleFilter] = useState('All');
+  const [staffStatusFilter, setStaffStatusFilter] = useState('All');
+  const [showStaffModal, setShowStaffModal] = useState(false);
+  const [editingStaffAccount, setEditingStaffAccount] = useState<StaffAccount | null>(null);
+  const [deleteConfirmStaff, setDeleteConfirmStaff] = useState<StaffAccount | null>(null);
+  const [staffActionSuccess, setStaffActionSuccess] = useState<string | null>(null);
+  const [staffFormData, setStaffFormData] = useState<{
+    name: string;
+    email: string;
+    designation: string;
+    phone: string;
+    role: StaffRolePreset;
+    permissions: StaffPermission[];
+    status: 'Active' | 'Suspended';
+    notes: string;
+  }>({
+    name: '',
+    email: '',
+    designation: 'Data Entry Operator',
+    phone: '',
+    role: 'Data Entry Operator',
+    permissions: ROLE_PERMISSION_PRESETS['Data Entry Operator'],
+    status: 'Active',
+    notes: '',
+  });
+
+  // Resolve active user's RBAC permissions
+  const currentAccess = resolveStaffPermissions(adminUser?.email, staffAccounts);
+  const hasPermission = (perm: StaffPermission): boolean =>
+    currentAccess.isSuperAdmin || currentAccess.permissions.includes(perm);
+
+  const sidebarItems = [
+    { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
+    { id: 'clients', label: 'Clients Directory', icon: UserCheck, badge: clients.length },
+    { id: 'cases', label: 'Case Management', icon: Briefcase, badge: cases.length },
+    { id: 'calendar', label: 'Hearing Calendar', icon: CalendarIcon, badge: hearings.length },
+    { id: 'documents', label: 'Document Vault', icon: FolderOpen, badge: documents.length },
+    { id: 'tasks', label: 'Tasks & Internal Notes', icon: CheckSquare },
+    { id: 'billing', label: 'Billing & Invoices', icon: CreditCard },
+    { id: 'notifications', label: 'WhatsApp / Email Alerts', icon: Send },
+    { id: 'practiceAreas', label: 'Practice Areas', icon: Scale, badge: practiceAreas?.length || 0 },
+    { id: 'team', label: 'Our Team', icon: Users, badge: teamMembers?.length || 0 },
+    { id: 'reviews', label: 'Client Reviews', icon: MessageSquareQuote, badge: reviews?.length || 0 },
+    { id: 'insights', label: 'Legal Insights', icon: BookOpen, badge: insights?.length || 0 },
+    { id: 'partners', label: 'Membership & Partners', icon: Award, badge: partners?.length || 0 },
+    {
+      id: 'staffAccess',
+      label: 'Staff & Access Control',
+      icon: UserCog,
+      badge: staffAccounts.filter((s) => s.status === 'Active').length,
+    },
+  ] as const;
+
+  const allowedTabIds = sidebarItems
+    .filter((item) => currentAccess.isSuperAdmin || currentAccess.permissions.includes(getRequiredPermissionForTab(item.id)))
+    .map((item) => item.id);
+  const firstAllowedTab = allowedTabIds[0] || 'dashboard';
+  const effectiveActiveTab = allowedTabIds.includes(activeTab as any) ? activeTab : firstAllowedTab;
+
+  const filteredStaffAccounts = (staffAccounts || []).filter((staff) => {
+    const q = staffSearchTerm.trim().toLowerCase();
+    const matchesSearch =
+      q === '' ||
+      staff.name.toLowerCase().includes(q) ||
+      staff.email.toLowerCase().includes(q) ||
+      staff.designation.toLowerCase().includes(q) ||
+      staff.role.toLowerCase().includes(q) ||
+      (staff.phone && staff.phone.toLowerCase().includes(q)) ||
+      (staff.permissions || []).some((p) => p.toLowerCase().includes(q));
+    const matchesRole = staffRoleFilter === 'All' || staff.role === staffRoleFilter;
+    const matchesStatus = staffStatusFilter === 'All' || staff.status === staffStatusFilter;
+    return matchesSearch && matchesRole && matchesStatus;
+  });
+
+  const handleOpenAddStaff = () => {
+    setEditingStaffAccount(null);
+    setStaffFormData({
+      name: '',
+      email: '',
+      designation: 'Data Entry Operator',
+      phone: '',
+      role: 'Data Entry Operator',
+      permissions: [...ROLE_PERMISSION_PRESETS['Data Entry Operator']],
+      status: 'Active',
+      notes: '',
+    });
+    setShowStaffModal(true);
+  };
+
+  const handleOpenEditStaff = (staff: StaffAccount) => {
+    setEditingStaffAccount(staff);
+    setStaffFormData({
+      name: staff.name,
+      email: staff.email,
+      designation: staff.designation || '',
+      phone: staff.phone || '',
+      role: staff.role,
+      permissions: Array.isArray(staff.permissions) ? [...staff.permissions] : ['dashboard'],
+      status: staff.status,
+      notes: staff.notes || '',
+    });
+    setShowStaffModal(true);
+  };
+
+  const handleStaffRoleChange = (nextRole: StaffRolePreset) => {
+    setStaffFormData((prev) => ({
+      ...prev,
+      role: nextRole,
+      designation: prev.designation || nextRole,
+      permissions: [...(ROLE_PERMISSION_PRESETS[nextRole] || ['dashboard'])],
+    }));
+  };
+
+  const handleToggleStaffPermission = (perm: StaffPermission) => {
+    setStaffFormData((prev) => {
+      const exists = prev.permissions.includes(perm);
+      const nextPerms = exists
+        ? prev.permissions.filter((p) => p !== perm)
+        : [...prev.permissions, perm];
+      return {
+        ...prev,
+        role: 'Custom Access',
+        permissions: nextPerms,
+      };
+    });
+  };
+
+  const handleSaveStaffAccount = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!staffFormData.name.trim() || !staffFormData.email.trim()) return;
+    if (staffFormData.permissions.length === 0) return;
+
+    const saved = addOrUpdateStaffAccount({
+      name: staffFormData.name,
+      email: staffFormData.email,
+      designation: staffFormData.designation || staffFormData.role,
+      phone: staffFormData.phone,
+      role: staffFormData.role,
+      permissions: staffFormData.permissions,
+      status: staffFormData.status,
+      notes: staffFormData.notes,
+      authorizedBy: adminUser?.email || 'Admin Partner',
+    });
+
+    setShowStaffModal(false);
+    setStaffActionSuccess(
+      editingStaffAccount
+        ? `Updated access permissions for ${saved.name} (${saved.email}).`
+        : `Authorized ${saved.name} (${saved.email}) as ${saved.role}.`
+    );
+    setTimeout(() => setStaffActionSuccess(null), 5000);
+  };
+
+  const handleDeleteStaffAccount = (staff: StaffAccount) => {
+    deleteStaffAccount(staff.id);
+    setDeleteConfirmStaff(null);
+    setStaffActionSuccess(`Removed portal access for ${staff.name} (${staff.email}).`);
+    setTimeout(() => setStaffActionSuccess(null), 4000);
+  };
 
   // Dashboard Quick Case Filter
   const [dashboardCaseGroupFilter, setDashboardCaseGroupFilter] = useState<'All' | 'Tax' | 'Other'>('All');
@@ -2511,6 +2811,31 @@ export const AdminPortal: React.FC = () => {
     );
   }
 
+  if (currentAccess.status === 'Suspended') {
+    return (
+      <div className="min-h-screen bg-[#FAFAF7] text-[#1A1A1A] p-6 flex items-center justify-center">
+        <div className="max-w-md w-full bg-white rounded-3xl border border-red-200 shadow-2xl p-8 text-center space-y-4">
+          <div className="w-14 h-14 rounded-2xl bg-red-50 text-red-600 flex items-center justify-center mx-auto">
+            <ShieldAlert className="w-7 h-7" />
+          </div>
+          <h1 className="text-xl font-heading font-extrabold text-[#1A1A1A]">Staff Access Suspended</h1>
+          <p className="text-xs text-gray-600">
+            Portal access for <span className="font-mono font-bold text-[#1A1A1A]">{adminUser.email}</span> has been
+            suspended by an Administrator. Please contact a Senior Partner to restore permissions.
+          </p>
+          <button
+            type="button"
+            onClick={handleAdminSignOut}
+            className="w-full bg-red-600 hover:bg-red-700 text-white font-extrabold py-3 px-4 rounded-2xl text-xs flex items-center justify-center gap-2 cursor-pointer"
+          >
+            <LogOut className="w-4 h-4" />
+            <span>Sign Out</span>
+          </button>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-[#FAFAF7] text-[#1A1A1A] flex flex-col md:flex-row">
       {/* Sidebar Navigation */}
@@ -2524,23 +2849,12 @@ export const AdminPortal: React.FC = () => {
           </div>
 
           <nav className="space-y-1.5">
-            {[
-              { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
-              { id: 'clients', label: 'Clients Directory', icon: UserCheck, badge: clients.length },
-              { id: 'cases', label: 'Case Management', icon: Briefcase, badge: cases.length },
-              { id: 'calendar', label: 'Hearing Calendar', icon: CalendarIcon, badge: hearings.length },
-              { id: 'documents', label: 'Document Vault', icon: FolderOpen },
-              { id: 'tasks', label: 'Tasks & Internal Notes', icon: CheckSquare },
-              { id: 'billing', label: 'Billing & Invoices', icon: CreditCard },
-              { id: 'notifications', label: 'WhatsApp / Email Alerts', icon: Send },
-              { id: 'practiceAreas', label: 'Practice Areas', icon: Scale, badge: practiceAreas?.length || 0 },
-              { id: 'team', label: 'Our Team', icon: Users, badge: teamMembers?.length || 0 },
-              { id: 'reviews', label: 'Client Reviews', icon: MessageSquareQuote, badge: reviews?.length || 0 },
-              { id: 'insights', label: 'Legal Insights', icon: BookOpen, badge: insights?.length || 0 },
-              { id: 'partners', label: 'Membership & Partners', icon: Award, badge: partners?.length || 0 }
-            ].map((item) => {
+            {sidebarItems
+              .filter((item) => hasPermission(getRequiredPermissionForTab(item.id)))
+              .map((item) => {
               const Icon = item.icon;
-              const isActive = activeTab === item.id;
+              const isActive = effectiveActiveTab === item.id;
+              const itemBadge = 'badge' in item ? item.badge : undefined;
               return (
                 <button
                   key={item.id}
@@ -2555,13 +2869,13 @@ export const AdminPortal: React.FC = () => {
                     <Icon className="w-4 h-4 shrink-0" />
                     <span>{item.label}</span>
                   </div>
-                  {item.badge !== undefined && (
+                  {itemBadge !== undefined && (
                     <span
                       className={`text-[10px] font-extrabold px-2 py-0.5 rounded-full ${
                         isActive ? 'bg-[#0A4B35] text-white' : 'bg-white/15 text-white'
                       }`}
                     >
-                      {item.badge}
+                      {itemBadge}
                     </span>
                   )}
                 </button>
@@ -2572,8 +2886,13 @@ export const AdminPortal: React.FC = () => {
 
         <div className="pt-4 border-t border-emerald-600/30 text-[11px] text-emerald-200 space-y-2">
           <div>
-            <div className="font-bold text-white">HISK LEGAL Advocates</div>
-            <div className="text-[10px] text-emerald-300 font-mono">{adminUser?.email || 'Authorized Advocate Admin'}</div>
+            <div className="flex items-center justify-between gap-1">
+              <div className="font-bold text-white">HISK LEGAL Desk</div>
+              <span className="text-[9px] font-extrabold uppercase px-2 py-0.5 rounded-full bg-[#F5A623] text-[#1A1A1A]">
+                {currentAccess.role}
+              </span>
+            </div>
+            <div className="text-[10px] text-emerald-300 font-mono truncate mt-0.5">{adminUser?.email || 'Authorized Staff'}</div>
           </div>
           <button
             type="button"
@@ -2581,7 +2900,7 @@ export const AdminPortal: React.FC = () => {
             className="w-full bg-red-600/80 hover:bg-red-600 text-white font-bold py-1.5 px-3 rounded-xl text-[11px] flex items-center justify-center gap-1.5 transition-all cursor-pointer"
           >
             <LogOut className="w-3.5 h-3.5" />
-            <span>Sign Out Admin</span>
+            <span>Sign Out</span>
           </button>
         </div>
       </aside>
@@ -2589,7 +2908,7 @@ export const AdminPortal: React.FC = () => {
       {/* Main Content Area */}
       <main className="flex-1 p-4 sm:p-6 lg:p-8 max-w-7xl mx-auto overflow-x-hidden">
         {/* --- TAB 1: DASHBOARD --- */}
-        {activeTab === 'dashboard' && (
+        {effectiveActiveTab === 'dashboard' && (
           <div className="space-y-6">
             {/* Top Control Header & Quick Launch Hub */}
             <div className="bg-white p-6 rounded-3xl border border-[#0F6B4C]/15 shadow-sm space-y-4">
@@ -2601,80 +2920,103 @@ export const AdminPortal: React.FC = () => {
                 </div>
 
                 <div className="flex items-center gap-2 flex-wrap">
-                  <button
-                    type="button"
-                    onClick={() => setShowAddCaseModal(true)}
-                    className="bg-[#F5A623] hover:bg-[#E09415] text-[#1A1A1A] font-extrabold px-4 py-2.5 rounded-2xl text-xs flex items-center gap-1.5 shadow-sm transition-all cursor-pointer"
-                  >
-                    <Plus className="w-4 h-4" />
-                    <span>Register Case File</span>
-                  </button>
+                  {hasPermission('data_entry') && (
+                    <button
+                      type="button"
+                      onClick={() => setShowAddCaseModal(true)}
+                      className="bg-[#F5A623] hover:bg-[#E09415] text-[#1A1A1A] font-extrabold px-4 py-2.5 rounded-2xl text-xs flex items-center gap-1.5 shadow-sm transition-all cursor-pointer"
+                    >
+                      <Plus className="w-4 h-4" />
+                      <span>Register Case File</span>
+                    </button>
+                  )}
 
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setNewDocData((prev) => ({
-                        ...prev,
-                        caseId: prev.caseId || cases[0]?.id || '',
-                        clientId: prev.clientId || cases[0]?.clientId || clients[0]?.id || ''
-                      }));
-                      setShowAddDocModal(true);
-                    }}
-                    className="bg-[#0A4B35] hover:bg-[#0F6B4C] text-white font-extrabold px-4 py-2.5 rounded-2xl text-xs flex items-center gap-1.5 shadow-sm transition-all cursor-pointer"
-                  >
-                    <Upload className="w-4 h-4 text-[#F5A623]" />
-                    <span>Upload Case File</span>
-                  </button>
+                  {hasPermission('document_management') && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setNewDocData((prev) => ({
+                          ...prev,
+                          caseId: prev.caseId || cases[0]?.id || '',
+                          clientId: prev.clientId || cases[0]?.clientId || clients[0]?.id || ''
+                        }));
+                        setShowAddDocModal(true);
+                      }}
+                      className="bg-[#0A4B35] hover:bg-[#0F6B4C] text-white font-extrabold px-4 py-2.5 rounded-2xl text-xs flex items-center gap-1.5 shadow-sm transition-all cursor-pointer"
+                    >
+                      <Upload className="w-4 h-4 text-[#F5A623]" />
+                      <span>Upload Case File</span>
+                    </button>
+                  )}
 
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setNewInvoiceData((prev) => ({
-                        ...prev,
-                        caseId: prev.caseId || cases[0]?.id || '',
-                        clientId: prev.clientId || cases[0]?.clientId || clients[0]?.id || ''
-                      }));
-                      setShowAddInvoiceModal(true);
-                    }}
-                    className="bg-[#0A4B35] hover:bg-[#0F6B4C] text-white font-extrabold px-4 py-2.5 rounded-2xl text-xs flex items-center gap-1.5 shadow-sm transition-all cursor-pointer"
-                  >
-                    <CreditCard className="w-4 h-4 text-[#F5A623]" />
-                    <span>Issue Fee Invoice</span>
-                  </button>
+                  {hasPermission('billing') && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setNewInvoiceData((prev) => ({
+                          ...prev,
+                          caseId: prev.caseId || cases[0]?.id || '',
+                          clientId: prev.clientId || cases[0]?.clientId || clients[0]?.id || ''
+                        }));
+                        setShowAddInvoiceModal(true);
+                      }}
+                      className="bg-[#0A4B35] hover:bg-[#0F6B4C] text-white font-extrabold px-4 py-2.5 rounded-2xl text-xs flex items-center gap-1.5 shadow-sm transition-all cursor-pointer"
+                    >
+                      <CreditCard className="w-4 h-4 text-[#F5A623]" />
+                      <span>Issue Fee Invoice</span>
+                    </button>
+                  )}
                 </div>
               </div>
 
               {/* Action Bar Shortcuts */}
               <div className="pt-3 border-t border-gray-100 flex items-center gap-2 overflow-x-auto text-xs font-bold text-[#0F6B4C]">
                 <span className="text-gray-400 text-[11px] uppercase font-mono mr-1">Quick Actions:</span>
-                <button
-                  onClick={() => setShowAddNoticeModal(true)}
-                  className="bg-[#FAFAF7] hover:bg-[#0A4B35]/10 text-[#0F6B4C] border border-gray-200 px-3 py-1.5 rounded-xl flex items-center gap-1 shrink-0"
-                >
-                  <AlertTriangle className="w-3.5 h-3.5 text-amber-600" />
-                  <span>Log FBR Notice</span>
-                </button>
-                <button
-                  onClick={() => setShowAddHearingModal(true)}
-                  className="bg-[#FAFAF7] hover:bg-[#0A4B35]/10 text-[#0F6B4C] border border-gray-200 px-3 py-1.5 rounded-xl flex items-center gap-1 shrink-0"
-                >
-                  <CalendarIcon className="w-3.5 h-3.5 text-[#F5A623]" />
-                  <span>Schedule Cause List Hearing</span>
-                </button>
-                <button
-                  onClick={() => setActiveTab('documents')}
-                  className="bg-[#FAFAF7] hover:bg-[#0A4B35]/10 text-[#0F6B4C] border border-gray-200 px-3 py-1.5 rounded-xl flex items-center gap-1 shrink-0"
-                >
-                  <FolderOpen className="w-3.5 h-3.5 text-[#0F6B4C]" />
-                  <span>Document Vault ({documents.length})</span>
-                </button>
-                <button
-                  onClick={() => setActiveTab('billing')}
-                  className="bg-[#FAFAF7] hover:bg-[#0A4B35]/10 text-[#0F6B4C] border border-gray-200 px-3 py-1.5 rounded-xl flex items-center gap-1 shrink-0"
-                >
-                  <CreditCard className="w-3.5 h-3.5 text-[#0F6B4C]" />
-                  <span>Billing & Invoices ({invoices.length})</span>
-                </button>
+                {hasPermission('data_entry') && (
+                  <>
+                    <button
+                      onClick={() => setShowAddNoticeModal(true)}
+                      className="bg-[#FAFAF7] hover:bg-[#0A4B35]/10 text-[#0F6B4C] border border-gray-200 px-3 py-1.5 rounded-xl flex items-center gap-1 shrink-0"
+                    >
+                      <AlertTriangle className="w-3.5 h-3.5 text-amber-600" />
+                      <span>Log FBR Notice</span>
+                    </button>
+                    <button
+                      onClick={() => setShowAddHearingModal(true)}
+                      className="bg-[#FAFAF7] hover:bg-[#0A4B35]/10 text-[#0F6B4C] border border-gray-200 px-3 py-1.5 rounded-xl flex items-center gap-1 shrink-0"
+                    >
+                      <CalendarIcon className="w-3.5 h-3.5 text-[#F5A623]" />
+                      <span>Schedule Cause List Hearing</span>
+                    </button>
+                  </>
+                )}
+                {hasPermission('document_management') && (
+                  <button
+                    onClick={() => setActiveTab('documents')}
+                    className="bg-[#FAFAF7] hover:bg-[#0A4B35]/10 text-[#0F6B4C] border border-gray-200 px-3 py-1.5 rounded-xl flex items-center gap-1 shrink-0"
+                  >
+                    <FolderOpen className="w-3.5 h-3.5 text-[#0F6B4C]" />
+                    <span>Document Vault ({documents.length})</span>
+                  </button>
+                )}
+                {hasPermission('billing') && (
+                  <button
+                    onClick={() => setActiveTab('billing')}
+                    className="bg-[#FAFAF7] hover:bg-[#0A4B35]/10 text-[#0F6B4C] border border-gray-200 px-3 py-1.5 rounded-xl flex items-center gap-1 shrink-0"
+                  >
+                    <CreditCard className="w-3.5 h-3.5 text-[#0F6B4C]" />
+                    <span>Billing & Invoices ({invoices.length})</span>
+                  </button>
+                )}
+                {hasPermission('staff_management') && (
+                  <button
+                    onClick={() => setActiveTab('staffAccess')}
+                    className="bg-[#FAFAF7] hover:bg-[#0A4B35]/10 text-[#0F6B4C] border border-gray-200 px-3 py-1.5 rounded-xl flex items-center gap-1 shrink-0"
+                  >
+                    <UserCog className="w-3.5 h-3.5 text-[#0F6B4C]" />
+                    <span>Staff Access ({staffAccounts.length})</span>
+                  </button>
+                )}
               </div>
             </div>
 
@@ -2920,7 +3262,7 @@ export const AdminPortal: React.FC = () => {
         )}
 
         {/* --- TAB 1B: CLIENTS DIRECTORY (TAX CLIENTS VS OTHER CATEGORIES) --- */}
-        {activeTab === 'clients' && (
+        {effectiveActiveTab === 'clients' && (
           <div className="space-y-6">
             <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 bg-white p-6 rounded-3xl border border-[#0F6B4C]/15 shadow-sm">
               <div>
@@ -3177,7 +3519,7 @@ export const AdminPortal: React.FC = () => {
         )}
 
         {/* --- TAB 2: CASE MANAGEMENT --- */}
-        {activeTab === 'cases' && (
+        {effectiveActiveTab === 'cases' && (
           <div className="space-y-6">
             <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 bg-white p-6 rounded-3xl border border-[#0F6B4C]/15 shadow-sm">
               <div>
@@ -3506,7 +3848,7 @@ export const AdminPortal: React.FC = () => {
         )}
 
         {/* --- TAB 5: HEARING CALENDAR (INTERACTIVE GRID) --- */}
-        {activeTab === 'calendar' && (
+        {effectiveActiveTab === 'calendar' && (
           <div className="space-y-6">
             <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 bg-white p-6 rounded-3xl border border-[#0F6B4C]/15 shadow-sm">
               <div>
@@ -3710,7 +4052,7 @@ export const AdminPortal: React.FC = () => {
         )}
 
         {/* --- TAB 6: DOCUMENT VAULT --- */}
-        {activeTab === 'documents' && (
+        {effectiveActiveTab === 'documents' && (
           <div className="space-y-6">
             <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 bg-white p-6 rounded-3xl border border-[#0F6B4C]/15 shadow-sm">
               <div>
@@ -3886,7 +4228,7 @@ export const AdminPortal: React.FC = () => {
         )}
 
         {/* --- TAB 7: TASKS & INTERNAL NOTES --- */}
-        {activeTab === 'tasks' && (
+        {effectiveActiveTab === 'tasks' && (
           <div className="space-y-6">
             <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 bg-white p-6 rounded-3xl border border-[#0F6B4C]/15 shadow-sm">
               <div>
@@ -4035,7 +4377,7 @@ export const AdminPortal: React.FC = () => {
         )}
 
         {/* --- TAB 8: BILLING & INVOICES --- */}
-        {activeTab === 'billing' && (
+        {effectiveActiveTab === 'billing' && (
           <div className="space-y-6">
             <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 bg-white p-6 rounded-3xl border border-[#0F6B4C]/15 shadow-sm">
               <div>
@@ -4226,7 +4568,7 @@ export const AdminPortal: React.FC = () => {
         )}
 
         {/* --- TAB 9: NOTIFICATIONS DISPATCHER --- */}
-        {activeTab === 'notifications' && (
+        {effectiveActiveTab === 'notifications' && (
           <div className="space-y-6">
             <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 bg-white p-6 rounded-3xl border border-[#0F6B4C]/15 shadow-sm">
               <div>
@@ -4360,7 +4702,7 @@ export const AdminPortal: React.FC = () => {
         )}
 
         {/* --- TAB 10: PRACTICE AREAS MANAGEMENT (SIMPLIFIED) --- */}
-        {activeTab === 'practiceAreas' && (
+        {effectiveActiveTab === 'practiceAreas' && (
           <div className="space-y-6">
             {/* Header */}
             <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 bg-white p-6 rounded-3xl border border-[#0F6B4C]/15 shadow-sm">
@@ -4562,7 +4904,7 @@ export const AdminPortal: React.FC = () => {
         )}
 
         {/* --- TAB 11: OUR TEAM MANAGEMENT (SIMPLIFIED) --- */}
-        {activeTab === 'team' && (
+        {effectiveActiveTab === 'team' && (
           <div className="space-y-6">
             {/* Header */}
             <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 bg-white p-6 rounded-3xl border border-[#0F6B4C]/15 shadow-sm">
@@ -4833,7 +5175,7 @@ export const AdminPortal: React.FC = () => {
         )}
 
         {/* TAB 12: CLIENT REVIEWS & TESTIMONIALS MANAGEMENT */}
-        {activeTab === 'reviews' && (
+        {effectiveActiveTab === 'reviews' && (
           <div className="space-y-6">
             {/* Action Success Alert */}
             {reviewActionSuccess && (
@@ -5163,7 +5505,7 @@ export const AdminPortal: React.FC = () => {
         )}
 
         {/* --- TAB 11: LEGAL INSIGHTS & BLOG MANAGEMENT --- */}
-        {activeTab === 'insights' && (
+        {effectiveActiveTab === 'insights' && (
           <div className="space-y-6">
             {/* Header & Quick Action Toolbar */}
             <div className="bg-white p-6 rounded-3xl border border-[#0F6B4C]/15 shadow-sm space-y-4">
@@ -5527,7 +5869,7 @@ export const AdminPortal: React.FC = () => {
         )}
 
         {/* --- TAB 12: MEMBERSHIP & PARTNERS MANAGEMENT --- */}
-        {activeTab === 'partners' && (
+        {effectiveActiveTab === 'partners' && (
           <div className="space-y-6">
             {/* Header & Action Toolbar */}
             <div className="bg-white p-6 rounded-3xl border border-[#0F6B4C]/15 shadow-sm space-y-4">
@@ -5760,6 +6102,296 @@ export const AdminPortal: React.FC = () => {
                 ))}
               </div>
             )}
+          </div>
+        )}
+
+        {/* --- TAB 14: STAFF & EMPLOYEE ACCESS CONTROL --- */}
+        {effectiveActiveTab === 'staffAccess' && hasPermission('staff_management') && (
+          <div className="space-y-6">
+            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 bg-white p-6 rounded-3xl border border-[#0F6B4C]/15 shadow-sm">
+              <div>
+                <span className="text-[10px] font-extrabold text-[#F5A623] uppercase tracking-wider block">
+                  Role-Based Access Control (RBAC)
+                </span>
+                <h1 className="text-2xl font-heading font-extrabold text-[#1A1A1A]">Staff &amp; Employee Access Control</h1>
+                <p className="text-xs text-[#5A6275] mt-0.5">
+                  Authorize team members with specific permissions (e.g. Data Entry, Document Management, Billing, Alerts, or CMS).
+                </p>
+              </div>
+
+              <button
+                type="button"
+                onClick={handleOpenAddStaff}
+                className="bg-[#0A4B35] hover:bg-[#0F6B4C] text-white font-extrabold px-5 py-2.5 rounded-2xl text-xs flex items-center gap-2 shadow-sm transition-all cursor-pointer shrink-0"
+              >
+                <UserPlus className="w-4 h-4 text-[#F5A623]" />
+                <span>Authorize Team Member</span>
+              </button>
+            </div>
+
+            {staffActionSuccess && (
+              <div className="bg-emerald-50 border border-emerald-300 text-emerald-900 px-5 py-3 rounded-2xl flex items-center justify-between text-xs font-semibold shadow-sm">
+                <div className="flex items-center gap-2">
+                  <CheckCircle2 className="w-4 h-4 text-[#0F6B4C] shrink-0" />
+                  <span>{staffActionSuccess}</span>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setStaffActionSuccess(null)}
+                  className="text-emerald-700 hover:text-emerald-900 font-bold"
+                >
+                  ✕
+                </button>
+              </div>
+            )}
+
+            {/* Overview Metrics */}
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+              <div className="bg-white p-5 rounded-3xl border border-[#0F6B4C]/15 shadow-sm">
+                <div className="text-[11px] font-bold text-[#5A6275] uppercase">Authorized Staff</div>
+                <div className="text-2xl font-heading font-extrabold text-[#1A1A1A] mt-1">{staffAccounts.length}</div>
+                <div className="text-[11px] text-[#0F6B4C] font-semibold mt-0.5">Managed via Admin Desk</div>
+              </div>
+              <div className="bg-white p-5 rounded-3xl border border-[#0F6B4C]/15 shadow-sm">
+                <div className="text-[11px] font-bold text-[#5A6275] uppercase">Active Accounts</div>
+                <div className="text-2xl font-heading font-extrabold text-[#0F6B4C] mt-1">
+                  {staffAccounts.filter((s) => s.status === 'Active').length}
+                </div>
+                <div className="text-[11px] text-emerald-700 font-semibold mt-0.5">Can sign in now</div>
+              </div>
+              <div className="bg-white p-5 rounded-3xl border border-[#0F6B4C]/15 shadow-sm">
+                <div className="text-[11px] font-bold text-[#5A6275] uppercase">Suspended</div>
+                <div className="text-2xl font-heading font-extrabold text-red-700 mt-1">
+                  {staffAccounts.filter((s) => s.status === 'Suspended').length}
+                </div>
+                <div className="text-[11px] text-red-600 font-semibold mt-0.5">Portal login blocked</div>
+              </div>
+              <div className="bg-white p-5 rounded-3xl border border-[#0F6B4C]/15 shadow-sm">
+                <div className="text-[11px] font-bold text-[#5A6275] uppercase">Master Super Admins</div>
+                <div className="text-2xl font-heading font-extrabold text-[#1A1A1A] mt-1">{SUPER_ADMIN_EMAILS.length}</div>
+                <div className="text-[11px] text-amber-700 font-semibold mt-0.5">Full firm access</div>
+              </div>
+            </div>
+
+            {/* Search & Filters */}
+            <div className="bg-white p-4 rounded-2xl border border-[#0F6B4C]/15 flex flex-wrap items-center justify-between gap-3 text-xs">
+              <div className="flex items-center gap-2 flex-1 min-w-[260px]">
+                <Search className="w-4 h-4 text-[#0F6B4C] shrink-0" />
+                <input
+                  type="text"
+                  placeholder="Search employees by Name, Email, Designation, Role, or Permission..."
+                  value={staffSearchTerm}
+                  onChange={(e) => setStaffSearchTerm(e.target.value)}
+                  className="w-full bg-[#FAFAF7] p-2.5 rounded-xl border border-gray-200 focus:outline-none focus:border-[#0F6B4C] text-xs font-medium"
+                />
+                {staffSearchTerm && (
+                  <button
+                    type="button"
+                    onClick={() => setStaffSearchTerm('')}
+                    className="p-1 hover:bg-gray-200 rounded-full text-gray-500 shrink-0"
+                  >
+                    <X className="w-3.5 h-3.5" />
+                  </button>
+                )}
+              </div>
+
+              <div className="flex flex-wrap items-center gap-2">
+                <select
+                  value={staffRoleFilter}
+                  onChange={(e) => setStaffRoleFilter(e.target.value)}
+                  className="bg-[#FAFAF7] p-2.5 rounded-xl border border-gray-200 font-bold text-xs"
+                >
+                  <option value="All">All Roles</option>
+                  {STAFF_ROLE_PRESETS.map((role) => (
+                    <option key={role} value={role}>
+                      {role}
+                    </option>
+                  ))}
+                </select>
+
+                <select
+                  value={staffStatusFilter}
+                  onChange={(e) => setStaffStatusFilter(e.target.value)}
+                  className="bg-[#FAFAF7] p-2.5 rounded-xl border border-gray-200 font-bold text-xs"
+                >
+                  <option value="All">All Statuses</option>
+                  <option value="Active">Active</option>
+                  <option value="Suspended">Suspended</option>
+                </select>
+
+                {(staffSearchTerm || staffRoleFilter !== 'All' || staffStatusFilter !== 'All') && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setStaffSearchTerm('');
+                      setStaffRoleFilter('All');
+                      setStaffStatusFilter('All');
+                    }}
+                    className="px-3 py-2 rounded-xl bg-gray-100 hover:bg-gray-200 text-gray-700 font-bold text-xs"
+                  >
+                    Reset
+                  </button>
+                )}
+              </div>
+            </div>
+
+            {/* Staff List */}
+            {filteredStaffAccounts.length === 0 ? (
+              <div className="bg-white p-10 rounded-3xl border border-[#0F6B4C]/15 text-center space-y-3">
+                <div className="w-12 h-12 rounded-2xl bg-[#0A4B35]/10 text-[#0A4B35] flex items-center justify-center mx-auto">
+                  <UserCog className="w-6 h-6" />
+                </div>
+                <h3 className="font-heading font-extrabold text-base text-[#1A1A1A]">
+                  {staffAccounts.length === 0 ? 'No Custom Employee Accounts Added Yet' : 'No Matching Employees Found'}
+                </h3>
+                <p className="text-xs text-[#5A6275] max-w-md mx-auto">
+                  {staffAccounts.length === 0
+                    ? 'Authorize staff members (such as Data Entry Operators or Document Managers) by adding their email and selecting only the modules they should access.'
+                    : 'Try clearing your search or role filters.'}
+                </p>
+                <button
+                  type="button"
+                  onClick={staffAccounts.length === 0 ? handleOpenAddStaff : () => {
+                    setStaffSearchTerm('');
+                    setStaffRoleFilter('All');
+                    setStaffStatusFilter('All');
+                  }}
+                  className="bg-[#0A4B35] hover:bg-[#0F6B4C] text-white text-xs font-extrabold px-5 py-2.5 rounded-xl inline-flex items-center gap-2 cursor-pointer"
+                >
+                  <UserPlus className="w-4 h-4 text-[#F5A623]" />
+                  <span>{staffAccounts.length === 0 ? 'Authorize First Team Member' : 'Show All Employees'}</span>
+                </button>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {filteredStaffAccounts.map((staff) => (
+                  <div
+                    key={staff.id}
+                    className={`bg-white p-5 rounded-3xl border shadow-sm transition-all flex flex-col justify-between gap-4 ${
+                      staff.status === 'Suspended' ? 'border-red-200 opacity-85' : 'border-[#0F6B4C]/15 hover:shadow-md'
+                    }`}
+                  >
+                    <div className="space-y-3">
+                      <div className="flex flex-wrap items-center justify-between gap-2">
+                        <div className="flex flex-wrap items-center gap-1.5">
+                          <span className="text-[10px] font-extrabold px-2.5 py-1 rounded-full bg-[#0A4B35] text-white">
+                            {staff.role}
+                          </span>
+                          <span
+                            className={`text-[10px] font-extrabold px-2.5 py-1 rounded-full ${
+                              staff.status === 'Active'
+                                ? 'bg-emerald-100 text-emerald-800'
+                                : 'bg-red-100 text-red-700'
+                            }`}
+                          >
+                            {staff.status}
+                          </span>
+                        </div>
+                        <span className="text-[10px] text-gray-400 font-mono">Added {staff.createdAt}</span>
+                      </div>
+
+                      <div>
+                        <h3 className="font-heading font-extrabold text-base text-[#1A1A1A]">{staff.name}</h3>
+                        <p className="text-xs text-[#5A6275] font-semibold">{staff.designation}</p>
+                        <div className="text-xs font-mono text-[#0F6B4C] mt-1">{staff.email}</div>
+                        {staff.phone && <div className="text-[11px] text-gray-500 mt-0.5">{staff.phone}</div>}
+                      </div>
+
+                      <div className="space-y-1.5">
+                        <div className="text-[10px] font-bold uppercase tracking-wider text-gray-500">
+                          Authorized Modules ({staff.permissions?.length || 0})
+                        </div>
+                        <div className="flex flex-wrap gap-1.5">
+                          {(staff.permissions || []).map((permKey) => {
+                            const def = STAFF_PERMISSION_DEFINITIONS.find((d) => d.key === permKey);
+                            return (
+                              <span
+                                key={permKey}
+                                className="text-[10px] font-bold bg-[#E8F5F0] text-[#0F6B4C] px-2.5 py-1 rounded-lg border border-[#0F6B4C]/15"
+                              >
+                                {def?.shortLabel || permKey}
+                              </span>
+                            );
+                          })}
+                        </div>
+                      </div>
+
+                      {staff.notes && (
+                        <p className="text-[11px] text-gray-600 bg-[#FAFAF7] p-2.5 rounded-xl border border-gray-100">
+                          {staff.notes}
+                        </p>
+                      )}
+                    </div>
+
+                    <div className="pt-3 border-t border-gray-100 flex flex-wrap items-center justify-between gap-2">
+                      <button
+                        type="button"
+                        onClick={() => toggleStaffStatus(staff.id)}
+                        className={`text-[11px] font-bold px-3 py-1.5 rounded-xl flex items-center gap-1 transition-colors cursor-pointer ${
+                          staff.status === 'Active'
+                            ? 'bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-200'
+                            : 'bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-200'
+                        }`}
+                      >
+                        {staff.status === 'Active' ? (
+                          <>
+                            <Ban className="w-3.5 h-3.5" />
+                            <span>Suspend</span>
+                          </>
+                        ) : (
+                          <>
+                            <CheckCircle2 className="w-3.5 h-3.5" />
+                            <span>Activate</span>
+                          </>
+                        )}
+                      </button>
+
+                      <div className="flex items-center gap-1.5">
+                        <button
+                          type="button"
+                          onClick={() => handleOpenEditStaff(staff)}
+                          className="text-[11px] font-bold bg-gray-100 hover:bg-gray-200 text-gray-800 px-3 py-1.5 rounded-xl flex items-center gap-1 cursor-pointer"
+                        >
+                          <Edit3 className="w-3.5 h-3.5" />
+                          <span>Edit Access</span>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setDeleteConfirmStaff(staff)}
+                          className="p-1.5 rounded-xl bg-red-50 hover:bg-red-100 text-red-600 cursor-pointer"
+                          title="Remove Staff Access"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {/* Built-In Master Super Admins Card */}
+            <div className="bg-white p-6 rounded-3xl border border-[#0F6B4C]/15 shadow-sm space-y-3">
+              <div className="flex items-center gap-2">
+                <ShieldCheck className="w-5 h-5 text-[#0F6B4C]" />
+                <div>
+                  <h3 className="font-heading font-extrabold text-sm text-[#1A1A1A]">Built-In Master Administrators</h3>
+                  <p className="text-[11px] text-[#5A6275]">
+                    These partner accounts retain permanent Super Admin access to all modules and Staff Access Control.
+                  </p>
+                </div>
+              </div>
+              <div className="flex flex-wrap gap-2">
+                {SUPER_ADMIN_EMAILS.map((email) => (
+                  <span
+                    key={email}
+                    className="text-[11px] font-mono font-bold bg-[#FAFAF7] border border-gray-200 text-[#1A1A1A] px-3 py-1.5 rounded-xl"
+                  >
+                    {email}
+                  </span>
+                ))}
+              </div>
+            </div>
           </div>
         )}
       </main>
@@ -7088,14 +7720,16 @@ export const AdminPortal: React.FC = () => {
                 </div>
 
                 <div className="flex items-center gap-2">
-                  <button
-                    onClick={handleStartEditCase}
-                    className="bg-[#0A4B35] hover:bg-[#0F6B4C] text-white font-extrabold px-3 py-1.5 rounded-xl text-xs flex items-center gap-1.5 shadow-sm"
-                    title="Edit Case File Details"
-                  >
-                    <Edit3 className="w-3.5 h-3.5 text-[#F5A623]" />
-                    <span>{isEditingCase ? 'Cancel Edit' : 'Edit Case'}</span>
-                  </button>
+                  {hasPermission('data_entry') && (
+                    <button
+                      onClick={handleStartEditCase}
+                      className="bg-[#0A4B35] hover:bg-[#0F6B4C] text-white font-extrabold px-3 py-1.5 rounded-xl text-xs flex items-center gap-1.5 shadow-sm"
+                      title="Edit Case File Details"
+                    >
+                      <Edit3 className="w-3.5 h-3.5 text-[#F5A623]" />
+                      <span>{isEditingCase ? 'Cancel Edit' : 'Edit Case'}</span>
+                    </button>
+                  )}
 
                   <button
                     onClick={() => {
@@ -7112,14 +7746,16 @@ export const AdminPortal: React.FC = () => {
               {/* Navigation Tabs inside Case Detail Drawer */}
               <div className="flex items-center gap-1 border-b pb-2 text-xs font-bold overflow-x-auto">
                 {[
-                  { id: 'overview', label: 'Overview & Details' },
-                  { id: 'notices', label: `FBR Notices (${notices.filter((n) => n.caseId === selectedCase.id).length})` },
-                  { id: 'whatsapp', label: 'WhatsApp Alerts 💬' },
-                  { id: 'tasks', label: `Tasks (${tasks.filter((t) => t.caseId === selectedCase.id).length})` },
-                  { id: 'notes', label: `Notes (${notes.filter((n) => n.caseId === selectedCase.id).length})` },
-                  { id: 'documents', label: `Docs (${documents.filter((d) => d.caseId === selectedCase.id).length})` },
-                  { id: 'billing', label: `Invoices (${invoices.filter((i) => i.caseId === selectedCase.id).length})` }
-                ].map((t) => (
+                  { id: 'overview', label: 'Overview & Details', allowed: true },
+                  { id: 'notices', label: `FBR Notices (${notices.filter((n) => n.caseId === selectedCase.id).length})`, allowed: hasPermission('data_entry') },
+                  { id: 'whatsapp', label: 'WhatsApp Alerts 💬', allowed: hasPermission('notifications') },
+                  { id: 'tasks', label: `Tasks (${tasks.filter((t) => t.caseId === selectedCase.id).length})`, allowed: hasPermission('tasks_notes') },
+                  { id: 'notes', label: `Notes (${notes.filter((n) => n.caseId === selectedCase.id).length})`, allowed: hasPermission('tasks_notes') },
+                  { id: 'documents', label: `Docs (${documents.filter((d) => d.caseId === selectedCase.id).length})`, allowed: hasPermission('document_management') },
+                  { id: 'billing', label: `Invoices (${invoices.filter((i) => i.caseId === selectedCase.id).length})`, allowed: hasPermission('billing') }
+                ]
+                  .filter((t) => t.allowed)
+                  .map((t) => (
                   <button
                     key={t.id}
                     onClick={() => setCaseDetailTab(t.id as any)}
@@ -9673,6 +10309,273 @@ export const AdminPortal: React.FC = () => {
               >
                 <Trash2 className="w-3.5 h-3.5" />
                 <span>Confirm Delete</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* --- MODAL: AUTHORIZE / EDIT STAFF ACCESS --- */}
+      {showStaffModal && (
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-white rounded-3xl max-w-2xl w-full p-6 border border-[#0F6B4C]/20 shadow-2xl max-h-[92vh] overflow-y-auto">
+            <div className="flex justify-between items-center mb-4 border-b pb-3">
+              <div>
+                <span className="text-[10px] font-bold text-[#F5A623] uppercase tracking-wider block">
+                  Staff Access Authorization
+                </span>
+                <h3 className="text-lg font-heading font-extrabold text-[#1A1A1A]">
+                  {editingStaffAccount ? `Edit Access: ${editingStaffAccount.name}` : 'Authorize New Team Member'}
+                </h3>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowStaffModal(false)}
+                className="text-gray-400 hover:text-black font-bold cursor-pointer"
+              >
+                ✕
+              </button>
+            </div>
+
+            <form onSubmit={handleSaveStaffAccount} className="space-y-4 text-xs">
+              {!editingStaffAccount && teamMembers.length > 0 && (
+                <div className="bg-[#FAFAF7] p-3 rounded-2xl border border-gray-200 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                  <span className="text-[11px] font-bold text-gray-700">Pre-fill Name from Public Team List (Optional):</span>
+                  <select
+                    value=""
+                    onChange={(e) => {
+                      const picked = teamMembers.find((m) => m.id === e.target.value);
+                      if (picked) {
+                        setStaffFormData((prev) => ({
+                          ...prev,
+                          name: picked.name,
+                          designation: picked.title || prev.designation,
+                        }));
+                      }
+                    }}
+                    className="bg-white px-3 py-1.5 rounded-xl border border-gray-300 text-xs font-bold text-[#0F6B4C]"
+                  >
+                    <option value="">-- Select a Team Member --</option>
+                    {teamMembers.map((m) => (
+                      <option key={m.id} value={m.id}>
+                        {m.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="font-bold text-gray-800 block mb-1">
+                    Employee Full Name <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    placeholder="e.g. Muhammad Usman"
+                    value={staffFormData.name}
+                    onChange={(e) => setStaffFormData({ ...staffFormData, name: e.target.value })}
+                    className="w-full bg-[#FAFAF7] px-3 py-2.5 rounded-xl border border-gray-200 focus:outline-none focus:border-[#0F6B4C]"
+                  />
+                </div>
+
+                <div>
+                  <label className="font-bold text-gray-800 block mb-1">
+                    Authorized Google / Login Email <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    type="email"
+                    required
+                    disabled={!!editingStaffAccount}
+                    placeholder="employee@gmail.com"
+                    value={staffFormData.email}
+                    onChange={(e) => setStaffFormData({ ...staffFormData, email: e.target.value })}
+                    className={`w-full px-3 py-2.5 rounded-xl border border-gray-200 font-mono focus:outline-none focus:border-[#0F6B4C] ${
+                      editingStaffAccount ? 'bg-gray-100 text-gray-600 cursor-not-allowed' : 'bg-[#FAFAF7]'
+                    }`}
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                <div>
+                  <label className="font-bold text-gray-800 block mb-1">Designation / Title</label>
+                  <input
+                    type="text"
+                    placeholder="e.g. Data Entry Clerk"
+                    value={staffFormData.designation}
+                    onChange={(e) => setStaffFormData({ ...staffFormData, designation: e.target.value })}
+                    className="w-full bg-[#FAFAF7] px-3 py-2.5 rounded-xl border border-gray-200 focus:outline-none focus:border-[#0F6B4C]"
+                  />
+                </div>
+
+                <div>
+                  <label className="font-bold text-gray-800 block mb-1">Phone / WhatsApp</label>
+                  <input
+                    type="text"
+                    placeholder="+92 300 0000000"
+                    value={staffFormData.phone}
+                    onChange={(e) => setStaffFormData({ ...staffFormData, phone: e.target.value })}
+                    className="w-full bg-[#FAFAF7] px-3 py-2.5 rounded-xl border border-gray-200 focus:outline-none focus:border-[#0F6B4C]"
+                  />
+                </div>
+
+                <div>
+                  <label className="font-bold text-gray-800 block mb-1">Account Status</label>
+                  <select
+                    value={staffFormData.status}
+                    onChange={(e) =>
+                      setStaffFormData({ ...staffFormData, status: e.target.value as 'Active' | 'Suspended' })
+                    }
+                    className="w-full bg-[#FAFAF7] px-3 py-2.5 rounded-xl border border-gray-200 font-bold"
+                  >
+                    <option value="Active">Active (Allowed)</option>
+                    <option value="Suspended">Suspended (Blocked)</option>
+                  </select>
+                </div>
+              </div>
+
+              {/* Role Preset */}
+              <div>
+                <label className="font-bold text-gray-800 block mb-1.5">Role Preset</label>
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                  {STAFF_ROLE_PRESETS.map((roleName) => (
+                    <button
+                      key={roleName}
+                      type="button"
+                      onClick={() => handleStaffRoleChange(roleName)}
+                      className={`px-3 py-2 rounded-xl border text-left font-bold transition-all cursor-pointer ${
+                        staffFormData.role === roleName
+                          ? 'bg-[#0A4B35] text-white border-[#0A4B35]'
+                          : 'bg-[#FAFAF7] text-gray-700 border-gray-200 hover:border-[#0F6B4C]'
+                      }`}
+                    >
+                      {roleName}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Granular Module Permissions */}
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <label className="font-bold text-gray-800">
+                    Specific Portal Access Permissions <span className="text-red-500">*</span>
+                  </label>
+                  <span className="text-[11px] font-bold text-[#0F6B4C]">
+                    {staffFormData.permissions.length} selected
+                  </span>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                  {STAFF_PERMISSION_DEFINITIONS.map((perm) => {
+                    const checked = staffFormData.permissions.includes(perm.key);
+                    return (
+                      <label
+                        key={perm.key}
+                        className={`p-3 rounded-2xl border flex items-start gap-2.5 cursor-pointer transition-all ${
+                          checked
+                            ? 'bg-emerald-50/80 border-[#0F6B4C] text-[#1A1A1A]'
+                            : 'bg-[#FAFAF7] border-gray-200 text-gray-700 hover:border-gray-300'
+                        }`}
+                      >
+                        <input
+                          type="checkbox"
+                          checked={checked}
+                          onChange={() => handleToggleStaffPermission(perm.key)}
+                          className="mt-0.5 rounded border-gray-300 text-[#0A4B35] focus:ring-[#0F6B4C]"
+                        />
+                        <div>
+                          <div className="font-extrabold text-xs">{perm.label}</div>
+                          <div className="text-[10px] text-gray-500 mt-0.5 leading-snug">{perm.description}</div>
+                        </div>
+                      </label>
+                    );
+                  })}
+                </div>
+                {staffFormData.permissions.length === 0 && (
+                  <p className="text-[11px] text-red-600 font-bold">
+                    Please select at least one module permission for this employee.
+                  </p>
+                )}
+              </div>
+
+              <div>
+                <label className="font-bold text-gray-800 block mb-1">Admin Notes (Optional)</label>
+                <input
+                  type="text"
+                  placeholder="e.g. Authorized for Islamabad office intake desk only"
+                  value={staffFormData.notes}
+                  onChange={(e) => setStaffFormData({ ...staffFormData, notes: e.target.value })}
+                  className="w-full bg-[#FAFAF7] px-3 py-2.5 rounded-xl border border-gray-200"
+                />
+              </div>
+
+              <div className="bg-amber-50 border border-amber-200 p-3 rounded-2xl text-[11px] text-amber-900">
+                <strong>How the employee signs in:</strong> They open the Admin Portal and either click{' '}
+                <strong>Sign in with Google</strong> using this exact email, or click{' '}
+                <strong>&quot;Create your password here&quot;</strong> on the login screen to register a password for this email.
+              </div>
+
+              <div className="flex items-center justify-end gap-2 pt-3 border-t">
+                <button
+                  type="button"
+                  onClick={() => setShowStaffModal(false)}
+                  className="px-4 py-2 rounded-xl border text-gray-600 font-bold cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={staffFormData.permissions.length === 0}
+                  className="px-5 py-2.5 rounded-xl bg-[#0A4B35] hover:bg-[#0F6B4C] disabled:opacity-50 text-white font-extrabold shadow-sm cursor-pointer"
+                >
+                  {editingStaffAccount ? 'Save Access Permissions' : 'Authorize Employee'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* --- MODAL: CONFIRM REMOVE STAFF ACCESS --- */}
+      {deleteConfirmStaff && (
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-white rounded-3xl max-w-md w-full p-6 border border-red-200 shadow-2xl space-y-4">
+            <div className="w-12 h-12 rounded-2xl bg-red-50 text-red-600 flex items-center justify-center mx-auto">
+              <ShieldAlert className="w-6 h-6" />
+            </div>
+
+            <div className="text-center space-y-2">
+              <h3 className="font-heading font-extrabold text-base text-[#1A1A1A]">
+                Revoke Employee Portal Access?
+              </h3>
+              <p className="text-xs text-gray-600">
+                Are you sure you want to remove portal authorization for{' '}
+                <strong className="text-black font-extrabold">{deleteConfirmStaff.name}</strong> (
+                <span className="font-mono">{deleteConfirmStaff.email}</span>)?
+              </p>
+              <p className="text-[11px] text-red-700 font-medium bg-red-50 p-2 rounded-xl">
+                They will immediately lose access to the Admin Portal on their next action or sign-in.
+              </p>
+            </div>
+
+            <div className="flex items-center justify-end gap-2.5 pt-2">
+              <button
+                type="button"
+                onClick={() => setDeleteConfirmStaff(null)}
+                className="bg-gray-100 hover:bg-gray-200 text-gray-700 font-bold px-4 py-2 rounded-xl text-xs cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={() => handleDeleteStaffAccount(deleteConfirmStaff)}
+                className="bg-red-600 hover:bg-red-700 text-white font-extrabold px-4 py-2 rounded-xl text-xs flex items-center gap-1.5 shadow-sm cursor-pointer"
+              >
+                <Trash2 className="w-3.5 h-3.5" />
+                <span>Revoke Access</span>
               </button>
             </div>
           </div>

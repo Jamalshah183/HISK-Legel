@@ -1,12 +1,20 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
     function isSignedIn() {
       return request.auth != null;
     }
 
-    function isAdmin() {
-      return isSignedIn() && (
+    function hasVerifiedEmail() {
+      return isSignedIn() && request.auth.token.email != null;
+    }
+
+    function isSuperAdmin() {
+      return hasVerifiedEmail() && (
         request.auth.token.email.lower() == 'jamalshah183@gmail.com' ||
         request.auth.token.email.lower() == 'adv.kayani@gmail.com' ||
         request.auth.token.email.lower() == 'adv.kiyani@gmail.com' ||
@@ -16,10 +24,112 @@ service cloud.firestore {
       );
     }
 
-    match /{document=**} {
+    function staffPath() {
+      return /databases/$(database)/documents/staff_accounts/$(request.auth.token.email.lower());
+    }
+
+    function isActiveStaff() {
+      return hasVerifiedEmail() &&
+        exists(staffPath()) &&
+        get(staffPath()).data.status == 'Active';
+    }
+
+    function hasStaffPerm(perm) {
+      return isSuperAdmin() || (
+        isActiveStaff() &&
+        get(staffPath()).data.permissions is list &&
+        (perm in get(staffPath()).data.permissions)
+      );
+    }
+
+    // Staff & Employee Access Control
+    match /staff_accounts/{staffEmail} {
+      allow get: if isSuperAdmin() ||
+        hasStaffPerm('staff_management') ||
+        (hasVerifiedEmail() && request.auth.token.email.lower() == staffEmail);
+      allow list: if isSuperAdmin() || hasStaffPerm('staff_management');
+      allow create, update, delete: if isSuperAdmin() || hasStaffPerm('staff_management');
+    }
+
+    // Core Legal & Data Entry Collections
+    match /clients/{clientId} {
       allow read: if true;
-      allow write: if isAdmin();
+      allow write: if hasStaffPerm('data_entry');
+    }
+
+    match /cases/{caseId} {
+      allow read: if true;
+      allow write: if hasStaffPerm('data_entry');
+    }
+
+    match /notices/{noticeId} {
+      allow read: if true;
+      allow write: if hasStaffPerm('data_entry');
+    }
+
+    match /hearings/{hearingId} {
+      allow read: if true;
+      allow write: if hasStaffPerm('data_entry');
+    }
+
+    match /clientCredentials/{credId} {
+      allow read: if true;
+      allow write: if hasStaffPerm('data_entry');
+    }
+
+    // Document Management Vault
+    match /documents/{docId} {
+      allow read: if true;
+      allow write: if hasStaffPerm('document_management');
+    }
+
+    // Tasks & Privileged Notes
+    match /tasks/{taskId} {
+      allow read: if true;
+      allow write: if hasStaffPerm('tasks_notes') || hasStaffPerm('data_entry');
+    }
+
+    match /notes/{noteId} {
+      allow read: if true;
+      allow write: if hasStaffPerm('tasks_notes') || hasStaffPerm('data_entry');
+    }
+
+    // Billing & Fee Invoices
+    match /invoices/{invoiceId} {
+      allow read: if true;
+      allow write: if hasStaffPerm('billing');
+    }
+
+    // WhatsApp & Email Notification Logs
+    match /notifications/{notifId} {
+      allow read: if true;
+      allow write: if hasStaffPerm('notifications') || hasStaffPerm('data_entry');
+    }
+
+    // Public Website CMS Collections
+    match /practice_areas/{areaId} {
+      allow read: if true;
+      allow write: if hasStaffPerm('content_cms');
+    }
+
+    match /team_members/{memberId} {
+      allow read: if true;
+      allow write: if hasStaffPerm('content_cms');
+    }
+
+    match /client_reviews/{reviewId} {
+      allow read: if true;
+      allow write: if hasStaffPerm('content_cms');
+    }
+
+    match /legal_insights/{insightId} {
+      allow read: if true;
+      allow write: if hasStaffPerm('content_cms');
+    }
+
+    match /membership_partners/{partnerId} {
+      allow read: if true;
+      allow write: if hasStaffPerm('content_cms');
     }
   }
 }
-

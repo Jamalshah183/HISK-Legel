@@ -55,6 +55,14 @@
     "legalInsights": {
       "title": "Legal Insights",
       "description": "Legal articles, tax guides, FBR analyses, and firm publications"
+    },
+    "membershipPartners": {
+      "title": "Membership Partners",
+      "description": "Institutional bar associations and partner logos displayed on the firm site"
+    },
+    "staffAccounts": {
+      "title": "Staff & Access Control",
+      "description": "Authorized team members, role presets, granular RBAC permissions, and active/suspended status keyed by lowercase email"
     }
   }
 }

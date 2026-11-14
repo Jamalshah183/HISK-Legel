@@ -304,5 +304,41 @@ export interface PartnerItem {
   updatedAt?: string;
 }
 
+export type StaffPermission =
+  | 'dashboard'
+  | 'data_entry'
+  | 'document_management'
+  | 'tasks_notes'
+  | 'billing'
+  | 'notifications'
+  | 'content_cms'
+  | 'staff_management';
+
+export type StaffRolePreset =
+  | 'Super Admin'
+  | 'Senior Partner'
+  | 'Data Entry Operator'
+  | 'Document Manager'
+  | 'Case & Calendar Clerk'
+  | 'Billing & Accounts'
+  | 'Custom Access';
+
+export interface StaffAccount {
+  id: string; // normalized lowercase email
+  name: string;
+  email: string;
+  designation: string;
+  phone?: string;
+  role: StaffRolePreset;
+  permissions: StaffPermission[];
+  status: 'Active' | 'Suspended';
+  notes?: string;
+  authorizedBy?: string;
+  lastLoginAt?: string;
+  createdAt: string;
+  updatedAt?: string;
+}
+
+
 
 
