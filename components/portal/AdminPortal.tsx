@@ -2807,70 +2807,69 @@ export const AdminPortal: React.FC = () => {
   return (
     <div className="min-h-screen bg-[#FAFAF7] text-[#1A1A1A] flex flex-col md:flex-row">
       {/* Sidebar Navigation */}
-      <aside className="w-full md:w-64 bg-[#0A4B35] text-white shrink-0 border-r border-[#0F6B4C] p-4 flex flex-col justify-between">
-        <div>
-          <div className="mb-6 px-2 pt-2">
+      <aside className="w-full md:w-64 bg-[#0A4B35] text-white shrink-0 border-r border-[#0F6B4C] p-3.5 flex flex-col md:sticky md:top-[49px] md:max-h-[calc(100vh-50px)]">
+        <div className="mb-3 px-1.5 pt-1 shrink-0 space-y-2.5">
+          <div>
             <span className="text-[10px] uppercase font-extrabold tracking-wider text-[#F5A623] block">
               Case Management System
             </span>
             <h2 className="text-lg font-heading font-extrabold text-white">HISK LEGAL Desk</h2>
           </div>
 
-          <nav className="space-y-1.5">
-            {sidebarItems
-              .filter((item) => hasPermission(getRequiredPermissionForTab(item.id)))
-              .map((item) => {
-              const Icon = item.icon;
-              const isActive = effectiveActiveTab === item.id;
-              const itemBadge = 'badge' in item ? item.badge : undefined;
-              return (
-                <button
-                  key={item.id}
-                  onClick={() => setActiveTab(item.id as any)}
-                  className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs font-bold transition-all ${
-                    isActive
-                      ? 'bg-[#F5A623] text-[#1A1A1A] shadow-md'
-                      : 'text-emerald-100 hover:text-white hover:bg-white/10'
-                  }`}
-                >
-                  <div className="flex items-center gap-2.5">
-                    <Icon className="w-4 h-4 shrink-0" />
-                    <span>{item.label}</span>
-                  </div>
-                  {itemBadge !== undefined && (
-                    <span
-                      className={`text-[10px] font-extrabold px-2 py-0.5 rounded-full ${
-                        isActive ? 'bg-[#0A4B35] text-white' : 'bg-white/15 text-white'
-                      }`}
-                    >
-                      {itemBadge}
-                    </span>
-                  )}
-                </button>
-              );
-            })}
-          </nav>
-        </div>
-
-        <div className="pt-4 border-t border-emerald-600/30 text-[11px] text-emerald-200 space-y-2">
-          <div>
-            <div className="flex items-center justify-between gap-1">
-              <div className="font-bold text-white">HISK LEGAL Desk</div>
-              <span className="text-[9px] font-extrabold uppercase px-2 py-0.5 rounded-full bg-[#F5A623] text-[#1A1A1A]">
+          <div className="bg-[#0F6B4C]/60 border border-emerald-500/30 rounded-2xl p-2.5 space-y-2">
+            <div className="flex items-center justify-between gap-1.5">
+              <span className="text-[10px] text-emerald-100 font-mono truncate">
+                {adminUser?.email || 'Authorized Staff'}
+              </span>
+              <span className="text-[9px] font-extrabold uppercase px-2 py-0.5 rounded-full bg-[#F5A623] text-[#1A1A1A] shrink-0">
                 {currentAccess.role}
               </span>
             </div>
-            <div className="text-[10px] text-emerald-300 font-mono truncate mt-0.5">{adminUser?.email || 'Authorized Staff'}</div>
+            <button
+              type="button"
+              onClick={handleAdminSignOut}
+              className="w-full bg-red-600/90 hover:bg-red-600 text-white font-bold py-1.5 px-3 rounded-xl text-[11px] flex items-center justify-center gap-1.5 transition-all cursor-pointer shadow-sm"
+            >
+              <LogOut className="w-3.5 h-3.5" />
+              <span>Sign Out</span>
+            </button>
           </div>
-          <button
-            type="button"
-            onClick={handleAdminSignOut}
-            className="w-full bg-red-600/80 hover:bg-red-600 text-white font-bold py-1.5 px-3 rounded-xl text-[11px] flex items-center justify-center gap-1.5 transition-all cursor-pointer"
-          >
-            <LogOut className="w-3.5 h-3.5" />
-            <span>Sign Out</span>
-          </button>
         </div>
+
+        <nav className="space-y-1 flex-1 overflow-y-auto min-h-0 pr-0.5">
+          {sidebarItems
+            .filter((item) => hasPermission(getRequiredPermissionForTab(item.id)))
+            .map((item) => {
+            const Icon = item.icon;
+            const isActive = effectiveActiveTab === item.id;
+            const itemBadge = 'badge' in item ? item.badge : undefined;
+            return (
+              <button
+                key={item.id}
+                onClick={() => setActiveTab(item.id as any)}
+                className={`w-full flex items-center justify-between px-3.5 py-2 rounded-xl text-xs font-bold transition-all ${
+                  isActive
+                    ? 'bg-[#F5A623] text-[#1A1A1A] shadow-md'
+                    : 'text-emerald-100 hover:text-white hover:bg-white/10'
+                }`}
+              >
+                <div className="flex items-center gap-2.5">
+                  <Icon className="w-4 h-4 shrink-0" />
+                  <span>{item.label}</span>
+                </div>
+                {itemBadge !== undefined && (
+                  <span
+                    className={`text-[10px] font-extrabold px-2 py-0.5 rounded-full ${
+                      isActive ? 'bg-[#0A4B35] text-white' : 'bg-white/15 text-white'
+                    }`}
+                  >
+                    {itemBadge}
+                  </span>
+                )}
+              </button>
+            );
+          })}
+        </nav>
       </aside>
 
       {/* Main Content Area */}
