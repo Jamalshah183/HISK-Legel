@@ -545,7 +545,6 @@ export const AdminPortal: React.FC = () => {
     notes,
     invoices,
     hearings,
-    notifications,
     clientCredentials,
     addClientCredential,
     addClient,
@@ -600,7 +599,7 @@ export const AdminPortal: React.FC = () => {
   } = usePortalStore();
 
   const [activeTab, setActiveTab] = useState<
-    'dashboard' | 'cases' | 'calendar' | 'documents' | 'tasks' | 'billing' | 'notifications' | 'practiceAreas' | 'team' | 'reviews' | 'insights' | 'partners' | 'staffAccess'
+    'dashboard' | 'cases' | 'calendar' | 'documents' | 'tasks' | 'billing' | 'practiceAreas' | 'team' | 'reviews' | 'insights' | 'partners' | 'staffAccess'
   >('dashboard');
   const [repositorySubTab, setRepositorySubTab] = useState<'cases' | 'clients'>('cases');
 
@@ -834,7 +833,6 @@ export const AdminPortal: React.FC = () => {
     { id: 'billing', label: 'Invoice Management', icon: CreditCard },
     { id: 'calendar', label: 'Hearing Calendar', icon: CalendarIcon, badge: hearings.length },
     { id: 'documents', label: 'Document Vault', icon: FolderOpen, badge: documents.length },
-    { id: 'notifications', label: 'WhatsApp / Email Alerts', icon: Send },
     { id: 'practiceAreas', label: 'Practice Areas', icon: Scale, badge: practiceAreas?.length || 0 },
     { id: 'team', label: 'Our Team', icon: Users, badge: teamMembers?.length || 0 },
     { id: 'reviews', label: 'Client Reviews', icon: MessageSquareQuote, badge: reviews?.length || 0 },
@@ -983,11 +981,6 @@ export const AdminPortal: React.FC = () => {
   const [billingSearchTerm, setBillingSearchTerm] = useState('');
   const [billingStatusFilter, setBillingStatusFilter] = useState('All');
   const [billingClientFilter, setBillingClientFilter] = useState('All');
-
-  // WhatsApp & Email Alerts Search & Filters
-  const [notifSearchTerm, setNotifSearchTerm] = useState('');
-  const [notifTypeFilter, setNotifTypeFilter] = useState('All');
-  const [notifStatusFilter, setNotifStatusFilter] = useState('All');
 
   // Dynamic Unique Options for Filters
   const docCategories = Array.from(new Set(documents.map((d) => d.category)));
@@ -1210,31 +1203,6 @@ export const AdminPortal: React.FC = () => {
       billingClientFilter === 'All' || inv.clientName === billingClientFilter;
 
     return matchesSearch && matchesStatus && matchesClient;
-  });
-
-  const filteredNotifications = notifications.filter((notif) => {
-    const q = notifSearchTerm.trim().toLowerCase();
-    const linkedCase = cases.find((c) => c.id === notif.caseId);
-
-    const matchesSearch =
-      q === '' ||
-      notif.title.toLowerCase().includes(q) ||
-      notif.message.toLowerCase().includes(q) ||
-      notif.clientName.toLowerCase().includes(q) ||
-      notif.recipientPhoneOrEmail.toLowerCase().includes(q) ||
-      notif.type.toLowerCase().includes(q) ||
-      notif.status.toLowerCase().includes(q) ||
-      (linkedCase && (
-        linkedCase.caseTitle.toLowerCase().includes(q) ||
-        linkedCase.caseRef.toLowerCase().includes(q)
-      ));
-
-    const matchesType =
-      notifTypeFilter === 'All' || notif.type === notifTypeFilter;
-    const matchesStatus =
-      notifStatusFilter === 'All' || notif.status === notifStatusFilter;
-
-    return matchesSearch && matchesType && matchesStatus;
   });
 
   // Dynamic Practice Area Categories & Filtered List
@@ -4625,140 +4593,6 @@ export const AdminPortal: React.FC = () => {
               })}
             </div>
             )}
-          </div>
-        )}
-
-        {/* --- TAB 9: NOTIFICATIONS DISPATCHER --- */}
-        {effectiveActiveTab === 'notifications' && (
-          <div className="space-y-6">
-            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 bg-white p-6 rounded-3xl border border-[#0F6B4C]/15 shadow-sm">
-              <div>
-                <h1 className="text-2xl font-heading font-extrabold text-[#1A1A1A]">WhatsApp & Email Dispatcher</h1>
-                <p className="text-xs text-[#5A6275]">Send real-time hearing reminders and FBR notice response alerts to clients.</p>
-              </div>
-              <button
-                onClick={() => setShowSendNotifModal(true)}
-                className="bg-[#25D366] hover:bg-emerald-600 text-white font-extrabold px-5 py-2.5 rounded-2xl text-xs flex items-center gap-2 shadow-sm transition-all"
-              >
-                <Send className="w-4 h-4" />
-                <span>Send WhatsApp Alert</span>
-              </button>
-            </div>
-
-            {/* Notifications Search & Filter Bar */}
-            <div className="bg-white p-5 rounded-3xl border border-[#0F6B4C]/15 shadow-sm space-y-3">
-              <div className="flex flex-col md:flex-row items-stretch md:items-center justify-between gap-3">
-                {/* Search Input */}
-                <div className="relative flex-1">
-                  <Search className="w-4 h-4 text-[#5A6275] absolute left-3.5 top-1/2 -translate-y-1/2" />
-                  <input
-                    type="text"
-                    value={notifSearchTerm}
-                    onChange={(e) => setNotifSearchTerm(e.target.value)}
-                    placeholder="Search alert logs by client, phone, email, CNO #, Section Code, or case ref..."
-                    className="w-full pl-10 pr-4 py-2.5 bg-[#FAFAF7] rounded-2xl border border-gray-200 text-xs focus:outline-none focus:border-[#0F6B4C]"
-                  />
-                  {notifSearchTerm && (
-                    <button
-                      onClick={() => setNotifSearchTerm('')}
-                      className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 text-xs"
-                    >
-                      ✕
-                    </button>
-                  )}
-                </div>
-
-                {/* Filters */}
-                <div className="flex flex-wrap items-center gap-2">
-                  <div className="flex items-center gap-1.5 bg-[#FAFAF7] px-3 py-2 rounded-2xl border border-gray-200 text-xs">
-                    <Filter className="w-3.5 h-3.5 text-[#0F6B4C]" />
-                    <span className="font-bold text-[#5A6275]">Channel:</span>
-                    <select
-                      value={notifTypeFilter}
-                      onChange={(e) => setNotifTypeFilter(e.target.value)}
-                      className="bg-transparent font-bold text-[#1A1A1A] focus:outline-none cursor-pointer"
-                    >
-                      <option value="All">All Channels ({notifications.length})</option>
-                      <option value="WhatsApp">WhatsApp</option>
-                      <option value="Email">Email</option>
-                      <option value="SMS">SMS</option>
-                    </select>
-                  </div>
-
-                  <div className="flex items-center gap-1.5 bg-[#FAFAF7] px-3 py-2 rounded-2xl border border-gray-200 text-xs">
-                    <span className="font-bold text-[#5A6275]">Delivery:</span>
-                    <select
-                      value={notifStatusFilter}
-                      onChange={(e) => setNotifStatusFilter(e.target.value)}
-                      className="bg-transparent font-bold text-[#1A1A1A] focus:outline-none cursor-pointer"
-                    >
-                      <option value="All">All Statuses</option>
-                      <option value="Sent">Sent / Delivered</option>
-                      <option value="Failed">Failed</option>
-                      <option value="Pending">Pending</option>
-                    </select>
-                  </div>
-
-                  {(notifSearchTerm || notifTypeFilter !== 'All' || notifStatusFilter !== 'All') && (
-                    <button
-                      onClick={() => {
-                        setNotifSearchTerm('');
-                        setNotifTypeFilter('All');
-                        setNotifStatusFilter('All');
-                      }}
-                      className="bg-red-50 text-red-700 hover:bg-red-100 font-bold px-3 py-2 rounded-2xl text-xs transition-colors"
-                    >
-                      Clear Filters
-                    </button>
-                  )}
-                </div>
-              </div>
-
-              <div className="text-[11px] text-[#5A6275] font-semibold flex items-center justify-between px-1">
-                <span>Showing {filteredNotifications.length} of {notifications.length} client communication logs</span>
-              </div>
-            </div>
-
-            {/* Notifications Log */}
-            <div className="bg-white p-6 rounded-3xl border border-[#0F6B4C]/15 shadow-sm space-y-4">
-              <h3 className="font-heading font-extrabold text-base text-[#1A1A1A]">Sent Notifications Log</h3>
-              {filteredNotifications.length === 0 ? (
-                <div className="p-8 text-center text-xs text-gray-500 bg-[#FAFAF7] rounded-2xl border border-dashed border-gray-200">
-                  No communication logs match your search or filter.
-                </div>
-              ) : (
-                <div className="space-y-3">
-                  {filteredNotifications.map((notif) => (
-                    <div key={notif.id} className="p-4 rounded-2xl bg-[#FAFAF7] border border-gray-200 flex items-start justify-between gap-3 hover:border-[#0F6B4C] transition-all">
-                      <div>
-                        <div className="flex items-center gap-2 mb-1">
-                          <span
-                            className={`text-white text-[10px] font-extrabold px-2 py-0.5 rounded-md ${
-                              notif.type === 'WhatsApp'
-                                ? 'bg-[#25D366]'
-                                : notif.type === 'Email'
-                                ? 'bg-blue-600'
-                                : 'bg-purple-600'
-                            }`}
-                          >
-                            {notif.type}
-                          </span>
-                          <span className="font-bold text-xs text-[#1A1A1A]">{notif.title}</span>
-                          <span className="text-[10px] text-[#5A6275]">({notif.sentAt})</span>
-                        </div>
-                        <p className="text-xs text-gray-700 font-medium italic mb-1">&quot;{notif.message}&quot;</p>
-                        <div className="text-[11px] text-[#5A6275]">
-                          Recipient: <span className="font-bold text-[#1A1A1A]">{notif.clientName}</span> ({notif.recipientPhoneOrEmail})
-                        </div>
-                      </div>
-                      <span className="text-[10px] font-bold text-emerald-700 bg-emerald-50 px-2.5 py-1 rounded-full shrink-0">
-                        {notif.status}
-                      </span>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
           </div>
         )}
 
