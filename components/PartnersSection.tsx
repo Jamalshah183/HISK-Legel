@@ -39,7 +39,7 @@ export const PartnersSection: React.FC = () => {
             Membership and Partners
           </h2>
           <p className="text-base sm:text-lg text-[#5A6275] font-normal leading-relaxed">
-            Proudly affiliated with premier bar associations, judicial bodies, corporate regulators, and statutory bodies across Pakistan.
+            Trusted Professional Affiliations. Esteemed Corporate Relationships.
           </p>
         </motion.div>
 
