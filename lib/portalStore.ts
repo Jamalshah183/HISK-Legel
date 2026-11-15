@@ -43,9 +43,71 @@ import {
   INITIAL_PARTNERS
 } from '@/data/portalSeedData';
 import { db, auth } from './firebase';
-import { collection, onSnapshot, doc, setDoc, deleteDoc, getDoc } from 'firebase/firestore';
+import { collection, onSnapshot, doc, setDoc, deleteDoc, getDoc, getDocFromServer } from 'firebase/firestore';
 import { onAuthStateChanged } from 'firebase/auth';
 import { isSuperAdminEmail } from './staffPermissions';
+
+enum OperationType {
+  CREATE = 'create',
+  UPDATE = 'update',
+  DELETE = 'delete',
+  LIST = 'list',
+  GET = 'get',
+  WRITE = 'write',
+}
+
+interface FirestoreErrorInfo {
+  error: string;
+  operationType: OperationType;
+  path: string | null;
+  authInfo: {
+    userId?: string | null;
+    email?: string | null;
+    emailVerified?: boolean | null;
+    isAnonymous?: boolean | null;
+    tenantId?: string | null;
+    providerInfo?: {
+      providerId?: string | null;
+      email?: string | null;
+    }[];
+  };
+}
+
+function buildFirestoreErrorInfo(error: unknown, operationType: OperationType, path: string | null): FirestoreErrorInfo {
+  return {
+    error: error instanceof Error ? error.message : String(error),
+    authInfo: {
+      userId: auth.currentUser?.uid ?? null,
+      email: auth.currentUser?.email ?? null,
+      emailVerified: auth.currentUser?.emailVerified ?? null,
+      isAnonymous: auth.currentUser?.isAnonymous ?? null,
+      tenantId: auth.currentUser?.tenantId ?? null,
+      providerInfo:
+        auth.currentUser?.providerData?.map((provider) => ({
+          providerId: provider.providerId,
+          email: provider.email,
+        })) || [],
+    },
+    operationType,
+    path,
+  };
+}
+
+function stripUndefined<T>(value: T): T {
+  if (Array.isArray(value)) {
+    return value.map((item) => stripUndefined(item)) as unknown as T;
+  }
+  if (value !== null && typeof value === 'object') {
+    const cleaned: Record<string, any> = {};
+    for (const [k, v] of Object.entries(value as Record<string, any>)) {
+      if (v !== undefined) {
+        cleaned[k] = stripUndefined(v);
+      }
+    }
+    return cleaned as T;
+  }
+  return value;
+}
 
 const STORAGE_KEYS = {
   CLIENTS: 'hisk_portal_clients_v2',
@@ -246,9 +308,10 @@ export function usePortalStore() {
 
   const saveToFirestoreDoc = async (colName: string, id: string, data: any) => {
     try {
-      await setDoc(doc(db, colName, id), data, { merge: true });
+      await setDoc(doc(db, colName, id), stripUndefined(data), { merge: true });
     } catch (err) {
-      console.warn(`Firestore write error for ${colName}/${id}:`, err);
+      const info = buildFirestoreErrorInfo(err, OperationType.WRITE, `${colName}/${id}`);
+      console.warn('Firestore write error:', JSON.stringify(info));
     }
   };
 
@@ -256,13 +319,20 @@ export function usePortalStore() {
     try {
       await deleteDoc(doc(db, colName, id));
     } catch (err) {
-      console.warn(`Firestore delete error for ${colName}/${id}:`, err);
+      const info = buildFirestoreErrorInfo(err, OperationType.DELETE, `${colName}/${id}`);
+      console.warn('Firestore delete error:', JSON.stringify(info));
     }
   };
 
   // Setup Firestore Real-time Listeners and Auto-Seed if empty
   useEffect(() => {
     if (typeof window === 'undefined') return;
+
+    getDocFromServer(doc(db, 'test', 'connection')).catch((error) => {
+      if (error instanceof Error && error.message.includes('the client is offline')) {
+        console.error('Please check your Firebase configuration: client is offline.');
+      }
+    });
 
     // 1. Clients
     const unsubClients = onSnapshot(collection(db, 'clients'), (snap) => {
@@ -495,7 +565,10 @@ export function usePortalStore() {
             setStaffAccounts(items);
             saveToStorage(STORAGE_KEYS.STAFF_ACCOUNTS, items);
           },
-          (err) => console.warn('Staff accounts snapshot error:', err)
+          (err) => {
+            const info = buildFirestoreErrorInfo(err, OperationType.LIST, 'staff_accounts');
+            console.error('Firestore Error: ', JSON.stringify(info));
+          }
         );
       }
     });
@@ -1375,7 +1448,7 @@ export function usePortalStore() {
   };
 
   // --- STAFF & EMPLOYEE ACCESS CONTROL ACTIONS ---
-  const addOrUpdateStaffAccount = (staffData: {
+  const addOrUpdateStaffAccount = async (staffData: {
     name: string;
     email: string;
     designation: string;
@@ -1385,11 +1458,11 @@ export function usePortalStore() {
     status?: 'Active' | 'Suspended';
     notes?: string;
     authorizedBy?: string;
-  }) => {
+  }): Promise<{ ok: boolean; staff: StaffAccount; error?: string }> => {
     const normalizedEmail = staffData.email.trim().toLowerCase();
     const existing = staffAccounts.find((s) => s.id === normalizedEmail || s.email.toLowerCase() === normalizedEmail);
     const now = getTodayDateString();
-    const staffRecord: StaffAccount = {
+    const staffRecord: StaffAccount = stripUndefined({
       id: normalizedEmail,
       name: staffData.name.trim(),
       email: normalizedEmail,
@@ -1400,58 +1473,116 @@ export function usePortalStore() {
       status: staffData.status || existing?.status || 'Active',
       notes: staffData.notes?.trim() || '',
       authorizedBy: staffData.authorizedBy || existing?.authorizedBy || 'Admin Partner',
-      lastLoginAt: existing?.lastLoginAt,
+      ...(existing?.lastLoginAt ? { lastLoginAt: existing.lastLoginAt } : {}),
       createdAt: existing?.createdAt || now,
       updatedAt: now
-    };
-
-    const updated = [
-      staffRecord,
-      ...staffAccounts.filter((s) => s.id !== normalizedEmail && s.email.toLowerCase() !== normalizedEmail)
-    ];
-    setStaffAccounts(updated);
-    saveToStorage(STORAGE_KEYS.STAFF_ACCOUNTS, updated);
-    saveToFirestoreDoc('staff_accounts', normalizedEmail, staffRecord);
-    return staffRecord;
-  };
-
-  const updateStaffAccount = (staffId: string, updates: Partial<StaffAccount>) => {
-    const normalizedId = staffId.trim().toLowerCase();
-    let targetDoc: StaffAccount | null = null;
-    const updated = staffAccounts.map((s) => {
-      if (s.id === normalizedId || s.email.toLowerCase() === normalizedId) {
-        targetDoc = {
-          ...s,
-          ...updates,
-          email: (updates.email || s.email).trim().toLowerCase(),
-          updatedAt: getTodayDateString()
-        };
-        return targetDoc;
-      }
-      return s;
     });
-    setStaffAccounts(updated);
-    saveToStorage(STORAGE_KEYS.STAFF_ACCOUNTS, updated);
-    if (targetDoc) {
-      const target = targetDoc as StaffAccount;
-      saveToFirestoreDoc('staff_accounts', target.id, target);
+
+    if (!auth.currentUser) {
+      return {
+        ok: false,
+        staff: staffRecord,
+        error:
+          'Active Firebase sign-in is required to save team members permanently. Please Sign Out and sign in with Google (or Firebase Email/Password) first.',
+      };
+    }
+
+    try {
+      await setDoc(doc(db, 'staff_accounts', normalizedEmail), staffRecord, { merge: true });
+      const updated = [
+        staffRecord,
+        ...staffAccounts.filter((s) => s.id !== normalizedEmail && s.email.toLowerCase() !== normalizedEmail)
+      ];
+      setStaffAccounts(updated);
+      saveToStorage(STORAGE_KEYS.STAFF_ACCOUNTS, updated);
+      return { ok: true, staff: staffRecord };
+    } catch (err) {
+      const info = buildFirestoreErrorInfo(err, OperationType.WRITE, `staff_accounts/${normalizedEmail}`);
+      console.error('Firestore Error: ', JSON.stringify(info));
+      return {
+        ok: false,
+        staff: staffRecord,
+        error:
+          err instanceof Error
+            ? `Failed to save team member to database: ${err.message}`
+            : 'Failed to save team member to database. Please verify your admin permissions.',
+      };
     }
   };
 
-  const toggleStaffStatus = (staffId: string) => {
+  const updateStaffAccount = async (
+    staffId: string,
+    updates: Partial<StaffAccount>
+  ): Promise<{ ok: boolean; error?: string }> => {
     const normalizedId = staffId.trim().toLowerCase();
     const existing = staffAccounts.find((s) => s.id === normalizedId || s.email.toLowerCase() === normalizedId);
-    if (!existing) return;
-    const nextStatus = existing.status === 'Active' ? 'Suspended' : 'Active';
-    updateStaffAccount(existing.id, { status: nextStatus });
+    if (!existing) {
+      return { ok: false, error: 'Team member record not found.' };
+    }
+
+    const targetDoc: StaffAccount = stripUndefined({
+      ...existing,
+      ...updates,
+      email: (updates.email || existing.email).trim().toLowerCase(),
+      updatedAt: getTodayDateString(),
+    });
+
+    if (!auth.currentUser) {
+      return {
+        ok: false,
+        error: 'Active Firebase sign-in is required to update team permissions.',
+      };
+    }
+
+    try {
+      await setDoc(doc(db, 'staff_accounts', targetDoc.id), targetDoc, { merge: true });
+      const updated = staffAccounts.map((s) =>
+        s.id === normalizedId || s.email.toLowerCase() === normalizedId ? targetDoc : s
+      );
+      setStaffAccounts(updated);
+      saveToStorage(STORAGE_KEYS.STAFF_ACCOUNTS, updated);
+      return { ok: true };
+    } catch (err) {
+      const info = buildFirestoreErrorInfo(err, OperationType.UPDATE, `staff_accounts/${targetDoc.id}`);
+      console.error('Firestore Error: ', JSON.stringify(info));
+      return {
+        ok: false,
+        error: err instanceof Error ? err.message : 'Failed to update team member.',
+      };
+    }
   };
 
-  const deleteStaffAccount = (staffId: string) => {
+  const toggleStaffStatus = async (staffId: string): Promise<{ ok: boolean; error?: string }> => {
     const normalizedId = staffId.trim().toLowerCase();
-    const updated = staffAccounts.filter((s) => s.id !== normalizedId && s.email.toLowerCase() !== normalizedId);
-    setStaffAccounts(updated);
-    saveToStorage(STORAGE_KEYS.STAFF_ACCOUNTS, updated);
-    deleteFromFirestoreDoc('staff_accounts', normalizedId);
+    const existing = staffAccounts.find((s) => s.id === normalizedId || s.email.toLowerCase() === normalizedId);
+    if (!existing) return { ok: false, error: 'Team member record not found.' };
+    const nextStatus = existing.status === 'Active' ? 'Suspended' : 'Active';
+    return updateStaffAccount(existing.id, { status: nextStatus });
+  };
+
+  const deleteStaffAccount = async (staffId: string): Promise<{ ok: boolean; error?: string }> => {
+    const normalizedId = staffId.trim().toLowerCase();
+    if (!auth.currentUser) {
+      return {
+        ok: false,
+        error: 'Active Firebase sign-in is required to remove team members.',
+      };
+    }
+
+    try {
+      await deleteDoc(doc(db, 'staff_accounts', normalizedId));
+      const updated = staffAccounts.filter((s) => s.id !== normalizedId && s.email.toLowerCase() !== normalizedId);
+      setStaffAccounts(updated);
+      saveToStorage(STORAGE_KEYS.STAFF_ACCOUNTS, updated);
+      return { ok: true };
+    } catch (err) {
+      const info = buildFirestoreErrorInfo(err, OperationType.DELETE, `staff_accounts/${normalizedId}`);
+      console.error('Firestore Error: ', JSON.stringify(info));
+      return {
+        ok: false,
+        error: err instanceof Error ? err.message : 'Failed to delete team member.',
+      };
+    }
   };
 
   return {

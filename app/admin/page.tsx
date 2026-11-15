@@ -6,7 +6,8 @@ import { AdminPortal } from '@/components/portal/AdminPortal';
 import { usePortalStore } from '@/lib/portalStore';
 import Link from 'next/link';
 import { ArrowLeft, ShieldCheck, Lock, Mail, KeyRound, LogOut, CheckCircle2, User, Eye, EyeOff } from 'lucide-react';
-import { auth, googleProvider } from '@/lib/firebase';
+import { auth, db, googleProvider } from '@/lib/firebase';
+import { doc, getDoc } from 'firebase/firestore';
 import {
   signInWithPopup,
   signInWithEmailAndPassword,
@@ -18,18 +19,62 @@ import {
 } from 'firebase/auth';
 import { checkRateLimit, recordAttempt, resetRateLimit } from '@/lib/rateLimiter';
 import { useInactivityTimeout } from '@/lib/useInactivityTimeout';
-
-const ALLOWED_ADMIN_EMAILS = [
-  'jamalshah183@gmail.com',
-  'adv.kayani@gmail.com',
-  'adv.kiyani@gmail.com',
-  'aamer222@gmail.com',
-  'namias327@gmail.com',
-  'rahim.nawaz@i-con.pk',
-];
+import { isSuperAdminEmail, resolveStaffPermissions } from '@/lib/staffPermissions';
+import { StaffAccount } from '@/types/portal';
 
 const AUTHORIZED_ADMIN_CREDENTIALS: Record<string, string> = {
   'rahim.nawaz@i-con.pk': 'admin123',
+};
+
+const getStoredStaffAccounts = (): StaffAccount[] => {
+  if (typeof window === 'undefined') return [];
+  try {
+    const raw = localStorage.getItem('hisk_portal_staff_accounts_v1');
+    return raw ? (JSON.parse(raw) as StaffAccount[]) : [];
+  } catch {
+    return [];
+  }
+};
+
+const verifyAdminOrStaffAccess = async (
+  rawEmail?: string | null
+): Promise<{ authorized: boolean; name?: string; reason?: string }> => {
+  const cleanEmail = rawEmail?.trim().toLowerCase() || '';
+  if (!cleanEmail) {
+    return { authorized: false, reason: 'No email address associated with this account.' };
+  }
+  if (isSuperAdminEmail(cleanEmail)) {
+    return { authorized: true };
+  }
+  try {
+    const snap = await getDoc(doc(db, 'staff_accounts', cleanEmail));
+    if (snap.exists()) {
+      const staff = snap.data() as StaffAccount;
+      if (staff.status !== 'Active') {
+        return {
+          authorized: false,
+          reason: `Access Suspended: Staff account (${cleanEmail}) has been suspended by an Administrator.`,
+        };
+      }
+      return { authorized: true, name: staff.name };
+    }
+  } catch (err) {
+    console.warn('Staff lookup error:', err);
+  }
+  const resolved = resolveStaffPermissions(cleanEmail, getStoredStaffAccounts());
+  if (resolved.authorized) {
+    return { authorized: true, name: resolved.staffAccount?.name };
+  }
+  if (resolved.status === 'Suspended') {
+    return {
+      authorized: false,
+      reason: `Access Suspended: Staff account (${cleanEmail}) has been suspended by an Administrator.`,
+    };
+  }
+  return {
+    authorized: false,
+    reason: `Access Denied: ${cleanEmail} is not authorized. Ask an Administrator to authorize your email under Staff & Access Control.`,
+  };
 };
 
 const getInitialAdminSession = (): FirebaseUser | null => {
@@ -38,12 +83,23 @@ const getInitialAdminSession = (): FirebaseUser | null => {
     const saved = localStorage.getItem('hisk_admin_auth_user');
     if (saved) {
       const parsed = JSON.parse(saved);
-      if (parsed?.email && ALLOWED_ADMIN_EMAILS.includes(parsed.email.toLowerCase())) {
+      const email = parsed?.email?.toLowerCase();
+      if (email && isSuperAdminEmail(email)) {
         return {
-          email: parsed.email.toLowerCase(),
+          email,
           displayName: parsed.displayName || 'Authorized Admin',
-          uid: 'admin-partner-' + parsed.email.replace(/[^a-zA-Z0-9]/g, '_'),
+          uid: 'admin-partner-' + email.replace(/[^a-zA-Z0-9]/g, '_'),
         } as unknown as FirebaseUser;
+      }
+      if (email) {
+        const resolved = resolveStaffPermissions(email, getStoredStaffAccounts());
+        if (resolved.authorized) {
+          return {
+            email,
+            displayName: parsed.displayName || resolved.staffAccount?.name || 'Authorized Staff',
+            uid: 'staff-' + email.replace(/[^a-zA-Z0-9]/g, '_'),
+          } as unknown as FirebaseUser;
+        }
       }
     }
   } catch (e) {
@@ -69,21 +125,32 @@ export default function AdminPortalPage() {
   const [isRegisterMode, setIsRegisterMode] = useState<boolean>(false);
 
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (user) => {
+    const unsubscribe = onAuthStateChanged(auth, async (user) => {
       const email = user?.email?.toLowerCase();
-      if (user && email && ALLOWED_ADMIN_EMAILS.includes(email)) {
-        setCurrentUser(user);
-        setIsAdminLoggedIn(true);
-        try {
-          localStorage.setItem(
-            'hisk_admin_auth_user',
-            JSON.stringify({
-              email: email,
-              displayName: user.displayName || email.split('@')[0],
-              loggedInAt: Date.now(),
-            })
-          );
-        } catch (e) {}
+      if (user && email) {
+        const access = await verifyAdminOrStaffAccess(email);
+        if (access.authorized) {
+          setCurrentUser(user);
+          setIsAdminLoggedIn(true);
+          try {
+            localStorage.setItem(
+              'hisk_admin_auth_user',
+              JSON.stringify({
+                email: email,
+                displayName: access.name || user.displayName || email.split('@')[0],
+                loggedInAt: Date.now(),
+              })
+            );
+          } catch (e) {}
+        } else {
+          await signOut(auth).catch(() => {});
+          try {
+            localStorage.removeItem('hisk_admin_auth_user');
+          } catch (e) {}
+          setIsAdminLoggedIn(false);
+          setCurrentUser(null);
+          if (access.reason) setAuthError(access.reason);
+        }
       } else {
         const saved = typeof window !== 'undefined' ? localStorage.getItem('hisk_admin_auth_user') : null;
         if (!saved) {
@@ -113,14 +180,15 @@ export default function AdminPortalPage() {
     try {
       const result = await signInWithPopup(auth, googleProvider);
       const email = result.user.email?.toLowerCase();
-      if (email && ALLOWED_ADMIN_EMAILS.includes(email)) {
+      const access = await verifyAdminOrStaffAccess(email);
+      if (email && access.authorized) {
         resetRateLimit('admin_login');
         try {
           localStorage.setItem(
             'hisk_admin_auth_user',
             JSON.stringify({
               email: email,
-              displayName: result.user.displayName || email.split('@')[0],
+              displayName: access.name || result.user.displayName || email.split('@')[0],
               loggedInAt: Date.now(),
             })
           );
@@ -135,7 +203,8 @@ export default function AdminPortalPage() {
         setIsAdminLoggedIn(false);
         setCurrentUser(null);
         setAuthError(
-          `Access Denied: Admin Portal is restricted to authorized admin emails (${ALLOWED_ADMIN_EMAILS.join(', ')}). You signed in as: ${result.user.email || 'another account'}.`
+          access.reason ||
+            `Access Denied: You are not authorized for the Admin Portal (${result.user.email || 'unknown'}).`
         );
       }
     } catch (err: any) {
@@ -155,13 +224,6 @@ export default function AdminPortalPage() {
     const cleanEmail = emailInput.trim().toLowerCase();
     if (!cleanEmail || !passwordInput) {
       setAuthError('Please enter both your authorized email and password.');
-      return;
-    }
-
-    if (!ALLOWED_ADMIN_EMAILS.includes(cleanEmail)) {
-      setAuthError(
-        `Access Denied: ${cleanEmail} is not in the list of authorized admin emails. Please check your email or contact the senior administrator.`
-      );
       return;
     }
 
@@ -224,13 +286,23 @@ export default function AdminPortalPage() {
           return;
         }
         const result = await createUserWithEmailAndPassword(auth, cleanEmail, passwordInput);
+        const access = await verifyAdminOrStaffAccess(cleanEmail);
+        if (!access.authorized) {
+          await result.user.delete().catch(() => {});
+          await signOut(auth).catch(() => {});
+          setIsAdminLoggedIn(false);
+          setCurrentUser(null);
+          setAuthError(access.reason || `Access Denied: ${cleanEmail} is not authorized for the Admin Portal.`);
+          setAuthLoading(false);
+          return;
+        }
         resetRateLimit('admin_login');
         try {
           localStorage.setItem(
             'hisk_admin_auth_user',
             JSON.stringify({
               email: cleanEmail,
-              displayName: result.user.displayName || cleanEmail.split('@')[0],
+              displayName: access.name || result.user.displayName || cleanEmail.split('@')[0],
               loggedInAt: Date.now(),
             })
           );
@@ -240,13 +312,25 @@ export default function AdminPortalPage() {
         setAuthSuccessMessage('Admin credentials verified. Welcome!');
       } else {
         const result = await signInWithEmailAndPassword(auth, cleanEmail, passwordInput);
+        const access = await verifyAdminOrStaffAccess(cleanEmail);
+        if (!access.authorized) {
+          await signOut(auth).catch(() => {});
+          try {
+            localStorage.removeItem('hisk_admin_auth_user');
+          } catch (e) {}
+          setIsAdminLoggedIn(false);
+          setCurrentUser(null);
+          setAuthError(access.reason || `Access Denied: ${cleanEmail} is not authorized for the Admin Portal.`);
+          setAuthLoading(false);
+          return;
+        }
         resetRateLimit('admin_login');
         try {
           localStorage.setItem(
             'hisk_admin_auth_user',
             JSON.stringify({
               email: cleanEmail,
-              displayName: result.user.displayName || cleanEmail.split('@')[0],
+              displayName: access.name || result.user.displayName || cleanEmail.split('@')[0],
               loggedInAt: Date.now(),
             })
           );
@@ -287,15 +371,10 @@ export default function AdminPortalPage() {
       return;
     }
 
-    if (!ALLOWED_ADMIN_EMAILS.includes(cleanEmail)) {
-      setAuthError(`Access Denied: ${cleanEmail} is not an authorized admin email.`);
-      return;
-    }
-
     try {
       await sendPasswordResetEmail(auth, cleanEmail);
       setAuthSuccessMessage(
-        `A password set/reset link has been sent to ${cleanEmail}. Check your inbox and spam folder to set your password.`
+        `If ${cleanEmail} is authorized and registered, a password set/reset link has been sent. Check your inbox and spam folder.`
       );
     } catch (err: any) {
       setAuthError(err.message || 'Failed to send password reset email. Please try again.');

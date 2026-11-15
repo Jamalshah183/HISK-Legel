@@ -801,6 +801,9 @@ export const AdminPortal: React.FC = () => {
   const [editingStaffAccount, setEditingStaffAccount] = useState<StaffAccount | null>(null);
   const [deleteConfirmStaff, setDeleteConfirmStaff] = useState<StaffAccount | null>(null);
   const [staffActionSuccess, setStaffActionSuccess] = useState<string | null>(null);
+  const [staffActionError, setStaffActionError] = useState<string | null>(null);
+  const [staffModalError, setStaffModalError] = useState<string | null>(null);
+  const [isSavingStaff, setIsSavingStaff] = useState<boolean>(false);
   const [staffFormData, setStaffFormData] = useState<{
     name: string;
     email: string;
@@ -869,6 +872,7 @@ export const AdminPortal: React.FC = () => {
 
   const handleOpenAddStaff = () => {
     setEditingStaffAccount(null);
+    setStaffModalError(null);
     setStaffFormData({
       name: '',
       email: '',
@@ -884,6 +888,7 @@ export const AdminPortal: React.FC = () => {
 
   const handleOpenEditStaff = (staff: StaffAccount) => {
     setEditingStaffAccount(staff);
+    setStaffModalError(null);
     setStaffFormData({
       name: staff.name,
       email: staff.email,
@@ -920,35 +925,60 @@ export const AdminPortal: React.FC = () => {
     });
   };
 
-  const handleSaveStaffAccount = (e: React.FormEvent) => {
+  const handleSaveStaffAccount = async (e: React.FormEvent) => {
     e.preventDefault();
+    setStaffModalError(null);
+    setStaffActionError(null);
     if (!staffFormData.name.trim() || !staffFormData.email.trim()) return;
     if (staffFormData.permissions.length === 0) return;
 
-    const saved = addOrUpdateStaffAccount({
-      name: staffFormData.name,
-      email: staffFormData.email,
-      designation: staffFormData.designation || staffFormData.role,
-      phone: staffFormData.phone,
-      role: staffFormData.role,
-      permissions: staffFormData.permissions,
-      status: staffFormData.status,
-      notes: staffFormData.notes,
-      authorizedBy: adminUser?.email || 'Admin Partner',
-    });
+    setIsSavingStaff(true);
+    try {
+      const result = await addOrUpdateStaffAccount({
+        name: staffFormData.name,
+        email: staffFormData.email,
+        designation: staffFormData.designation || staffFormData.role,
+        phone: staffFormData.phone,
+        role: staffFormData.role,
+        permissions: staffFormData.permissions,
+        status: staffFormData.status,
+        notes: staffFormData.notes,
+        authorizedBy: adminUser?.email || 'Admin Partner',
+      });
 
-    setShowStaffModal(false);
-    setStaffActionSuccess(
-      editingStaffAccount
-        ? `Updated access permissions for ${saved.name} (${saved.email}).`
-        : `Authorized ${saved.name} (${saved.email}) as ${saved.role}.`
-    );
-    setTimeout(() => setStaffActionSuccess(null), 5000);
+      if (!result.ok) {
+        setStaffModalError(result.error || 'Could not save team member to Firestore.');
+        return;
+      }
+
+      setShowStaffModal(false);
+      setStaffActionSuccess(
+        editingStaffAccount
+          ? `Updated access permissions for ${result.staff.name} (${result.staff.email}).`
+          : `Authorized ${result.staff.name} (${result.staff.email}) as ${result.staff.role}.`
+      );
+      setTimeout(() => setStaffActionSuccess(null), 5000);
+    } finally {
+      setIsSavingStaff(false);
+    }
   };
 
-  const handleDeleteStaffAccount = (staff: StaffAccount) => {
-    deleteStaffAccount(staff.id);
+  const handleToggleStaffStatus = async (staff: StaffAccount) => {
+    setStaffActionError(null);
+    const result = await toggleStaffStatus(staff.id);
+    if (!result.ok) {
+      setStaffActionError(result.error || `Failed to update status for ${staff.email}.`);
+    }
+  };
+
+  const handleDeleteStaffAccount = async (staff: StaffAccount) => {
+    setStaffActionError(null);
+    const result = await deleteStaffAccount(staff.id);
     setDeleteConfirmStaff(null);
+    if (!result.ok) {
+      setStaffActionError(result.error || `Failed to remove portal access for ${staff.email}.`);
+      return;
+    }
     setStaffActionSuccess(`Removed portal access for ${staff.name} (${staff.email}).`);
     setTimeout(() => setStaffActionSuccess(null), 4000);
   };
@@ -6039,6 +6069,22 @@ export const AdminPortal: React.FC = () => {
               </div>
             )}
 
+            {staffActionError && (
+              <div className="bg-red-50 border border-red-300 text-red-900 px-5 py-3 rounded-2xl flex items-center justify-between text-xs font-semibold shadow-sm">
+                <div className="flex items-center gap-2">
+                  <ShieldAlert className="w-4 h-4 text-red-600 shrink-0" />
+                  <span>{staffActionError}</span>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setStaffActionError(null)}
+                  className="text-red-700 hover:text-red-900 font-bold"
+                >
+                  ✕
+                </button>
+              </div>
+            )}
+
             {/* Overview Metrics */}
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
               <div className="bg-white p-5 rounded-3xl border border-[#0F6B4C]/15 shadow-sm">
@@ -6220,7 +6266,7 @@ export const AdminPortal: React.FC = () => {
                     <div className="pt-3 border-t border-gray-100 flex flex-wrap items-center justify-between gap-2">
                       <button
                         type="button"
-                        onClick={() => toggleStaffStatus(staff.id)}
+                        onClick={() => handleToggleStaffStatus(staff)}
                         className={`text-[11px] font-bold px-3 py-1.5 rounded-xl flex items-center gap-1 transition-colors cursor-pointer ${
                           staff.status === 'Active'
                             ? 'bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-200'
@@ -10389,20 +10435,32 @@ export const AdminPortal: React.FC = () => {
                 <strong>&quot;Create your password here&quot;</strong> on the login screen to register a password for this email.
               </div>
 
+              {staffModalError && (
+                <div className="bg-red-50 border border-red-300 text-red-800 p-3 rounded-2xl text-[11px] font-semibold flex items-start gap-2">
+                  <ShieldAlert className="w-4 h-4 text-red-600 shrink-0 mt-0.5" />
+                  <span>{staffModalError}</span>
+                </div>
+              )}
+
               <div className="flex items-center justify-end gap-2 pt-3 border-t">
                 <button
                   type="button"
                   onClick={() => setShowStaffModal(false)}
-                  className="px-4 py-2 rounded-xl border text-gray-600 font-bold cursor-pointer"
+                  disabled={isSavingStaff}
+                  className="px-4 py-2 rounded-xl border text-gray-600 font-bold cursor-pointer disabled:opacity-50"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
-                  disabled={staffFormData.permissions.length === 0}
+                  disabled={staffFormData.permissions.length === 0 || isSavingStaff}
                   className="px-5 py-2.5 rounded-xl bg-[#0A4B35] hover:bg-[#0F6B4C] disabled:opacity-50 text-white font-extrabold shadow-sm cursor-pointer"
                 >
-                  {editingStaffAccount ? 'Save Access Permissions' : 'Authorize Employee'}
+                  {isSavingStaff
+                    ? 'Saving to Database...'
+                    : editingStaffAccount
+                    ? 'Save Access Permissions'
+                    : 'Authorize Employee'}
                 </button>
               </div>
             </form>
