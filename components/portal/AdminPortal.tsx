@@ -830,10 +830,10 @@ export const AdminPortal: React.FC = () => {
   const sidebarItems = [
     { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
     { id: 'cases', label: 'Clients & Cases', icon: Briefcase, badge: cases.length },
+    { id: 'tasks', label: 'Tasks & Internal Notes', icon: CheckSquare },
+    { id: 'billing', label: 'Invoice Management', icon: CreditCard },
     { id: 'calendar', label: 'Hearing Calendar', icon: CalendarIcon, badge: hearings.length },
     { id: 'documents', label: 'Document Vault', icon: FolderOpen, badge: documents.length },
-    { id: 'tasks', label: 'Tasks & Internal Notes', icon: CheckSquare },
-    { id: 'billing', label: 'Billing & Invoices', icon: CreditCard },
     { id: 'notifications', label: 'WhatsApp / Email Alerts', icon: Send },
     { id: 'practiceAreas', label: 'Practice Areas', icon: Scale, badge: practiceAreas?.length || 0 },
     { id: 'team', label: 'Our Team', icon: Users, badge: teamMembers?.length || 0 },
