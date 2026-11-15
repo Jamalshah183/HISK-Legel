@@ -600,8 +600,9 @@ export const AdminPortal: React.FC = () => {
   } = usePortalStore();
 
   const [activeTab, setActiveTab] = useState<
-    'dashboard' | 'clients' | 'cases' | 'calendar' | 'documents' | 'tasks' | 'billing' | 'notifications' | 'practiceAreas' | 'team' | 'reviews' | 'insights' | 'partners' | 'staffAccess'
+    'dashboard' | 'cases' | 'calendar' | 'documents' | 'tasks' | 'billing' | 'notifications' | 'practiceAreas' | 'team' | 'reviews' | 'insights' | 'partners' | 'staffAccess'
   >('dashboard');
+  const [repositorySubTab, setRepositorySubTab] = useState<'cases' | 'clients'>('cases');
 
   // Calendar Month Navigation State
   const [calendarCurrentDate, setCalendarCurrentDate] = useState<Date>(() => new Date(2026, 7, 1));
@@ -828,8 +829,7 @@ export const AdminPortal: React.FC = () => {
 
   const sidebarItems = [
     { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
-    { id: 'clients', label: 'Clients Directory', icon: UserCheck, badge: clients.length },
-    { id: 'cases', label: 'Case Management', icon: Briefcase, badge: cases.length },
+    { id: 'cases', label: 'Clients & Cases', icon: Briefcase, badge: cases.length },
     { id: 'calendar', label: 'Hearing Calendar', icon: CalendarIcon, badge: hearings.length },
     { id: 'documents', label: 'Document Vault', icon: FolderOpen, badge: documents.length },
     { id: 'tasks', label: 'Tasks & Internal Notes', icon: CheckSquare },
@@ -3106,7 +3106,13 @@ export const AdminPortal: React.FC = () => {
                         Other ({otherCasesCount})
                       </button>
                     </div>
-                    <button onClick={() => setActiveTab('cases')} className="text-xs font-extrabold text-[#0F6B4C] hover:underline shrink-0">
+                    <button
+                      onClick={() => {
+                        setRepositorySubTab('cases');
+                        setActiveTab('cases');
+                      }}
+                      className="text-xs font-extrabold text-[#0F6B4C] hover:underline shrink-0"
+                    >
                       View All →
                     </button>
                   </div>
@@ -3261,281 +3267,34 @@ export const AdminPortal: React.FC = () => {
           </div>
         )}
 
-        {/* --- TAB 1B: CLIENTS DIRECTORY (TAX CLIENTS VS OTHER CATEGORIES) --- */}
-        {effectiveActiveTab === 'clients' && (
+        {/* --- TAB 2: UNIFIED CLIENTS DIRECTORY & CASE REPOSITORY --- */}
+        {effectiveActiveTab === 'cases' && (
           <div className="space-y-6">
-            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 bg-white p-6 rounded-3xl border border-[#0F6B4C]/15 shadow-sm">
+            {/* Unified Header */}
+            <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-4 bg-white p-6 rounded-3xl border border-[#0F6B4C]/15 shadow-sm">
               <div>
-                <h1 className="text-2xl font-heading font-extrabold text-[#1A1A1A]">Clients Directory</h1>
-                <p className="text-xs text-[#5A6275]">
-                  Separate Tax Clients from Civil, Criminal, Family, Corporate, Property &amp; Other Category Clients.
+                <span className="text-[10px] font-extrabold text-[#F5A623] uppercase tracking-wider block">
+                  Unified Client &amp; Litigation Desk
+                </span>
+                <h1 className="text-2xl font-heading font-extrabold text-[#1A1A1A]">
+                  Clients Directory &amp; Case Litigation Repository
+                </h1>
+                <p className="text-xs text-[#5A6275] mt-0.5">
+                  Manage Tax Clients, Other Category Clients, and all Legal Case Files from one consolidated workspace.
                 </p>
               </div>
               <div className="flex items-center gap-2 flex-wrap">
                 <button
-                  onClick={() => setShowAddClientModal(true)}
-                  className="bg-[#0A4B35] hover:bg-[#0F6B4C] text-white font-extrabold px-5 py-2.5 rounded-2xl text-xs flex items-center gap-2 shadow-sm transition-all cursor-pointer"
-                >
-                  <Plus className="w-4 h-4 text-[#F5A623]" />
-                  <span>Register New Client</span>
-                </button>
-              </div>
-            </div>
-
-            {/* Client Separation Tabs (All / Tax Clients / Other Categories) */}
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-              <button
-                type="button"
-                onClick={() => setClientGroupFilter('All')}
-                className={`p-4 rounded-2xl border text-left transition-all cursor-pointer ${
-                  clientGroupFilter === 'All'
-                    ? 'bg-[#0A4B35] text-white border-[#0A4B35] shadow-md'
-                    : 'bg-white text-[#1A1A1A] border-[#0F6B4C]/15 hover:border-[#0F6B4C]/40'
-                }`}
-              >
-                <div className="text-[11px] font-bold uppercase tracking-wider opacity-80">All Registered Clients</div>
-                <div className="text-2xl font-heading font-extrabold mt-1">{clients.length} Clients</div>
-              </button>
-
-              <button
-                type="button"
-                onClick={() => setClientGroupFilter('Tax Client')}
-                className={`p-4 rounded-2xl border text-left transition-all cursor-pointer ${
-                  clientGroupFilter === 'Tax Client'
-                    ? 'bg-[#0F6B4C] text-white border-[#0F6B4C] shadow-md'
-                    : 'bg-white text-[#1A1A1A] border-[#0F6B4C]/15 hover:border-[#0F6B4C]/40'
-                }`}
-              >
-                <div className="text-[11px] font-bold uppercase tracking-wider opacity-80">Tax Clients (FBR / ATIR / NTN)</div>
-                <div className="text-2xl font-heading font-extrabold mt-1">{taxClientsCount} Tax Clients</div>
-              </button>
-
-              <button
-                type="button"
-                onClick={() => setClientGroupFilter('Other Category')}
-                className={`p-4 rounded-2xl border text-left transition-all cursor-pointer ${
-                  clientGroupFilter === 'Other Category'
-                    ? 'bg-[#F5A623] text-[#1A1A1A] border-[#F5A623] shadow-md'
-                    : 'bg-white text-[#1A1A1A] border-[#0F6B4C]/15 hover:border-[#F5A623]/60'
-                }`}
-              >
-                <div className="text-[11px] font-bold uppercase tracking-wider opacity-80">Other Categories (Civil / Family / Corporate)</div>
-                <div className="text-2xl font-heading font-extrabold mt-1">{otherClientsCount} Other Clients</div>
-              </button>
-            </div>
-
-            {/* Client Search & Category Filter Bar */}
-            <div className="bg-white p-4 rounded-2xl border border-[#0F6B4C]/15 flex flex-wrap items-center justify-between gap-3 text-xs">
-              <div className="flex items-center gap-2 flex-1 min-w-[260px]">
-                <Search className="w-4 h-4 text-[#0F6B4C] shrink-0" />
-                <input
-                  type="text"
-                  placeholder="Search clients by Name, Business, NTN, CNIC, Phone, Email, City, or Category..."
-                  value={clientSearchTerm}
-                  onChange={(e) => setClientSearchTerm(e.target.value)}
-                  className="w-full bg-[#FAFAF7] p-2.5 rounded-xl border border-gray-200 focus:outline-none focus:border-[#0F6B4C] text-xs font-medium"
-                />
-                {clientSearchTerm && (
-                  <button
-                    type="button"
-                    onClick={() => setClientSearchTerm('')}
-                    className="p-1 hover:bg-gray-200 rounded-full text-gray-500 shrink-0"
-                    title="Clear search"
-                  >
-                    <X className="w-3.5 h-3.5" />
-                  </button>
-                )}
-              </div>
-
-              <div className="flex flex-wrap items-center gap-2">
-                <select
-                  value={clientCategoryFilter}
-                  onChange={(e) => setClientCategoryFilter(e.target.value)}
-                  className="bg-[#FAFAF7] p-2.5 rounded-xl border border-gray-200 font-bold text-xs"
-                >
-                  <option value="All">All Specific Categories</option>
-                  {ALL_CLIENT_CATEGORIES.map((cat) => (
-                    <option key={cat} value={cat}>
-                      {cat}
-                    </option>
-                  ))}
-                </select>
-
-                <select
-                  value={clientStatusFilter}
-                  onChange={(e) => setClientStatusFilter(e.target.value)}
-                  className="bg-[#FAFAF7] p-2.5 rounded-xl border border-gray-200 font-bold text-xs"
-                >
-                  <option value="All">All Statuses</option>
-                  <option value="Active">Active</option>
-                  <option value="On Hold">On Hold</option>
-                  <option value="Archived">Archived</option>
-                </select>
-
-                {(clientSearchTerm || clientGroupFilter !== 'All' || clientCategoryFilter !== 'All' || clientStatusFilter !== 'All') && (
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setClientSearchTerm('');
-                      setClientGroupFilter('All');
-                      setClientCategoryFilter('All');
-                      setClientStatusFilter('All');
-                    }}
-                    className="px-3 py-2 rounded-xl bg-gray-100 hover:bg-gray-200 text-gray-700 font-bold text-xs"
-                  >
-                    Reset
-                  </button>
-                )}
-
-                <div className="bg-[#0A4B35]/10 text-[#0A4B35] font-extrabold px-3 py-2 rounded-xl text-xs shrink-0">
-                  {filteredClients.length} / {clients.length} Clients
-                </div>
-              </div>
-            </div>
-
-            {/* Clients Grid */}
-            {filteredClients.length === 0 ? (
-              <div className="bg-white p-10 rounded-3xl border border-gray-200 text-center space-y-3">
-                <p className="text-sm font-bold text-gray-700">No clients match the selected separation filters.</p>
-                <button
                   type="button"
-                  onClick={() => {
-                    setClientSearchTerm('');
-                    setClientGroupFilter('All');
-                    setClientCategoryFilter('All');
-                    setClientStatusFilter('All');
-                  }}
-                  className="bg-[#0A4B35] text-white text-xs font-bold px-4 py-2 rounded-xl"
-                >
-                  Show All Clients
-                </button>
-              </div>
-            ) : (
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {filteredClients.map((cl) => {
-                  const group = getClientGroup(cl);
-                  const linkedCases = cases.filter((c) => c.clientId === cl.id);
-                  return (
-                    <div
-                      key={cl.id}
-                      className="bg-white p-5 rounded-3xl border border-[#0F6B4C]/15 shadow-sm hover:shadow-md transition-all flex flex-col justify-between gap-4"
-                    >
-                      <div className="space-y-2.5">
-                        <div className="flex flex-wrap items-center justify-between gap-2">
-                          <div className="flex flex-wrap items-center gap-1.5">
-                            <span
-                              className={`text-[10px] font-extrabold px-2.5 py-1 rounded-full ${
-                                group === 'Tax Client'
-                                  ? 'bg-[#0F6B4C] text-white'
-                                  : 'bg-[#F5A623] text-[#1A1A1A]'
-                              }`}
-                            >
-                              {group}
-                            </span>
-                            <span className="text-[10px] font-bold bg-[#E8F5F0] text-[#0F6B4C] px-2.5 py-1 rounded-full">
-                              {cl.category}
-                            </span>
-                          </div>
-                          <span className="text-[10px] font-bold px-2.5 py-0.5 rounded-full bg-gray-100 text-gray-700">
-                            {cl.status}
-                          </span>
-                        </div>
-
-                        <div>
-                          <h3 className="font-heading font-extrabold text-base text-[#1A1A1A]">{cl.name}</h3>
-                          {cl.businessName && (
-                            <p className="text-xs text-[#5A6275] font-medium">{cl.businessName}</p>
-                          )}
-                        </div>
-
-                        <div className="grid grid-cols-2 gap-2 text-[11px] text-[#5A6275] bg-[#FAFAF7] p-3 rounded-2xl border border-gray-100">
-                          <div>
-                            <span className="font-bold text-[#1A1A1A]">NTN:</span> <span className="font-mono">{cl.ntn || 'N/A'}</span>
-                          </div>
-                          <div>
-                            <span className="font-bold text-[#1A1A1A]">CNIC:</span> <span className="font-mono">{cl.cnic}</span>
-                          </div>
-                          <div>
-                            <span className="font-bold text-[#1A1A1A]">Phone:</span> {cl.phone}
-                          </div>
-                          <div>
-                            <span className="font-bold text-[#1A1A1A]">City:</span> {cl.city}
-                          </div>
-                          <div className="col-span-2 truncate">
-                            <span className="font-bold text-[#1A1A1A]">Email:</span> {cl.email}
-                          </div>
-                        </div>
-                      </div>
-
-                      <div className="flex flex-wrap items-center justify-between gap-2 pt-3 border-t border-gray-100">
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setSearchTerm(cl.name);
-                            setCaseGroupFilter('All');
-                            setCaseCategoryFilter('All');
-                            setCaseClientTypeFilter('All');
-                            setActiveTab('cases');
-                          }}
-                          className="text-xs font-extrabold text-[#0F6B4C] hover:underline flex items-center gap-1 cursor-pointer"
-                        >
-                          <Briefcase className="w-3.5 h-3.5" />
-                          <span>{linkedCases.length} Linked Cases →</span>
-                        </button>
-
-                        <div className="flex items-center gap-2">
-                          <button
-                            type="button"
-                            onClick={() => handleStartEditClient(cl)}
-                            className="px-3 py-1.5 rounded-xl bg-gray-100 hover:bg-gray-200 text-[#1A1A1A] text-xs font-bold flex items-center gap-1 cursor-pointer"
-                          >
-                            <Edit3 className="w-3.5 h-3.5 text-[#0F6B4C]" />
-                            <span>Edit / Category</span>
-                          </button>
-
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setNewCaseData((prev) => ({
-                                ...prev,
-                                clientId: cl.id,
-                                caseCategory: group === 'Tax Client' ? 'Tax & FBR Litigation' : 'Civil Litigation'
-                              }));
-                              setShowAddCaseModal(true);
-                            }}
-                            className="px-3 py-1.5 rounded-xl bg-[#0A4B35] hover:bg-[#0F6B4C] text-white text-xs font-bold flex items-center gap-1 cursor-pointer"
-                          >
-                            <Plus className="w-3.5 h-3.5 text-[#F5A623]" />
-                            <span>Add Case</span>
-                          </button>
-                        </div>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            )}
-          </div>
-        )}
-
-        {/* --- TAB 2: CASE MANAGEMENT --- */}
-        {effectiveActiveTab === 'cases' && (
-          <div className="space-y-6">
-            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 bg-white p-6 rounded-3xl border border-[#0F6B4C]/15 shadow-sm">
-              <div>
-                <h1 className="text-2xl font-heading font-extrabold text-[#1A1A1A]">Case &amp; Litigation Repository</h1>
-                <p className="text-xs text-[#5A6275]">Separate and filter Tax cases, High Court writs, civil, criminal, family, corporate &amp; rent matters.</p>
-              </div>
-              <div className="flex items-center gap-2 flex-wrap">
-                <button
                   onClick={() => setShowAddClientModal(true)}
                   className="bg-white hover:bg-[#FAFAF7] text-[#0A4B35] border border-[#0F6B4C]/30 font-extrabold px-4 py-2.5 rounded-2xl text-xs flex items-center gap-2 shadow-sm transition-all cursor-pointer"
                 >
                   <UserCheck className="w-4 h-4 text-[#0F6B4C]" />
-                  <span>Add Client</span>
+                  <span>Register New Client</span>
                 </button>
 
                 <button
+                  type="button"
                   onClick={() => setShowAddHearingModal(true)}
                   className="bg-[#0A4B35] hover:bg-[#0F6B4C] text-white font-extrabold px-4 py-2.5 rounded-2xl text-xs flex items-center gap-2 shadow-sm transition-all cursor-pointer"
                 >
@@ -3544,6 +3303,7 @@ export const AdminPortal: React.FC = () => {
                 </button>
 
                 <button
+                  type="button"
                   onClick={() => setShowAddCaseModal(true)}
                   className="bg-[#F5A623] hover:bg-[#E09415] text-[#1A1A1A] font-extrabold px-5 py-2.5 rounded-2xl text-xs flex items-center gap-2 shadow-sm transition-all cursor-pointer"
                 >
@@ -3553,8 +3313,307 @@ export const AdminPortal: React.FC = () => {
               </div>
             </div>
 
-            {/* Quick Case Group Separation Tabs */}
-            <div className="flex flex-wrap items-center gap-2">
+            {/* Unified Segmented Switcher: Case & Litigation Repository vs Clients Directory */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <button
+                type="button"
+                onClick={() => setRepositorySubTab('cases')}
+                className={`p-4 rounded-2xl border text-left transition-all cursor-pointer flex items-center justify-between gap-4 ${
+                  repositorySubTab === 'cases'
+                    ? 'bg-[#0A4B35] text-white border-[#0A4B35] shadow-md'
+                    : 'bg-white text-[#1A1A1A] border-[#0F6B4C]/15 hover:border-[#0F6B4C]/40'
+                }`}
+              >
+                <div>
+                  <div className="flex items-center gap-2 text-xs font-extrabold">
+                    <Briefcase className={`w-4 h-4 ${repositorySubTab === 'cases' ? 'text-[#F5A623]' : 'text-[#0F6B4C]'}`} />
+                    <span>Case &amp; Litigation Repository</span>
+                  </div>
+                  <div className="text-[11px] opacity-80 mt-1">
+                    {taxCasesCount} Tax Cases • {otherCasesCount} Other Categories
+                  </div>
+                </div>
+                <span
+                  className={`text-sm font-heading font-extrabold px-3 py-1 rounded-xl ${
+                    repositorySubTab === 'cases' ? 'bg-[#F5A623] text-[#1A1A1A]' : 'bg-[#0A4B35]/10 text-[#0A4B35]'
+                  }`}
+                >
+                  {cases.length}
+                </span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setRepositorySubTab('clients')}
+                className={`p-4 rounded-2xl border text-left transition-all cursor-pointer flex items-center justify-between gap-4 ${
+                  repositorySubTab === 'clients'
+                    ? 'bg-[#0A4B35] text-white border-[#0A4B35] shadow-md'
+                    : 'bg-white text-[#1A1A1A] border-[#0F6B4C]/15 hover:border-[#0F6B4C]/40'
+                }`}
+              >
+                <div>
+                  <div className="flex items-center gap-2 text-xs font-extrabold">
+                    <UserCheck className={`w-4 h-4 ${repositorySubTab === 'clients' ? 'text-[#F5A623]' : 'text-[#0F6B4C]'}`} />
+                    <span>Clients Directory</span>
+                  </div>
+                  <div className="text-[11px] opacity-80 mt-1">
+                    {taxClientsCount} Tax Clients • {otherClientsCount} Other Categories
+                  </div>
+                </div>
+                <span
+                  className={`text-sm font-heading font-extrabold px-3 py-1 rounded-xl ${
+                    repositorySubTab === 'clients' ? 'bg-[#F5A623] text-[#1A1A1A]' : 'bg-[#0A4B35]/10 text-[#0A4B35]'
+                  }`}
+                >
+                  {clients.length}
+                </span>
+              </button>
+            </div>
+
+            {/* SUB-VIEW 1: CLIENTS DIRECTORY */}
+            {repositorySubTab === 'clients' && (
+              <div className="space-y-6">
+                {/* Client Separation Tabs (All / Tax Clients / Other Categories) */}
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                  <button
+                    type="button"
+                    onClick={() => setClientGroupFilter('All')}
+                    className={`p-4 rounded-2xl border text-left transition-all cursor-pointer ${
+                      clientGroupFilter === 'All'
+                        ? 'bg-[#0A4B35] text-white border-[#0A4B35] shadow-md'
+                        : 'bg-white text-[#1A1A1A] border-[#0F6B4C]/15 hover:border-[#0F6B4C]/40'
+                    }`}
+                  >
+                    <div className="text-[11px] font-bold uppercase tracking-wider opacity-80">All Registered Clients</div>
+                    <div className="text-2xl font-heading font-extrabold mt-1">{clients.length} Clients</div>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setClientGroupFilter('Tax Client')}
+                    className={`p-4 rounded-2xl border text-left transition-all cursor-pointer ${
+                      clientGroupFilter === 'Tax Client'
+                        ? 'bg-[#0F6B4C] text-white border-[#0F6B4C] shadow-md'
+                        : 'bg-white text-[#1A1A1A] border-[#0F6B4C]/15 hover:border-[#0F6B4C]/40'
+                    }`}
+                  >
+                    <div className="text-[11px] font-bold uppercase tracking-wider opacity-80">Tax Clients (FBR / ATIR / NTN)</div>
+                    <div className="text-2xl font-heading font-extrabold mt-1">{taxClientsCount} Tax Clients</div>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setClientGroupFilter('Other Category')}
+                    className={`p-4 rounded-2xl border text-left transition-all cursor-pointer ${
+                      clientGroupFilter === 'Other Category'
+                        ? 'bg-[#F5A623] text-[#1A1A1A] border-[#F5A623] shadow-md'
+                        : 'bg-white text-[#1A1A1A] border-[#0F6B4C]/15 hover:border-[#F5A623]/60'
+                    }`}
+                  >
+                    <div className="text-[11px] font-bold uppercase tracking-wider opacity-80">Other Categories (Civil / Family / Corporate)</div>
+                    <div className="text-2xl font-heading font-extrabold mt-1">{otherClientsCount} Other Clients</div>
+                  </button>
+                </div>
+
+                {/* Client Search & Category Filter Bar */}
+                <div className="bg-white p-4 rounded-2xl border border-[#0F6B4C]/15 flex flex-wrap items-center justify-between gap-3 text-xs">
+                  <div className="flex items-center gap-2 flex-1 min-w-[260px]">
+                    <Search className="w-4 h-4 text-[#0F6B4C] shrink-0" />
+                    <input
+                      type="text"
+                      placeholder="Search clients by Name, Business, NTN, CNIC, Phone, Email, City, or Category..."
+                      value={clientSearchTerm}
+                      onChange={(e) => setClientSearchTerm(e.target.value)}
+                      className="w-full bg-[#FAFAF7] p-2.5 rounded-xl border border-gray-200 focus:outline-none focus:border-[#0F6B4C] text-xs font-medium"
+                    />
+                    {clientSearchTerm && (
+                      <button
+                        type="button"
+                        onClick={() => setClientSearchTerm('')}
+                        className="p-1 hover:bg-gray-200 rounded-full text-gray-500 shrink-0"
+                        title="Clear search"
+                      >
+                        <X className="w-3.5 h-3.5" />
+                      </button>
+                    )}
+                  </div>
+
+                  <div className="flex flex-wrap items-center gap-2">
+                    <select
+                      value={clientCategoryFilter}
+                      onChange={(e) => setClientCategoryFilter(e.target.value)}
+                      className="bg-[#FAFAF7] p-2.5 rounded-xl border border-gray-200 font-bold text-xs"
+                    >
+                      <option value="All">All Specific Categories</option>
+                      {ALL_CLIENT_CATEGORIES.map((cat) => (
+                        <option key={cat} value={cat}>
+                          {cat}
+                        </option>
+                      ))}
+                    </select>
+
+                    <select
+                      value={clientStatusFilter}
+                      onChange={(e) => setClientStatusFilter(e.target.value)}
+                      className="bg-[#FAFAF7] p-2.5 rounded-xl border border-gray-200 font-bold text-xs"
+                    >
+                      <option value="All">All Statuses</option>
+                      <option value="Active">Active</option>
+                      <option value="On Hold">On Hold</option>
+                      <option value="Archived">Archived</option>
+                    </select>
+
+                    {(clientSearchTerm || clientGroupFilter !== 'All' || clientCategoryFilter !== 'All' || clientStatusFilter !== 'All') && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setClientSearchTerm('');
+                          setClientGroupFilter('All');
+                          setClientCategoryFilter('All');
+                          setClientStatusFilter('All');
+                        }}
+                        className="px-3 py-2 rounded-xl bg-gray-100 hover:bg-gray-200 text-gray-700 font-bold text-xs"
+                      >
+                        Reset
+                      </button>
+                    )}
+
+                    <div className="bg-[#0A4B35]/10 text-[#0A4B35] font-extrabold px-3 py-2 rounded-xl text-xs shrink-0">
+                      {filteredClients.length} / {clients.length} Clients
+                    </div>
+                  </div>
+                </div>
+
+                {/* Clients Grid */}
+                {filteredClients.length === 0 ? (
+                  <div className="bg-white p-10 rounded-3xl border border-gray-200 text-center space-y-3">
+                    <p className="text-sm font-bold text-gray-700">No clients match the selected separation filters.</p>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setClientSearchTerm('');
+                        setClientGroupFilter('All');
+                        setClientCategoryFilter('All');
+                        setClientStatusFilter('All');
+                      }}
+                      className="bg-[#0A4B35] text-white text-xs font-bold px-4 py-2 rounded-xl"
+                    >
+                      Show All Clients
+                    </button>
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {filteredClients.map((cl) => {
+                      const group = getClientGroup(cl);
+                      const linkedCases = cases.filter((c) => c.clientId === cl.id);
+                      return (
+                        <div
+                          key={cl.id}
+                          className="bg-white p-5 rounded-3xl border border-[#0F6B4C]/15 shadow-sm hover:shadow-md transition-all flex flex-col justify-between gap-4"
+                        >
+                          <div className="space-y-2.5">
+                            <div className="flex flex-wrap items-center justify-between gap-2">
+                              <div className="flex flex-wrap items-center gap-1.5">
+                                <span
+                                  className={`text-[10px] font-extrabold px-2.5 py-1 rounded-full ${
+                                    group === 'Tax Client'
+                                      ? 'bg-[#0F6B4C] text-white'
+                                      : 'bg-[#F5A623] text-[#1A1A1A]'
+                                  }`}
+                                >
+                                  {group}
+                                </span>
+                                <span className="text-[10px] font-bold bg-[#E8F5F0] text-[#0F6B4C] px-2.5 py-1 rounded-full">
+                                  {cl.category}
+                                </span>
+                              </div>
+                              <span className="text-[10px] font-bold px-2.5 py-0.5 rounded-full bg-gray-100 text-gray-700">
+                                {cl.status}
+                              </span>
+                            </div>
+
+                            <div>
+                              <h3 className="font-heading font-extrabold text-base text-[#1A1A1A]">{cl.name}</h3>
+                              {cl.businessName && (
+                                <p className="text-xs text-[#5A6275] font-medium">{cl.businessName}</p>
+                              )}
+                            </div>
+
+                            <div className="grid grid-cols-2 gap-2 text-[11px] text-[#5A6275] bg-[#FAFAF7] p-3 rounded-2xl border border-gray-100">
+                              <div>
+                                <span className="font-bold text-[#1A1A1A]">NTN:</span> <span className="font-mono">{cl.ntn || 'N/A'}</span>
+                              </div>
+                              <div>
+                                <span className="font-bold text-[#1A1A1A]">CNIC:</span> <span className="font-mono">{cl.cnic}</span>
+                              </div>
+                              <div>
+                                <span className="font-bold text-[#1A1A1A]">Phone:</span> {cl.phone}
+                              </div>
+                              <div>
+                                <span className="font-bold text-[#1A1A1A]">City:</span> {cl.city}
+                              </div>
+                              <div className="col-span-2 truncate">
+                                <span className="font-bold text-[#1A1A1A]">Email:</span> {cl.email}
+                              </div>
+                            </div>
+                          </div>
+
+                          <div className="flex flex-wrap items-center justify-between gap-2 pt-3 border-t border-gray-100">
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setSearchTerm(cl.name);
+                                setCaseGroupFilter('All');
+                                setCaseCategoryFilter('All');
+                                setCaseClientTypeFilter('All');
+                                setRepositorySubTab('cases');
+                              }}
+                              className="text-xs font-extrabold text-[#0F6B4C] hover:underline flex items-center gap-1 cursor-pointer"
+                            >
+                              <Briefcase className="w-3.5 h-3.5" />
+                              <span>{linkedCases.length} Linked Cases →</span>
+                            </button>
+
+                            <div className="flex items-center gap-2">
+                              <button
+                                type="button"
+                                onClick={() => handleStartEditClient(cl)}
+                                className="px-3 py-1.5 rounded-xl bg-gray-100 hover:bg-gray-200 text-[#1A1A1A] text-xs font-bold flex items-center gap-1 cursor-pointer"
+                              >
+                                <Edit3 className="w-3.5 h-3.5 text-[#0F6B4C]" />
+                                <span>Edit / Category</span>
+                              </button>
+
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setNewCaseData((prev) => ({
+                                    ...prev,
+                                    clientId: cl.id,
+                                    caseCategory: group === 'Tax Client' ? 'Tax & FBR Litigation' : 'Civil Litigation'
+                                  }));
+                                  setShowAddCaseModal(true);
+                                }}
+                                className="px-3 py-1.5 rounded-xl bg-[#0A4B35] hover:bg-[#0F6B4C] text-white text-xs font-bold flex items-center gap-1 cursor-pointer"
+                              >
+                                <Plus className="w-3.5 h-3.5 text-[#F5A623]" />
+                                <span>Add Case</span>
+                              </button>
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* SUB-VIEW 2: CASE & LITIGATION REPOSITORY */}
+            {repositorySubTab === 'cases' && (
+              <div className="space-y-6">
+                {/* Quick Case Group Separation Tabs */}
+                <div className="flex flex-wrap items-center gap-2">
               <button
                 type="button"
                 onClick={() => {
@@ -3842,6 +3901,8 @@ export const AdminPortal: React.FC = () => {
                     </div>
                   );
                 })}
+              </div>
+            )}
               </div>
             )}
           </div>
@@ -6369,29 +6430,6 @@ export const AdminPortal: React.FC = () => {
                 ))}
               </div>
             )}
-
-            {/* Built-In Master Super Admins Card */}
-            <div className="bg-white p-6 rounded-3xl border border-[#0F6B4C]/15 shadow-sm space-y-3">
-              <div className="flex items-center gap-2">
-                <ShieldCheck className="w-5 h-5 text-[#0F6B4C]" />
-                <div>
-                  <h3 className="font-heading font-extrabold text-sm text-[#1A1A1A]">Built-In Master Administrators</h3>
-                  <p className="text-[11px] text-[#5A6275]">
-                    These partner accounts retain permanent Super Admin access to all modules and Staff Access Control.
-                  </p>
-                </div>
-              </div>
-              <div className="flex flex-wrap gap-2">
-                {SUPER_ADMIN_EMAILS.map((email) => (
-                  <span
-                    key={email}
-                    className="text-[11px] font-mono font-bold bg-[#FAFAF7] border border-gray-200 text-[#1A1A1A] px-3 py-1.5 rounded-xl"
-                  >
-                    {email}
-                  </span>
-                ))}
-              </div>
-            </div>
           </div>
         )}
       </main>
