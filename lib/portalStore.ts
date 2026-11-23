@@ -1049,8 +1049,13 @@ export function usePortalStore() {
       setClientCredentials((prev) => {
         let changed = false;
         const nextCreds = prev.map((cred) => {
-          if (cred.clientId === clientId && cred.clientName !== mergedClient.name) {
-            const nextCred = { ...cred, clientName: mergedClient.name };
+          const emailChanged = Boolean(mergedClient.email && cred.email !== mergedClient.email);
+          if (cred.clientId === clientId && (cred.clientName !== mergedClient.name || emailChanged)) {
+            const nextCred = {
+              ...cred,
+              clientName: mergedClient.name,
+              email: mergedClient.email || cred.email,
+            };
             changed = true;
             saveToFirestoreDoc('clientCredentials', cred.id, nextCred);
             return nextCred;

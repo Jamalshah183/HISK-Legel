@@ -2280,9 +2280,7 @@ export const AdminPortal: React.FC = () => {
     nextHearingPurpose: 'Arguments on Interlocutory Stay Order Application',
     summary: '',
     initialNote: '',
-    initialTask: '',
-    clientLoginEmail: '',
-    clientLoginPassword: ''
+    initialTask: ''
   }));
 
   const [newClientData, setNewClientData] = useState<{
@@ -2334,7 +2332,7 @@ export const AdminPortal: React.FC = () => {
     registeredAddress: '',
     status: 'Active',
     clientLoginEmail: '',
-    clientLoginPassword: 'Password123!'
+    clientLoginPassword: ''
   });
 
   const getDefaultCaseSetupForClient = (cl?: Client): { caseCategory: CaseCategory; forum: LegalForum } => {
@@ -2384,9 +2382,7 @@ export const AdminPortal: React.FC = () => {
       nextHearingPurpose: 'Initial Arguments & Cause List Proceedings',
       summary: '',
       initialNote: '',
-      initialTask: '',
-      clientLoginEmail: '',
-      clientLoginPassword: ''
+      initialTask: ''
     });
     setShowAddCaseModal(true);
   };
@@ -2444,7 +2440,7 @@ export const AdminPortal: React.FC = () => {
       registeredAddress: '',
       status: 'Active',
       clientLoginEmail: '',
-      clientLoginPassword: 'Password123!'
+      clientLoginPassword: ''
     });
     setShowAddClientModal(true);
   };
@@ -2518,6 +2514,12 @@ export const AdminPortal: React.FC = () => {
   const handleCreateCase = (e: React.FormEvent) => {
     e.preventDefault();
     const targetClientId = newCaseData.clientId || sortByFileNumber(clients)[0]?.id || '';
+    const targetClient = clients.find((cl) => cl.id === targetClientId);
+    const linkedCred = clientCredentials.find(
+      (cr) =>
+        cr.clientId === targetClientId ||
+        (targetClient?.email && cr.email.toLowerCase() === targetClient.email.toLowerCase())
+    );
     const created = addCase({
       title: newCaseData.title,
       clientId: targetClientId,
@@ -2532,9 +2534,7 @@ export const AdminPortal: React.FC = () => {
         newCaseData.cnoNumber ? `[CNO No: ${newCaseData.cnoNumber}, Sec: ${newCaseData.sectionCode}]` : ''
       }`.trim(),
       nextHearingDate: newCaseData.nextHearingDate || undefined,
-      nextHearingPurpose: newCaseData.nextHearingPurpose || undefined,
-      clientLoginEmail: newCaseData.clientLoginEmail,
-      clientLoginPassword: newCaseData.clientLoginPassword
+      nextHearingPurpose: newCaseData.nextHearingPurpose || undefined
     });
 
     if (created && newCaseData.initialNote) {
@@ -2556,10 +2556,11 @@ export const AdminPortal: React.FC = () => {
       });
     }
 
+    const portalEmail = linkedCred?.email || targetClient?.email;
     setShowAddCaseModal(false);
     showPortalNotice(
       `Case File ${created.fileNumber ? `[${created.fileNumber}] ` : ''}${created.caseRef} (${newCaseData.caseCategory}) registered and linked to ${created.clientName}.${
-        newCaseData.clientLoginEmail ? ` Client Portal login enabled for ${newCaseData.clientLoginEmail}.` : ''
+        portalEmail ? ` Automatically linked to client portal login (${portalEmail}).` : ''
       }`
     );
     const defaultFirstClient = sortByFileNumber(clients)[0];
@@ -2583,9 +2584,7 @@ export const AdminPortal: React.FC = () => {
       nextHearingPurpose: 'Arguments on Interlocutory Stay Order Application',
       summary: '',
       initialNote: '',
-      initialTask: '',
-      clientLoginEmail: '',
-      clientLoginPassword: ''
+      initialTask: ''
     });
   };
 
@@ -2607,16 +2606,22 @@ export const AdminPortal: React.FC = () => {
       return;
     }
 
+    const cleanEmail = newClientData.email.trim();
+    const cleanPassword = newClientData.clientLoginPassword.trim();
+    if (!cleanEmail) {
+      setClientModalError('Client E-mail address is mandatory for registration and portal access.');
+      return;
+    }
+    if (!cleanPassword || cleanPassword.length < 6) {
+      setClientModalError('Client Portal Password is mandatory (minimum 6 characters).');
+      return;
+    }
+
     const resolvedClientType = getClientTypeFromFileCode(resolvedCode);
     const resolvedStatus =
       newClientData.activeClosed === 'Closed' ? 'Archived' : newClientData.status || 'Active';
 
     const cleanName = newClientData.name.trim() || newClientData.businessName.trim();
-    const fallbackPortalEmail =
-      newClientData.email.trim() ||
-      newClientData.clientLoginEmail.trim() ||
-      `${resolvedFileNo.toLowerCase()}@client.hisklegal.pk`;
-    const loginPass = newClientData.clientLoginPassword || 'Password123!';
 
     const createdClient = addClient(
       {
@@ -2642,13 +2647,13 @@ export const AdminPortal: React.FC = () => {
         clientType: resolvedClientType,
         category: newClientData.category || getDefaultClientCategoryForFileCode(resolvedCode),
         phone: newClientData.phone.trim(),
-        email: newClientData.email.trim(),
+        email: cleanEmail,
         city: newClientData.rtoCto.trim() || newClientData.city || 'Islamabad',
         registeredAddress: newClientData.registeredAddress.trim(),
         status: resolvedStatus,
       },
-      fallbackPortalEmail,
-      loginPass
+      cleanEmail,
+      cleanPassword
     );
 
     setShowAddClientModal(false);
@@ -7157,35 +7162,42 @@ export const AdminPortal: React.FC = () => {
                 </div>
               </div>
 
-              {/* Client Portal Credentials Block */}
-              <div className="bg-amber-500/10 p-3 rounded-2xl border border-amber-500/20 space-y-2">
-                <div className="flex items-center justify-between">
-                  <span className="font-extrabold text-[#1A1A1A] text-xs block">🔐 Assign Client Portal Login (Optional)</span>
-                  <span className="text-[10px] text-gray-600 font-bold">Allows client to sign-in to track this case</span>
-                </div>
-                <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <label className="font-bold text-gray-700 block mb-1">Client Sign-In Email</label>
-                    <input
-                      type="email"
-                      placeholder="client@company.pk"
-                      value={newCaseData.clientLoginEmail || ''}
-                      onChange={(e) => setNewCaseData({ ...newCaseData, clientLoginEmail: e.target.value })}
-                      className="w-full bg-white p-2 rounded-xl border border-gray-200"
-                    />
+              {/* Linked Client Portal Access Status (Read-Only) */}
+              {(() => {
+                const selectedCaseClient = clients.find((cl) => cl.id === newCaseData.clientId);
+                const linkedCred = selectedCaseClient
+                  ? clientCredentials.find(
+                      (cr) =>
+                        cr.clientId === selectedCaseClient.id ||
+                        (selectedCaseClient.email &&
+                          cr.email.toLowerCase() === selectedCaseClient.email.toLowerCase())
+                    )
+                  : undefined;
+                const linkedEmail = linkedCred?.email || selectedCaseClient?.email;
+                const hasPassword = Boolean(linkedCred?.password);
+                return (
+                  <div className="bg-[#0A4B35]/5 p-3 rounded-2xl border border-[#0F6B4C]/20 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                    <div>
+                      <span className="font-extrabold text-[#0A4B35] text-xs block">
+                        🔐 Client Portal Access Linked Automatically
+                      </span>
+                      <span className="text-[11px] text-gray-600 block mt-0.5">
+                        {linkedEmail ? (
+                          <>
+                            This case will automatically appear in{' '}
+                            <span className="font-mono font-bold text-[#1A1A1A]">{linkedEmail}</span>
+                            {hasPassword
+                              ? ' using their registered client portal password.'
+                              : ' (set or update password anytime in the Case Drawer).'}
+                          </>
+                        ) : (
+                          'No portal login saved on this client yet — you can assign credentials in the Case Drawer after saving.'
+                        )}
+                      </span>
+                    </div>
                   </div>
-                  <div>
-                    <label className="font-bold text-gray-700 block mb-1">Client Password</label>
-                    <input
-                      type="text"
-                      placeholder="Password123!"
-                      value={newCaseData.clientLoginPassword || ''}
-                      onChange={(e) => setNewCaseData({ ...newCaseData, clientLoginPassword: e.target.value })}
-                      className="w-full bg-white p-2 rounded-xl border border-gray-200 font-mono"
-                    />
-                  </div>
-                </div>
-              </div>
+                );
+              })()}
 
               <div className="flex justify-end gap-2 pt-3 border-t">
 
@@ -7423,9 +7435,12 @@ export const AdminPortal: React.FC = () => {
 
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     <div>
-                      <label className="font-bold text-gray-700 block mb-1">E-mail address (Optional)</label>
+                      <label className="font-bold text-gray-700 block mb-1">
+                        E-mail address (Contacts) <span className="text-red-500">*</span>
+                      </label>
                       <input
                         type="email"
+                        required
                         placeholder="client@example.com"
                         value={newClientData.email}
                         onChange={(e) => setNewClientData({ ...newClientData, email: e.target.value })}
@@ -7433,10 +7448,15 @@ export const AdminPortal: React.FC = () => {
                       />
                     </div>
                     <div>
-                      <label className="font-bold text-gray-700 block mb-1">Set Client Portal Password</label>
+                      <label className="font-bold text-gray-700 block mb-1">
+                        Set Client Portal Password <span className="text-red-500">*</span>
+                      </label>
                       <input
                         type="text"
-                        value={newClientData.clientLoginPassword || 'Password123!'}
+                        required
+                        minLength={6}
+                        placeholder="Enter portal password (min 6 chars)"
+                        value={newClientData.clientLoginPassword}
                         onChange={(e) =>
                           setNewClientData({ ...newClientData, clientLoginPassword: e.target.value })
                         }
@@ -7444,6 +7464,9 @@ export const AdminPortal: React.FC = () => {
                       />
                     </div>
                   </div>
+                  <span className="text-[10px] text-gray-500 block">
+                    Client uses their E-mail address &amp; this password to sign in; any future cases attached to this client inherit this login automatically.
+                  </span>
                 </>
               ) : (
                 <>
@@ -7622,19 +7645,22 @@ export const AdminPortal: React.FC = () => {
                   </div>
 
                   <div>
-                    <label className="font-bold text-gray-700 block mb-1">Set Client Portal Password</label>
+                    <label className="font-bold text-gray-700 block mb-1">
+                      Set Client Portal Password <span className="text-red-500">*</span>
+                    </label>
                     <input
                       type="text"
                       required
-                      placeholder="Password123!"
-                      value={newClientData.clientLoginPassword || 'Password123!'}
+                      minLength={6}
+                      placeholder="Enter portal password (min 6 chars)"
+                      value={newClientData.clientLoginPassword}
                       onChange={(e) =>
                         setNewClientData({ ...newClientData, clientLoginPassword: e.target.value })
                       }
                       className="w-full bg-[#FAFAF7] p-2.5 rounded-xl border border-gray-200 font-mono"
                     />
                     <span className="text-[10px] text-gray-500 mt-1 block">
-                      Client uses their E-mail address &amp; this password to sign in; SECP credentials stay staff-only and sync to the Excel register.
+                      Client uses their E-mail address &amp; this password to sign in (automatically linked to all future cases); SECP credentials stay staff-only and sync to the Excel register.
                     </span>
                   </div>
                 </>
@@ -7805,6 +7831,18 @@ export const AdminPortal: React.FC = () => {
                   </div>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     <div>
+                      <label className="font-bold text-gray-700 block mb-1">
+                        E-mail address <span className="text-red-500">*</span>
+                      </label>
+                      <input
+                        type="email"
+                        required
+                        value={editClientForm.email || ''}
+                        onChange={(e) => setEditClientForm({ ...editClientForm, email: e.target.value })}
+                        className="w-full bg-[#FAFAF7] p-2.5 rounded-xl border border-gray-200"
+                      />
+                    </div>
+                    <div>
                       <label className="font-bold text-gray-700 block mb-1">Mobile No.</label>
                       <input
                         type="text"
@@ -7814,17 +7852,17 @@ export const AdminPortal: React.FC = () => {
                         className="w-full bg-[#FAFAF7] p-2.5 rounded-xl border border-gray-200"
                       />
                     </div>
-                    <div>
-                      <label className="font-bold text-gray-700 block mb-1">REFERRAL CONTACT</label>
-                      <input
-                        type="text"
-                        value={editClientForm.referralContact || ''}
-                        onChange={(e) =>
-                          setEditClientForm({ ...editClientForm, referralContact: e.target.value })
-                        }
-                        className="w-full bg-[#FAFAF7] p-2.5 rounded-xl border border-gray-200"
-                      />
-                    </div>
+                  </div>
+                  <div>
+                    <label className="font-bold text-gray-700 block mb-1">REFERRAL CONTACT</label>
+                    <input
+                      type="text"
+                      value={editClientForm.referralContact || ''}
+                      onChange={(e) =>
+                        setEditClientForm({ ...editClientForm, referralContact: e.target.value })
+                      }
+                      className="w-full bg-[#FAFAF7] p-2.5 rounded-xl border border-gray-200"
+                    />
                   </div>
                 </>
               ) : (
@@ -7964,9 +8002,12 @@ export const AdminPortal: React.FC = () => {
 
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     <div>
-                      <label className="font-bold text-gray-700 block mb-1">E-mail address</label>
+                      <label className="font-bold text-gray-700 block mb-1">
+                        E-mail address <span className="text-red-500">*</span>
+                      </label>
                       <input
                         type="email"
+                        required
                         value={editClientForm.email || ''}
                         onChange={(e) => setEditClientForm({ ...editClientForm, email: e.target.value })}
                         className="w-full bg-[#FAFAF7] p-2.5 rounded-xl border border-gray-200"
