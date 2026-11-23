@@ -76,6 +76,14 @@ export const ClientPortal: React.FC<ClientPortalProps> = ({
   const [clientEmail, setClientEmail] = useState('');
   const [clientPassword, setClientPassword] = useState('');
   const [authError, setAuthError] = useState<string | null>(null);
+  const [clientNotice, setClientNotice] = useState<string | null>(null);
+
+  const showClientNotice = (msg: string) => {
+    setClientNotice(msg);
+    setTimeout(() => {
+      setClientNotice((prev) => (prev === msg ? null : prev));
+    }, 6000);
+  };
 
   const handleClientLogin = (e: React.FormEvent) => {
     e.preventDefault();
@@ -170,7 +178,7 @@ export const ClientPortal: React.FC<ClientPortalProps> = ({
 
     setShowUploadModal(false);
     setNewClientDocTitle('');
-    alert('Document uploaded successfully to your legal case vault!');
+    showClientNotice('Document uploaded successfully to your legal case vault.');
   };
 
   // DEDICATED APPEALING CLIENT "UNDER CONSTRUCTION" VIEW (NO LOGIN BOX, CLEAN & MINIMAL)
@@ -318,6 +326,22 @@ export const ClientPortal: React.FC<ClientPortalProps> = ({
         </div>
       </div>
 
+      {clientNotice && (
+        <div className="bg-emerald-50 border border-emerald-300 text-emerald-950 px-5 py-3 rounded-2xl flex items-center justify-between text-xs font-semibold shadow-sm">
+          <div className="flex items-center gap-2">
+            <CheckCircle2 className="w-4 h-4 text-[#0F6B4C] shrink-0" />
+            <span>{clientNotice}</span>
+          </div>
+          <button
+            type="button"
+            onClick={() => setClientNotice(null)}
+            className="text-emerald-800 hover:text-black font-bold cursor-pointer"
+          >
+            ✕
+          </button>
+        </div>
+      )}
+
       {/* Overview Cards */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <div className="bg-white p-5 rounded-2xl border border-[#0F6B4C]/15 shadow-sm">
@@ -445,8 +469,8 @@ export const ClientPortal: React.FC<ClientPortalProps> = ({
                   <div className="text-[10px] text-[#5A6275]">{doc.fileSize} • Uploaded {doc.uploadedAt}</div>
                 </div>
                 <button
-                  onClick={() => alert(`Simulated Download: Downloading "${doc.title}" certified copy.`)}
-                  className="bg-[#0A4B35] text-white p-2 rounded-xl hover:bg-[#0F6B4C]"
+                  onClick={() => showClientNotice(`Prepared certified copy of "${doc.title}" for download.`)}
+                  className="bg-[#0A4B35] text-white p-2 rounded-xl hover:bg-[#0F6B4C] cursor-pointer"
                   title="Download"
                 >
                   <Download className="w-4 h-4 text-[#F5A623]" />
@@ -502,9 +526,9 @@ export const ClientPortal: React.FC<ClientPortalProps> = ({
                       <button
                         onClick={() => {
                           markInvoicePaid(inv.id, 'Online PKR');
-                          alert('Simulated Payment Successful! Bank payment receipt generated.');
+                          showClientNotice(`Payment recorded for ${inv.invoiceNumber}. Official receipt is ready for print/PDF.`);
                         }}
-                        className="text-[11px] font-bold bg-[#F5A623] text-[#1A1A1A] px-3 py-1.5 rounded-xl shadow-sm hover:bg-amber-500"
+                        className="text-[11px] font-bold bg-[#F5A623] text-[#1A1A1A] px-3 py-1.5 rounded-xl shadow-sm hover:bg-amber-500 cursor-pointer"
                       >
                         Pay Online Now
                       </button>

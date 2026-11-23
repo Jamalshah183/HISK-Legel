@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import {
   Client,
   CaseFile,
@@ -46,7 +46,13 @@ import {
 import { db, auth } from './firebase';
 import { collection, onSnapshot, doc, setDoc, deleteDoc, getDoc, getDocFromServer } from 'firebase/firestore';
 import { onAuthStateChanged } from 'firebase/auth';
-import { isSuperAdminEmail } from './staffPermissions';
+import { isSuperAdminEmail, resolveStaffPermissions } from './staffPermissions';
+import {
+  inferClientFileCode,
+  getClientTypeFromFileCode,
+  parseFileCodeFromFileNumber,
+  getNextFileNumber
+} from './excelExport';
 
 enum OperationType {
   CREATE = 'create',
@@ -130,11 +136,85 @@ const STORAGE_KEYS = {
   CLIENT_VAULT_SECRETS: 'hisk_portal_client_secrets_v1'
 };
 
-const createUniqueId = (prefix: string) => `${prefix}-${Date.now().toString().slice(-4)}`;
-const createFullTimestampId = (prefix: string) => `${prefix}-${Date.now()}`;
+const createUniqueId = (prefix: string) => {
+  const suffix = `${Date.now().toString().slice(-5)}${Math.floor(100 + Math.random() * 900)}`;
+  return prefix ? `${prefix}-${suffix}` : suffix;
+};
+const createFullTimestampId = (prefix: string) =>
+  `${prefix}-${Date.now()}-${Math.floor(100 + Math.random() * 900)}`;
 const getTodayDateString = () => new Date().toISOString().split('T')[0];
 const getCurrentYearNumber = () => new Date().getFullYear();
-const getRandom3DigitNum = () => Math.floor(100 + Math.random() * 900);
+
+function normalizeClientList(rawClients: Client[], currentCases: CaseFile[]): Client[] {
+  const seedMap = new Map(INITIAL_CLIENTS.map((c) => [c.id, c]));
+  const working: Client[] = rawClients.map((cl) => {
+    const seed = seedMap.get(cl.id);
+    if (seed && (!cl.fileNumber || !cl.fileCategoryCode)) {
+      return {
+        ...seed,
+        ...cl,
+        fileNumber: cl.fileNumber || seed.fileNumber,
+        fileCategoryCode: cl.fileCategoryCode || seed.fileCategoryCode,
+        clientType: cl.clientType || seed.clientType,
+        category:
+          !cl.fileCategoryCode && cl.id === 'cli-101' && cl.category === 'Corporate'
+            ? seed.category
+            : cl.category || seed.category,
+        entityStatus: cl.entityStatus || seed.entityStatus,
+        activeClosed: cl.activeClosed || seed.activeClosed,
+        regIncorpNo: cl.regIncorpNo || seed.regIncorpNo,
+        rtoCto: cl.rtoCto || seed.rtoCto,
+        contactPerson: cl.contactPerson || seed.contactPerson,
+        referralContact: cl.referralContact || seed.referralContact,
+        pendingBeforeCourt: cl.pendingBeforeCourt ?? seed.pendingBeforeCourt,
+      };
+    }
+    return { ...cl };
+  });
+
+  // Assign deterministic non-colliding fileNumbers to any legacy custom clients missing them
+  const result: Client[] = [];
+  for (const cl of working) {
+    const code = cl.fileCategoryCode || inferClientFileCode(cl);
+    const fileNumber =
+      cl.fileNumber?.trim().toUpperCase() ||
+      getNextFileNumber(code, [...result, ...working.filter((w) => Boolean(w.fileNumber))], currentCases);
+    const resolvedCode = parseFileCodeFromFileNumber(fileNumber) || code;
+    const linkedCaseCount = currentCases.filter((cs) => cs.clientId === cl.id).length;
+    result.push({
+      ...cl,
+      fileNumber,
+      fileCategoryCode: resolvedCode,
+      clientType: cl.clientType || getClientTypeFromFileCode(resolvedCode),
+      activeCasesCount: currentCases.length > 0 ? linkedCaseCount : cl.activeCasesCount ?? 0,
+    });
+  }
+  return result;
+}
+
+function normalizeCaseList(rawCases: CaseFile[], normalizedClients: Client[]): CaseFile[] {
+  const seedCaseMap = new Map(INITIAL_CASES.map((c) => [c.id, c]));
+  const clientMap = new Map(normalizedClients.map((cl) => [cl.id, cl]));
+  return rawCases.map((cs) => {
+    const seed = seedCaseMap.get(cs.id);
+    const linkedClient = clientMap.get(cs.clientId);
+    const resolvedFileNumber =
+      linkedClient?.fileNumber || cs.fileNumber || seed?.fileNumber;
+    const resolvedCode =
+      linkedClient?.fileCategoryCode ||
+      cs.fileCategoryCode ||
+      parseFileCodeFromFileNumber(resolvedFileNumber || cs.caseRef) ||
+      seed?.fileCategoryCode;
+    return {
+      ...cs,
+      fileNumber: resolvedFileNumber,
+      fileCategoryCode: resolvedCode,
+      caseCategory: cs.caseCategory || seed?.caseCategory || (resolvedCode === 'INC' ? 'Corporate & SECP' : resolvedCode === 'CF' ? 'Civil Litigation' : 'Tax & FBR Litigation'),
+      clientName: linkedClient?.name || cs.clientName || 'Client',
+      clientNtn: (linkedClient?.ntn && linkedClient.ntn.trim()) ? linkedClient.ntn : (cs.clientNtn ?? 'N/A'),
+    };
+  });
+}
 
 export function usePortalStore() {
   const [clients, setClients] = useState<Client[]>(() => {
@@ -308,6 +388,22 @@ export function usePortalStore() {
   });
 
   const [isLoaded, setIsLoaded] = useState<boolean>(true);
+  const clientsRef = useRef<Client[]>(clients);
+  const casesRef = useRef<CaseFile[]>(cases);
+  const noticesRef = useRef<FBRNotice[]>(notices);
+  const invoicesRef = useRef<Invoice[]>(invoices);
+  const hearingsRef = useRef<HearingEvent[]>(hearings);
+  const clientCredentialsRef = useRef<ClientCredential[]>(clientCredentials);
+  const hasAttemptedBackfillRef = useRef<boolean>(false);
+
+  useEffect(() => {
+    clientsRef.current = clients;
+    casesRef.current = cases;
+    noticesRef.current = notices;
+    invoicesRef.current = invoices;
+    hearingsRef.current = hearings;
+    clientCredentialsRef.current = clientCredentials;
+  }, [clients, cases, notices, invoices, hearings, clientCredentials]);
 
   // Helper to sync to Firestore and local storage
   const saveToStorage = (key: string, data: any) => {
@@ -346,14 +442,149 @@ export function usePortalStore() {
       }
     });
 
+    const rawFirestoreClientsRef = { current: null as Client[] | null };
+    const rawFirestoreCasesRef = { current: null as CaseFile[] | null };
+    const rawFirestoreNoticesRef = { current: null as FBRNotice[] | null };
+    const rawFirestoreDocsRef = { current: null as DocumentItem[] | null };
+    const rawFirestoreTasksRef = { current: null as InternalTask[] | null };
+    const rawFirestoreNotesRef = { current: null as InternalNote[] | null };
+    const rawFirestoreInvoicesRef = { current: null as Invoice[] | null };
+    const rawFirestoreHearingsRef = { current: null as HearingEvent[] | null };
+    const rawFirestoreNotifsRef = { current: null as NotificationLog[] | null };
+    const rawFirestoreCredsRef = { current: null as ClientCredential[] | null };
+    let activeUserPermsRef: StaffPermission[] = [];
+
+    const maybeBackfillAndSeedRegisters = () => {
+      if (!auth.currentUser || hasAttemptedBackfillRef.current) return;
+      if (!rawFirestoreClientsRef.current || !rawFirestoreCasesRef.current) return;
+
+      const canDataEntry = activeUserPermsRef.includes('data_entry');
+      if (!canDataEntry) return;
+
+      const rawClients = rawFirestoreClientsRef.current;
+      const rawCases = rawFirestoreCasesRef.current;
+      const normalizedCls = normalizeClientList(rawClients, rawCases);
+      const normalizedCzs = normalizeCaseList(rawCases, normalizedCls);
+
+      // 1. Backfill any existing docs missing fileNumber / fileCategoryCode or accurate activeCasesCount
+      rawClients.forEach((raw) => {
+        const norm = normalizedCls.find((n) => n.id === raw.id);
+        if (
+          norm &&
+          (!raw.fileNumber ||
+            !raw.fileCategoryCode ||
+            raw.activeCasesCount !== norm.activeCasesCount ||
+            (raw.id === 'cli-101' && raw.category === 'Corporate' && !raw.fileCategoryCode))
+        ) {
+          saveToFirestoreDoc('clients', norm.id, norm);
+        }
+      });
+
+      rawCases.forEach((raw) => {
+        const norm = normalizedCzs.find((n) => n.id === raw.id);
+        if (norm && (!raw.fileNumber || !raw.fileCategoryCode || !raw.caseCategory)) {
+          saveToFirestoreDoc('cases', norm.id, norm);
+        }
+      });
+
+      // 2. One-time seed of missing IT/ST/INC/CF sample series & linked records
+      const needsSampleSeries =
+        !rawClients.some((c) => c.id === 'cli-105') ||
+        !rawClients.some((c) => c.id === 'cli-106') ||
+        !rawClients.some((c) => c.id === 'cli-107');
+
+      const alreadySeededLocal = localStorage.getItem('hisk_registers_seeded_v2') === 'done';
+      if (!alreadySeededLocal || (needsSampleSeries && !rawClients.some((c) => Boolean(c.fileNumber)))) {
+        hasAttemptedBackfillRef.current = true;
+        localStorage.setItem('hisk_registers_seeded_v2', 'done');
+
+        const existingClientIds = new Set(rawClients.map((c) => c.id));
+        INITIAL_CLIENTS.forEach((c) => {
+          if (!existingClientIds.has(c.id)) saveToFirestoreDoc('clients', c.id, c);
+        });
+
+        const existingCaseIds = new Set(rawCases.map((c) => c.id));
+        INITIAL_CASES.forEach((c) => {
+          if (!existingCaseIds.has(c.id)) saveToFirestoreDoc('cases', c.id, c);
+        });
+
+        if (rawFirestoreNoticesRef.current) {
+          const existingNoticeIds = new Set(rawFirestoreNoticesRef.current.map((n) => n.id));
+          INITIAL_NOTICES.forEach((n) => {
+            if (!existingNoticeIds.has(n.id)) saveToFirestoreDoc('notices', n.id, n);
+          });
+        }
+
+        if (rawFirestoreHearingsRef.current) {
+          const existingHearingIds = new Set(rawFirestoreHearingsRef.current.map((h) => h.id));
+          INITIAL_HEARINGS.forEach((h) => {
+            if (!existingHearingIds.has(h.id)) saveToFirestoreDoc('hearings', h.id, h);
+          });
+        }
+
+        if (rawFirestoreCredsRef.current) {
+          const existingCredIds = new Set(rawFirestoreCredsRef.current.map((c) => c.id));
+          INITIAL_CLIENT_CREDENTIALS.forEach((c) => {
+            if (!existingCredIds.has(c.id)) saveToFirestoreDoc('clientCredentials', c.id, c);
+          });
+        }
+
+        if (rawFirestoreNotifsRef.current && activeUserPermsRef.includes('notifications')) {
+          const existingNotifIds = new Set(rawFirestoreNotifsRef.current.map((n) => n.id));
+          INITIAL_NOTIFICATIONS.forEach((n) => {
+            if (!existingNotifIds.has(n.id)) saveToFirestoreDoc('notifications', n.id, n);
+          });
+        }
+
+        if (rawFirestoreDocsRef.current && activeUserPermsRef.includes('document_management')) {
+          const existingDocIds = new Set(rawFirestoreDocsRef.current.map((d) => d.id));
+          INITIAL_DOCUMENTS.forEach((d) => {
+            if (!existingDocIds.has(d.id)) saveToFirestoreDoc('documents', d.id, d);
+          });
+        }
+
+        if (rawFirestoreTasksRef.current && (activeUserPermsRef.includes('tasks_notes') || canDataEntry)) {
+          const existingTaskIds = new Set(rawFirestoreTasksRef.current.map((t) => t.id));
+          INITIAL_TASKS.forEach((t) => {
+            if (!existingTaskIds.has(t.id)) saveToFirestoreDoc('tasks', t.id, t);
+          });
+        }
+
+        if (rawFirestoreNotesRef.current && (activeUserPermsRef.includes('tasks_notes') || canDataEntry)) {
+          const existingNoteIds = new Set(rawFirestoreNotesRef.current.map((n) => n.id));
+          INITIAL_NOTES.forEach((n) => {
+            if (!existingNoteIds.has(n.id)) saveToFirestoreDoc('notes', n.id, n);
+          });
+        }
+
+        if (rawFirestoreInvoicesRef.current && activeUserPermsRef.includes('billing')) {
+          const existingInvIds = new Set(rawFirestoreInvoicesRef.current.map((i) => i.id));
+          INITIAL_INVOICES.forEach((i) => {
+            if (!existingInvIds.has(i.id)) saveToFirestoreDoc('invoices', i.id, i);
+          });
+        }
+      } else {
+        hasAttemptedBackfillRef.current = true;
+      }
+    };
+
     // 1. Clients
     const unsubClients = onSnapshot(collection(db, 'clients'), (snap) => {
       if (snap.empty) {
         INITIAL_CLIENTS.forEach((c) => saveToFirestoreDoc('clients', c.id, c));
       } else {
         const items = snap.docs.map((d) => d.data() as Client);
-        setClients(items);
-        saveToStorage(STORAGE_KEYS.CLIENTS, items);
+        rawFirestoreClientsRef.current = items;
+        const currentCases = rawFirestoreCasesRef.current || casesRef.current;
+        const normalizedClients = normalizeClientList(items, currentCases);
+        setClients(normalizedClients);
+        saveToStorage(STORAGE_KEYS.CLIENTS, normalizedClients);
+        if (rawFirestoreCasesRef.current) {
+          const normalizedCases = normalizeCaseList(rawFirestoreCasesRef.current, normalizedClients);
+          setCases(normalizedCases);
+          saveToStorage(STORAGE_KEYS.CASES, normalizedCases);
+        }
+        maybeBackfillAndSeedRegisters();
       }
     }, (err) => console.warn('Clients snapshot error:', err));
 
@@ -363,8 +594,15 @@ export function usePortalStore() {
         INITIAL_CASES.forEach((c) => saveToFirestoreDoc('cases', c.id, c));
       } else {
         const items = snap.docs.map((d) => d.data() as CaseFile);
-        setCases(items);
-        saveToStorage(STORAGE_KEYS.CASES, items);
+        rawFirestoreCasesRef.current = items;
+        const currentClients = rawFirestoreClientsRef.current || clientsRef.current;
+        const normalizedClients = normalizeClientList(currentClients, items);
+        const normalizedCases = normalizeCaseList(items, normalizedClients);
+        setClients(normalizedClients);
+        saveToStorage(STORAGE_KEYS.CLIENTS, normalizedClients);
+        setCases(normalizedCases);
+        saveToStorage(STORAGE_KEYS.CASES, normalizedCases);
+        maybeBackfillAndSeedRegisters();
       }
     }, (err) => console.warn('Cases snapshot error:', err));
 
@@ -374,6 +612,7 @@ export function usePortalStore() {
         INITIAL_NOTICES.forEach((n) => saveToFirestoreDoc('notices', n.id, n));
       } else {
         const items = snap.docs.map((d) => d.data() as FBRNotice);
+        rawFirestoreNoticesRef.current = items;
         setNotices(items);
         saveToStorage(STORAGE_KEYS.NOTICES, items);
       }
@@ -385,6 +624,7 @@ export function usePortalStore() {
         INITIAL_DOCUMENTS.forEach((d) => saveToFirestoreDoc('documents', d.id, d));
       } else {
         const items = snap.docs.map((d) => d.data() as DocumentItem);
+        rawFirestoreDocsRef.current = items;
         setDocuments(items);
         saveToStorage(STORAGE_KEYS.DOCUMENTS, items);
       }
@@ -396,6 +636,7 @@ export function usePortalStore() {
         INITIAL_TASKS.forEach((t) => saveToFirestoreDoc('tasks', t.id, t));
       } else {
         const items = snap.docs.map((d) => d.data() as InternalTask);
+        rawFirestoreTasksRef.current = items;
         setTasks(items);
         saveToStorage(STORAGE_KEYS.TASKS, items);
       }
@@ -407,6 +648,7 @@ export function usePortalStore() {
         INITIAL_NOTES.forEach((n) => saveToFirestoreDoc('notes', n.id, n));
       } else {
         const items = snap.docs.map((d) => d.data() as InternalNote);
+        rawFirestoreNotesRef.current = items;
         setNotes(items);
         saveToStorage(STORAGE_KEYS.NOTES, items);
       }
@@ -418,6 +660,7 @@ export function usePortalStore() {
         INITIAL_INVOICES.forEach((i) => saveToFirestoreDoc('invoices', i.id, i));
       } else {
         const items = snap.docs.map((d) => d.data() as Invoice);
+        rawFirestoreInvoicesRef.current = items;
         setInvoices(items);
         saveToStorage(STORAGE_KEYS.INVOICES, items);
       }
@@ -429,6 +672,7 @@ export function usePortalStore() {
         INITIAL_HEARINGS.forEach((h) => saveToFirestoreDoc('hearings', h.id, h));
       } else {
         const items = snap.docs.map((d) => d.data() as HearingEvent);
+        rawFirestoreHearingsRef.current = items;
         setHearings(items);
         saveToStorage(STORAGE_KEYS.HEARINGS, items);
       }
@@ -440,6 +684,7 @@ export function usePortalStore() {
         INITIAL_NOTIFICATIONS.forEach((n) => saveToFirestoreDoc('notifications', n.id, n));
       } else {
         const items = snap.docs.map((d) => d.data() as NotificationLog);
+        rawFirestoreNotifsRef.current = items;
         setNotifications(items);
         saveToStorage(STORAGE_KEYS.NOTIFICATIONS, items);
       }
@@ -451,6 +696,7 @@ export function usePortalStore() {
         INITIAL_CLIENT_CREDENTIALS.forEach((c) => saveToFirestoreDoc('clientCredentials', c.id, c));
       } else {
         const items = snap.docs.map((d) => d.data() as ClientCredential);
+        rawFirestoreCredsRef.current = items;
         setClientCredentials(items);
         saveToStorage(STORAGE_KEYS.CLIENT_CREDENTIALS, items);
       }
@@ -543,6 +789,9 @@ export function usePortalStore() {
       const isSuperAdmin = isSuperAdminEmail(email);
       let canManageStaff = isSuperAdmin;
       let canManageClients = isSuperAdmin;
+      activeUserPermsRef = isSuperAdmin
+        ? ['dashboard', 'data_entry', 'document_management', 'tasks_notes', 'billing', 'notifications', 'content_cms', 'staff_management']
+        : [];
 
       if (!isSuperAdmin) {
         try {
@@ -553,6 +802,7 @@ export function usePortalStore() {
               selfData.status === 'Active' && Array.isArray(selfData.permissions)
                 ? selfData.permissions
                 : [];
+            activeUserPermsRef = activePerms;
             canManageStaff = activePerms.includes('staff_management');
             canManageClients = activePerms.includes('data_entry');
           }
@@ -565,17 +815,22 @@ export function usePortalStore() {
           (docSnap) => {
             if (docSnap.exists()) {
               const selfData = docSnap.data() as StaffAccount;
+              const resolved = resolveStaffPermissions(email, [selfData]);
+              activeUserPermsRef = resolved.permissions;
               setStaffAccounts((prev) => {
                 const others = prev.filter((item) => item.id !== selfData.id && item.email.toLowerCase() !== email);
                 const merged = [selfData, ...others];
                 saveToStorage(STORAGE_KEYS.STAFF_ACCOUNTS, merged);
                 return merged;
               });
+              maybeBackfillAndSeedRegisters();
             }
           },
           (err) => console.warn('Self staff snapshot error:', err)
         );
       }
+
+      maybeBackfillAndSeedRegisters();
 
       if (canManageStaff) {
         unsubStaffList = onSnapshot(
@@ -646,9 +901,11 @@ export function usePortalStore() {
       secpPin: cleanPin,
       updatedAt: getTodayDateString(),
     };
-    const nextMap = { ...clientVaultSecrets, [clientId]: secretDoc };
-    setClientVaultSecrets(nextMap);
-    saveToStorage(STORAGE_KEYS.CLIENT_VAULT_SECRETS, nextMap);
+    setClientVaultSecrets((prev) => {
+      const nextMap = { ...prev, [clientId]: secretDoc };
+      saveToStorage(STORAGE_KEYS.CLIENT_VAULT_SECRETS, nextMap);
+      return nextMap;
+    });
     saveToFirestoreDoc('client_vault_secrets', clientId, secretDoc);
   };
 
@@ -669,9 +926,11 @@ export function usePortalStore() {
       totalTaxSaved: 'Rs. 0',
       createdAt: getTodayDateString()
     });
-    const updated = [newClient, ...clients];
-    setClients(updated);
-    saveToStorage(STORAGE_KEYS.CLIENTS, updated);
+    setClients((prev) => {
+      const updated = [newClient, ...prev];
+      saveToStorage(STORAGE_KEYS.CLIENTS, updated);
+      return updated;
+    });
     saveToFirestoreDoc('clients', newClient.id, newClient);
 
     if (secpPassword || secpPin) {
@@ -696,19 +955,113 @@ export function usePortalStore() {
     updatedData: Partial<Client> & { secpPassword?: string; secpPin?: string }
   ) => {
     const { secpPassword, secpPin, ...publicUpdates } = updatedData;
-    let targetClient: Client | null = null;
-    const updated = clients.map((c) => {
-      if (c.id === clientId) {
-        targetClient = stripUndefined({ ...c, ...publicUpdates });
-        return targetClient;
-      }
-      return c;
+    const existingClient = clientsRef.current.find((c) => c.id === clientId);
+    const mergedClient = existingClient
+      ? stripUndefined({ ...existingClient, ...publicUpdates })
+      : null;
+
+    setClients((prev) => {
+      const updated = prev.map((c) => (c.id === clientId && mergedClient ? mergedClient : c));
+      saveToStorage(STORAGE_KEYS.CLIENTS, updated);
+      return updated;
     });
-    setClients(updated);
-    saveToStorage(STORAGE_KEYS.CLIENTS, updated);
-    if (targetClient) {
-      saveToFirestoreDoc('clients', clientId, targetClient);
+
+    if (mergedClient) {
+      saveToFirestoreDoc('clients', clientId, mergedClient);
+
+      // Cascade updates to linked Cases, Notices, Invoices, Hearings, and Client Credentials
+      const affectedCaseIds = new Set<string>();
+      setCases((prev) => {
+        let changed = false;
+        const nextCases = prev.map((cs) => {
+          if (cs.clientId === clientId) {
+            affectedCaseIds.add(cs.id);
+            const nextCase: CaseFile = stripUndefined({
+              ...cs,
+              fileNumber: mergedClient.fileNumber,
+              fileCategoryCode: mergedClient.fileCategoryCode,
+              clientName: mergedClient.name,
+              clientNtn: mergedClient.ntn || cs.clientNtn,
+            });
+            changed = true;
+            saveToFirestoreDoc('cases', cs.id, nextCase);
+            return nextCase;
+          }
+          return cs;
+        });
+        if (changed) saveToStorage(STORAGE_KEYS.CASES, nextCases);
+        return changed ? nextCases : prev;
+      });
+
+      setNotices((prev) => {
+        let changed = false;
+        const nextNotices = prev.map((n) => {
+          if (n.clientId === clientId && n.clientName !== mergedClient.name) {
+            const nextNotice = { ...n, clientName: mergedClient.name };
+            changed = true;
+            saveToFirestoreDoc('notices', n.id, nextNotice);
+            return nextNotice;
+          }
+          return n;
+        });
+        if (changed) saveToStorage(STORAGE_KEYS.NOTICES, nextNotices);
+        return changed ? nextNotices : prev;
+      });
+
+      setInvoices((prev) => {
+        let changed = false;
+        const nextInvoices = prev.map((inv) => {
+          if (inv.clientId === clientId && (inv.clientName !== mergedClient.name || inv.clientNtn !== mergedClient.ntn)) {
+            const nextInv = {
+              ...inv,
+              clientName: mergedClient.name,
+              clientNtn: mergedClient.ntn || inv.clientNtn,
+            };
+            changed = true;
+            saveToFirestoreDoc('invoices', inv.id, nextInv);
+            return nextInv;
+          }
+          return inv;
+        });
+        if (changed) saveToStorage(STORAGE_KEYS.INVOICES, nextInvoices);
+        return changed ? nextInvoices : prev;
+      });
+
+      setHearings((prev) => {
+        const linkedCaseIdSet = new Set(
+          casesRef.current.filter((cs) => cs.clientId === clientId).map((cs) => cs.id)
+        );
+        affectedCaseIds.forEach((id) => linkedCaseIdSet.add(id));
+        let changed = false;
+        const nextHearings = prev.map((h) => {
+          if (linkedCaseIdSet.has(h.caseId) && h.clientName !== mergedClient.name) {
+            const nextH = { ...h, clientName: mergedClient.name };
+            changed = true;
+            saveToFirestoreDoc('hearings', h.id, nextH);
+            return nextH;
+          }
+          return h;
+        });
+        if (changed) saveToStorage(STORAGE_KEYS.HEARINGS, nextHearings);
+        return changed ? nextHearings : prev;
+      });
+
+      setClientCredentials((prev) => {
+        let changed = false;
+        const nextCreds = prev.map((cred) => {
+          if (cred.clientId === clientId && cred.clientName !== mergedClient.name) {
+            const nextCred = { ...cred, clientName: mergedClient.name };
+            changed = true;
+            saveToFirestoreDoc('clientCredentials', cred.id, nextCred);
+            return nextCred;
+          }
+          return cred;
+        });
+        if (changed) saveToStorage(STORAGE_KEYS.CLIENT_CREDENTIALS, nextCreds);
+        return changed ? nextCreds : prev;
+      });
     }
+
     if (secpPassword !== undefined || secpPin !== undefined) {
       const existingSecret = clientVaultSecrets[clientId];
       saveClientVaultSecret(
@@ -725,14 +1078,16 @@ export function usePortalStore() {
       id: createUniqueId('cred'),
       createdAt: getTodayDateString()
     };
-    const updated = [
-      newCred,
-      ...clientCredentials.filter(
-        (c) => c.email.toLowerCase() !== cred.email.toLowerCase() && c.clientId !== cred.clientId
-      )
-    ];
-    setClientCredentials(updated);
-    saveToStorage(STORAGE_KEYS.CLIENT_CREDENTIALS, updated);
+    setClientCredentials((prev) => {
+      const updated = [
+        newCred,
+        ...prev.filter(
+          (c) => c.email.toLowerCase() !== cred.email.toLowerCase() && c.clientId !== cred.clientId
+        )
+      ];
+      saveToStorage(STORAGE_KEYS.CLIENT_CREDENTIALS, updated);
+      return updated;
+    });
     saveToFirestoreDoc('clientCredentials', newCred.id, newCred);
     return newCred;
   };
@@ -754,15 +1109,23 @@ export function usePortalStore() {
     clientLoginEmail?: string;
     clientLoginPassword?: string;
   }) => {
-    const client = clients.find((c) => c.id === caseData.clientId);
+    const client =
+      clientsRef.current.find((c) => c.id === caseData.clientId) || clientsRef.current[0];
+    const resolvedClientId = client ? client.id : caseData.clientId;
+    const forumTag =
+      caseData.forum
+        .replace(/[^A-Za-z]/g, '')
+        .slice(0, 4)
+        .toUpperCase() || 'CASE';
+
     const newCase: CaseFile = stripUndefined({
-      id: `case-${getCurrentYearNumber()}-${getRandom3DigitNum()}`,
-      caseRef: `HISK-${caseData.forum.split(' ')[0]}-${createUniqueId('')}`,
+      id: `case-${getCurrentYearNumber()}-${Date.now().toString().slice(-4)}${Math.floor(10 + Math.random() * 90)}`,
+      caseRef: `HISK-${forumTag}-${createUniqueId('')}`,
       fileNumber: client?.fileNumber,
-      fileCategoryCode: client?.fileCategoryCode,
-      clientId: caseData.clientId,
+      fileCategoryCode: client?.fileCategoryCode || (client ? inferClientFileCode(client) : undefined),
+      clientId: resolvedClientId,
       clientName: client ? client.name : 'Corporate Client',
-      clientNtn: client ? client.ntn : 'N/A',
+      clientNtn: client ? client.ntn || 'N/A' : 'N/A',
       caseTitle: caseData.title,
       caseCategory: caseData.caseCategory || 'Tax & FBR Litigation',
       assignedCounsel: caseData.assignedCounsel,
@@ -790,15 +1153,17 @@ export function usePortalStore() {
       ]
     });
 
-    const updatedCases = [newCase, ...cases];
-    setCases(updatedCases);
-    saveToStorage(STORAGE_KEYS.CASES, updatedCases);
+    setCases((prev) => {
+      const updatedCases = [newCase, ...prev];
+      saveToStorage(STORAGE_KEYS.CASES, updatedCases);
+      return updatedCases;
+    });
     saveToFirestoreDoc('cases', newCase.id, newCase);
 
     // Save client login credential if created during case creation
     if (caseData.clientLoginEmail && caseData.clientLoginPassword) {
       addClientCredential({
-        clientId: caseData.clientId,
+        clientId: resolvedClientId,
         clientName: client ? client.name : 'Client',
         email: caseData.clientLoginEmail,
         password: caseData.clientLoginPassword
@@ -820,53 +1185,71 @@ export function usePortalStore() {
         purpose: caseData.nextHearingPurpose || 'Initial Hearing & Cause List Appearance',
         priority: caseData.riskLevel === 'Critical' ? 'High' : 'Medium'
       };
-      const updatedHearings = [newHearing, ...hearings];
-      setHearings(updatedHearings);
-      saveToStorage(STORAGE_KEYS.HEARINGS, updatedHearings);
+      setHearings((prev) => {
+        const updatedHearings = [newHearing, ...prev];
+        saveToStorage(STORAGE_KEYS.HEARINGS, updatedHearings);
+        return updatedHearings;
+      });
       saveToFirestoreDoc('hearings', newHearing.id, newHearing);
     }
 
-    // Update active case count for client
+    // Update active case count for client using functional state updater
     if (client) {
-      const updatedClients = clients.map((c) =>
-        c.id === client.id ? { ...c, activeCasesCount: c.activeCasesCount + 1 } : c
-      );
-      setClients(updatedClients);
-      saveToStorage(STORAGE_KEYS.CLIENTS, updatedClients);
-      const updatedClient = updatedClients.find((c) => c.id === client.id);
-      if (updatedClient) {
-        saveToFirestoreDoc('clients', updatedClient.id, updatedClient);
-      }
+      setClients((prev) => {
+        const updatedClients = prev.map((c) => {
+          if (c.id === client.id) {
+            const nextClient = { ...c, activeCasesCount: (c.activeCasesCount || 0) + 1 };
+            saveToFirestoreDoc('clients', nextClient.id, nextClient);
+            return nextClient;
+          }
+          return c;
+        });
+        saveToStorage(STORAGE_KEYS.CLIENTS, updatedClients);
+        return updatedClients;
+      });
     }
 
     return newCase;
   };
 
   const updateCase = (caseId: string, updatedData: Partial<CaseFile> & { clientLoginEmail?: string; clientLoginPassword?: string }) => {
-    let updatedTargetDoc: CaseFile | null = null;
-    const updated = cases.map((c) => {
-      if (c.id === caseId) {
-        const docObj = {
-          ...c,
-          ...updatedData
-        };
-        updatedTargetDoc = docObj;
-        return docObj;
-      }
-      return c;
+    const existingCase = casesRef.current.find((c) => c.id === caseId);
+    const resolvedClient = updatedData.clientId
+      ? clientsRef.current.find((cl) => cl.id === updatedData.clientId)
+      : existingCase
+      ? clientsRef.current.find((cl) => cl.id === existingCase.clientId)
+      : undefined;
+
+    let updatedTargetDoc: CaseFile | null = existingCase
+      ? stripUndefined({
+          ...existingCase,
+          ...updatedData,
+          ...(resolvedClient
+            ? {
+                clientId: resolvedClient.id,
+                clientName: resolvedClient.name,
+                clientNtn: resolvedClient.ntn || 'N/A',
+                fileNumber: resolvedClient.fileNumber,
+                fileCategoryCode: resolvedClient.fileCategoryCode,
+              }
+            : {}),
+        })
+      : null;
+
+    setCases((prev) => {
+      const updated = prev.map((c) => (c.id === caseId && updatedTargetDoc ? updatedTargetDoc : c));
+      saveToStorage(STORAGE_KEYS.CASES, updated);
+      return updated;
     });
-    setCases(updated);
-    saveToStorage(STORAGE_KEYS.CASES, updated);
     if (updatedTargetDoc) {
       saveToFirestoreDoc('cases', caseId, updatedTargetDoc);
     }
 
     // Sync client login credential if provided
     if (updatedTargetDoc && updatedData.clientLoginEmail && updatedData.clientLoginPassword) {
-      const targetCase = updatedTargetDoc as CaseFile;
       addClientCredential({
-        clientId: targetCase.clientId,
-        clientName: targetCase.clientName,
+        clientId: updatedTargetDoc.clientId,
+        clientName: updatedTargetDoc.clientName,
         email: updatedData.clientLoginEmail,
         password: updatedData.clientLoginPassword
       });
@@ -874,8 +1257,8 @@ export function usePortalStore() {
 
     // Sync hearing if nextHearingDate provided
     if (updatedTargetDoc && updatedData.nextHearingDate) {
-      const targetCase = updatedTargetDoc as CaseFile;
-      const existingIdx = hearings.findIndex(
+      const targetCase = updatedTargetDoc;
+      const existingIdx = hearingsRef.current.findIndex(
         (h) => h.caseId === caseId && h.date === updatedData.nextHearingDate
       );
       if (existingIdx === -1) {
@@ -892,33 +1275,37 @@ export function usePortalStore() {
           purpose: targetCase.nextHearingPurpose || 'Court Hearing Proceedings',
           priority: targetCase.riskLevel === 'Critical' ? 'High' : 'Medium'
         };
-        const updatedH = [newHearing, ...hearings];
-        setHearings(updatedH);
-        saveToStorage(STORAGE_KEYS.HEARINGS, updatedH);
+        setHearings((prev) => {
+          const updatedH = [newHearing, ...prev];
+          saveToStorage(STORAGE_KEYS.HEARINGS, updatedH);
+          return updatedH;
+        });
         saveToFirestoreDoc('hearings', newHearing.id, newHearing);
       }
     }
   };
 
   const updateCaseStatus = (caseId: string, newStatus: CaseStatus, newStage?: number) => {
-    let updatedTargetDoc: CaseFile | null = null;
-    const updated = cases.map((c) => {
-      if (c.id === caseId) {
-        const docObj = {
-          ...c,
-          status: newStatus,
-          auditStage: newStage !== undefined ? newStage : c.auditStage
-        };
-        updatedTargetDoc = docObj;
-        return docObj;
+    setCases((prev) => {
+      let updatedTargetDoc: CaseFile | null = null;
+      const updated = prev.map((c) => {
+        if (c.id === caseId) {
+          const docObj = {
+            ...c,
+            status: newStatus,
+            auditStage: newStage !== undefined ? newStage : c.auditStage
+          };
+          updatedTargetDoc = docObj;
+          return docObj;
+        }
+        return c;
+      });
+      saveToStorage(STORAGE_KEYS.CASES, updated);
+      if (updatedTargetDoc) {
+        saveToFirestoreDoc('cases', caseId, updatedTargetDoc);
       }
-      return c;
+      return updated;
     });
-    setCases(updated);
-    saveToStorage(STORAGE_KEYS.CASES, updated);
-    if (updatedTargetDoc) {
-      saveToFirestoreDoc('cases', caseId, updatedTargetDoc);
-    }
   };
 
   const addTimelineEvent = (caseId: string, event: {
@@ -928,60 +1315,69 @@ export function usePortalStore() {
     advocateName: string;
     outcome?: string;
   }) => {
-    let updatedTargetDoc: CaseFile | null = null;
-    const updated = cases.map((c) => {
-      if (c.id === caseId) {
-        const newItem = {
-          id: createFullTimestampId('tl'),
-          date: getTodayDateString(),
-          ...event
-        };
-        const docObj = {
-          ...c,
-          timeline: [newItem, ...c.timeline]
-        };
-        updatedTargetDoc = docObj;
-        return docObj;
+    setCases((prev) => {
+      let updatedTargetDoc: CaseFile | null = null;
+      const updated = prev.map((c) => {
+        if (c.id === caseId) {
+          const newItem = {
+            id: createFullTimestampId('tl'),
+            date: getTodayDateString(),
+            ...event
+          };
+          const docObj = {
+            ...c,
+            timeline: [newItem, ...c.timeline]
+          };
+          updatedTargetDoc = docObj;
+          return docObj;
+        }
+        return c;
+      });
+      saveToStorage(STORAGE_KEYS.CASES, updated);
+      if (updatedTargetDoc) {
+        saveToFirestoreDoc('cases', caseId, updatedTargetDoc);
       }
-      return c;
+      return updated;
     });
-    setCases(updated);
-    saveToStorage(STORAGE_KEYS.CASES, updated);
-    if (updatedTargetDoc) {
-      saveToFirestoreDoc('cases', caseId, updatedTargetDoc);
-    }
   };
 
   // --- NOTICE ACTIONS ---
   const addNotice = (notice: Omit<FBRNotice, 'id' | 'clientName'>) => {
-    const client = clients.find((c) => c.id === notice.clientId);
+    const linkedCase = casesRef.current.find((c) => c.id === notice.caseId);
+    const resolvedClientId = notice.clientId || linkedCase?.clientId || clientsRef.current[0]?.id || '';
+    const client = clientsRef.current.find((c) => c.id === resolvedClientId);
     const newNotice: FBRNotice = {
       ...notice,
+      clientId: resolvedClientId,
       id: createUniqueId('not'),
-      clientName: client ? client.name : 'Client'
+      clientName: client ? client.name : (linkedCase?.clientName || 'Client')
     };
-    const updated = [newNotice, ...notices];
-    setNotices(updated);
-    saveToStorage(STORAGE_KEYS.NOTICES, updated);
+    setNotices((prev) => {
+      const updated = [newNotice, ...prev];
+      saveToStorage(STORAGE_KEYS.NOTICES, updated);
+      return updated;
+    });
     saveToFirestoreDoc('notices', newNotice.id, newNotice);
     return newNotice;
   };
 
   const updateNoticeStatus = (noticeId: string, status: FBRNotice['status']) => {
-    let updatedDoc: FBRNotice | null = null;
-    const updated = notices.map((n) => {
-      if (n.id === noticeId) {
-        const obj = { ...n, status };
-        updatedDoc = obj;
-        return obj;
+    setNotices((prev) => {
+      let updatedDoc: FBRNotice | null = null;
+      const updated = prev.map((n) => {
+        if (n.id === noticeId) {
+          const obj = { ...n, status };
+          updatedDoc = obj;
+          return obj;
+        }
+        return n;
+      });
+      saveToStorage(STORAGE_KEYS.NOTICES, updated);
+      if (updatedDoc) {
+        saveToFirestoreDoc('notices', noticeId, updatedDoc);
       }
-      return n;
+      return updated;
     });
-    setNotices(updated);
-    saveToStorage(STORAGE_KEYS.NOTICES, updated);
-    if (updatedDoc) {
-      saveToFirestoreDoc('notices', noticeId, updatedDoc);
-    }
   };
 
   // --- DOCUMENT ACTIONS ---
@@ -991,9 +1387,11 @@ export function usePortalStore() {
       id: createUniqueId('doc'),
       uploadedAt: getTodayDateString()
     };
-    const updated = [newDoc, ...documents];
-    setDocuments(updated);
-    saveToStorage(STORAGE_KEYS.DOCUMENTS, updated);
+    setDocuments((prev) => {
+      const updated = [newDoc, ...prev];
+      saveToStorage(STORAGE_KEYS.DOCUMENTS, updated);
+      return updated;
+    });
     saveToFirestoreDoc('documents', newDoc.id, newDoc);
     return newDoc;
   };
@@ -1005,27 +1403,31 @@ export function usePortalStore() {
       id: createUniqueId('task'),
       isCompleted: false
     };
-    const updated = [newTask, ...tasks];
-    setTasks(updated);
-    saveToStorage(STORAGE_KEYS.TASKS, updated);
+    setTasks((prev) => {
+      const updated = [newTask, ...prev];
+      saveToStorage(STORAGE_KEYS.TASKS, updated);
+      return updated;
+    });
     saveToFirestoreDoc('tasks', newTask.id, newTask);
   };
 
   const toggleTask = (taskId: string) => {
-    let updatedDoc: InternalTask | null = null;
-    const updated = tasks.map((t) => {
-      if (t.id === taskId) {
-        const obj = { ...t, isCompleted: !t.isCompleted };
-        updatedDoc = obj;
-        return obj;
+    setTasks((prev) => {
+      let updatedDoc: InternalTask | null = null;
+      const updated = prev.map((t) => {
+        if (t.id === taskId) {
+          const obj = { ...t, isCompleted: !t.isCompleted };
+          updatedDoc = obj;
+          return obj;
+        }
+        return t;
+      });
+      saveToStorage(STORAGE_KEYS.TASKS, updated);
+      if (updatedDoc) {
+        saveToFirestoreDoc('tasks', taskId, updatedDoc);
       }
-      return t;
+      return updated;
     });
-    setTasks(updated);
-    saveToStorage(STORAGE_KEYS.TASKS, updated);
-    if (updatedDoc) {
-      saveToFirestoreDoc('tasks', taskId, updatedDoc);
-    }
   };
 
   // --- NOTE ACTIONS ---
@@ -1035,64 +1437,78 @@ export function usePortalStore() {
       id: createUniqueId('note'),
       date: getTodayDateString()
     };
-    const updated = [newNote, ...notes];
-    setNotes(updated);
-    saveToStorage(STORAGE_KEYS.NOTES, updated);
+    setNotes((prev) => {
+      const updated = [newNote, ...prev];
+      saveToStorage(STORAGE_KEYS.NOTES, updated);
+      return updated;
+    });
     saveToFirestoreDoc('notes', newNote.id, newNote);
   };
 
   // --- INVOICE ACTIONS ---
   const addInvoice = (inv: Omit<Invoice, 'id' | 'invoiceNumber' | 'clientName' | 'clientNtn'>) => {
-    const client = clients.find((c) => c.id === inv.clientId);
+    const linkedCase = casesRef.current.find((c) => c.id === inv.caseId);
+    const resolvedClientId = inv.clientId || linkedCase?.clientId || clientsRef.current[0]?.id || '';
+    const client = clientsRef.current.find((c) => c.id === resolvedClientId);
+    const randomSuffix = String(Math.floor(100 + Math.random() * 900));
     const newInv: Invoice = {
       ...inv,
+      clientId: resolvedClientId,
       id: createUniqueId('inv'),
-      invoiceNumber: `HISK-INV-${getCurrentYearNumber()}-${getRandom3DigitNum()}`,
-      clientName: client ? client.name : 'Client',
-      clientNtn: client ? client.ntn : 'N/A'
+      invoiceNumber: `HISK-INV-${getCurrentYearNumber()}-${randomSuffix}`,
+      clientName: client ? client.name : (linkedCase?.clientName || 'Client'),
+      clientNtn: client ? (client.ntn || 'N/A') : (linkedCase?.clientNtn || 'N/A')
     };
-    const updated = [newInv, ...invoices];
-    setInvoices(updated);
-    saveToStorage(STORAGE_KEYS.INVOICES, updated);
+    setInvoices((prev) => {
+      const updated = [newInv, ...prev];
+      saveToStorage(STORAGE_KEYS.INVOICES, updated);
+      return updated;
+    });
     saveToFirestoreDoc('invoices', newInv.id, newInv);
     return newInv;
   };
 
   const markInvoicePaid = (invId: string, paymentMethod: 'Bank Transfer' | 'PayOrder / Cheque' | 'Online PKR') => {
-    let updatedDoc: Invoice | null = null;
-    const updated = invoices.map((inv) => {
-      if (inv.id === invId) {
-        const obj: Invoice = {
-          ...inv,
-          status: 'Paid' as const,
-          paidAmountPkr: inv.totalAmountPkr,
-          paymentMethod
-        };
-        updatedDoc = obj;
-        return obj;
+    setInvoices((prev) => {
+      let updatedDoc: Invoice | null = null;
+      const updated = prev.map((inv) => {
+        if (inv.id === invId) {
+          const obj: Invoice = {
+            ...inv,
+            status: 'Paid' as const,
+            paidAmountPkr: inv.totalAmountPkr,
+            paymentMethod
+          };
+          updatedDoc = obj;
+          return obj;
+        }
+        return inv;
+      });
+      saveToStorage(STORAGE_KEYS.INVOICES, updated);
+      if (updatedDoc) {
+        saveToFirestoreDoc('invoices', invId, updatedDoc);
       }
-      return inv;
+      return updated;
     });
-    setInvoices(updated);
-    saveToStorage(STORAGE_KEYS.INVOICES, updated);
-    if (updatedDoc) {
-      saveToFirestoreDoc('invoices', invId, updatedDoc);
-    }
   };
 
   // --- HEARING ACTIONS ---
   const addHearing = (hearing: Omit<HearingEvent, 'id'>) => {
+    const matchedCase = casesRef.current.find((c) => c.id === hearing.caseId);
     const newHearing: HearingEvent = {
       ...hearing,
+      caseTitle: hearing.caseTitle || matchedCase?.caseTitle || 'Court Hearing',
+      clientName: hearing.clientName || matchedCase?.clientName || 'Client',
       id: createUniqueId('hear')
     };
-    const updated = [newHearing, ...hearings];
-    setHearings(updated);
-    saveToStorage(STORAGE_KEYS.HEARINGS, updated);
+    setHearings((prev) => {
+      const updated = [newHearing, ...prev];
+      saveToStorage(STORAGE_KEYS.HEARINGS, updated);
+      return updated;
+    });
     saveToFirestoreDoc('hearings', newHearing.id, newHearing);
 
     // Sync back to case if case exists
-    const matchedCase = cases.find((c) => c.id === hearing.caseId);
     if (matchedCase) {
       const newTimelineEvents: any[] = [];
 
@@ -1117,23 +1533,26 @@ export function usePortalStore() {
         advocateName: hearing.counselAssigned || matchedCase.assignedCounsel
       });
 
-      const updatedCases = cases.map((c) =>
-        c.id === hearing.caseId
-          ? {
+      setCases((prev) => {
+        const updatedCases = prev.map((c) => {
+          if (c.id === hearing.caseId) {
+            return {
               ...c,
               nextHearingDate: hearing.date,
               nextHearingPurpose: hearing.purpose,
               forum: hearing.forum || c.forum,
               timeline: [...newTimelineEvents, ...c.timeline]
-            }
-          : c
-      );
-      setCases(updatedCases);
-      saveToStorage(STORAGE_KEYS.CASES, updatedCases);
-      const targetCase = updatedCases.find((c) => c.id === hearing.caseId);
-      if (targetCase) {
-        saveToFirestoreDoc('cases', targetCase.id, targetCase);
-      }
+            };
+          }
+          return c;
+        });
+        saveToStorage(STORAGE_KEYS.CASES, updatedCases);
+        const targetCase = updatedCases.find((c) => c.id === hearing.caseId);
+        if (targetCase) {
+          saveToFirestoreDoc('cases', targetCase.id, targetCase);
+        }
+        return updatedCases;
+      });
     }
 
     return newHearing;
@@ -1152,110 +1571,119 @@ export function usePortalStore() {
       counselAssigned?: string;
     }
   ) => {
+    const foundCase = casesRef.current.find((c) => c.id === caseId);
     // 1. Update CaseFile
-    const updatedCases = cases.map((c) => {
-      if (c.id === caseId) {
-        const newTimeline: any[] = [];
+    setCases((prev) => {
+      const updatedCases = prev.map((c) => {
+        if (c.id === caseId) {
+          const newTimeline: any[] = [];
 
-        if (hearingDetails.previousHearingOutcome) {
+          if (hearingDetails.previousHearingOutcome) {
+            newTimeline.push({
+              id: createFullTimestampId('tl-prev'),
+              date: hearingDetails.previousHearingDate || getTodayDateString(),
+              title: 'Previous Hearing Order Sheet Record',
+              forum: hearingDetails.forum || c.forum,
+              description: `Previous Hearing Date: ${hearingDetails.previousHearingDate || 'N/A'}. Court Proceedings & Order Details: ${hearingDetails.previousHearingOutcome}`,
+              advocateName: hearingDetails.counselAssigned || c.assignedCounsel,
+              outcome: hearingDetails.previousHearingOutcome
+            });
+          }
+
           newTimeline.push({
-            id: createFullTimestampId('tl-prev'),
-            date: hearingDetails.previousHearingDate || getTodayDateString(),
-            title: 'Previous Hearing Order Sheet Record',
+            id: createFullTimestampId('tl'),
+            date: getTodayDateString(),
+            title: 'Court Hearing Scheduled / Rescheduled',
             forum: hearingDetails.forum || c.forum,
-            description: `Previous Hearing Date: ${hearingDetails.previousHearingDate || 'N/A'}. Court Proceedings & Order Details: ${hearingDetails.previousHearingOutcome}`,
-            advocateName: hearingDetails.counselAssigned || c.assignedCounsel,
-            outcome: hearingDetails.previousHearingOutcome
+            description: `Hearing set for ${hearingDetails.nextHearingDate}${
+              hearingDetails.time ? ` at ${hearingDetails.time}` : ''
+            }. Purpose: ${hearingDetails.nextHearingPurpose}. Bench: ${hearingDetails.bench || 'Honourable Bench'}.`,
+            advocateName: hearingDetails.counselAssigned || c.assignedCounsel
           });
+
+          return {
+            ...c,
+            nextHearingDate: hearingDetails.nextHearingDate,
+            nextHearingPurpose: hearingDetails.nextHearingPurpose,
+            forum: hearingDetails.forum || c.forum,
+            assignedCounsel: hearingDetails.counselAssigned || c.assignedCounsel,
+            timeline: [...newTimeline, ...c.timeline]
+          };
         }
+        return c;
+      });
 
-        newTimeline.push({
-          id: createFullTimestampId('tl'),
-          date: getTodayDateString(),
-          title: 'Court Hearing Scheduled / Rescheduled',
-          forum: hearingDetails.forum || c.forum,
-          description: `Hearing set for ${hearingDetails.nextHearingDate}${
-            hearingDetails.time ? ` at ${hearingDetails.time}` : ''
-          }. Purpose: ${hearingDetails.nextHearingPurpose}. Bench: ${hearingDetails.bench || 'Honourable Bench'}.`,
-          advocateName: hearingDetails.counselAssigned || c.assignedCounsel
-        });
-
-        return {
-          ...c,
-          nextHearingDate: hearingDetails.nextHearingDate,
-          nextHearingPurpose: hearingDetails.nextHearingPurpose,
-          forum: hearingDetails.forum || c.forum,
-          assignedCounsel: hearingDetails.counselAssigned || c.assignedCounsel,
-          timeline: [...newTimeline, ...c.timeline]
-        };
+      saveToStorage(STORAGE_KEYS.CASES, updatedCases);
+      const targetCase = updatedCases.find((c) => c.id === caseId);
+      if (targetCase) {
+        saveToFirestoreDoc('cases', targetCase.id, targetCase);
       }
-      return c;
+      return updatedCases;
     });
 
-    setCases(updatedCases);
-    saveToStorage(STORAGE_KEYS.CASES, updatedCases);
-    const targetCase = updatedCases.find((c) => c.id === caseId);
-    if (targetCase) {
-      saveToFirestoreDoc('cases', targetCase.id, targetCase);
-    }
-
     // 2. Add or update hearing event in hearings list
-    const foundCase = cases.find((c) => c.id === caseId);
     if (foundCase) {
-      const existingHearingIndex = hearings.findIndex((h) => h.caseId === caseId && h.date === hearingDetails.nextHearingDate);
-      let updatedHearings: HearingEvent[];
-
-      if (existingHearingIndex >= 0) {
-        updatedHearings = hearings.map((h, idx) =>
-          idx === existingHearingIndex
-            ? {
-                ...h,
-                time: hearingDetails.time || h.time || '10:00 AM',
-                bench: hearingDetails.bench || h.bench || 'Honourable High Court Bench',
-                purpose: hearingDetails.nextHearingPurpose,
-                counselAssigned: hearingDetails.counselAssigned || h.counselAssigned || foundCase.assignedCounsel,
-                forum: hearingDetails.forum || h.forum || foundCase.forum
-              }
-            : h
+      setHearings((prev) => {
+        const existingHearingIndex = prev.findIndex(
+          (h) => h.caseId === caseId && h.date === hearingDetails.nextHearingDate
         );
-      } else {
-        const newHearing: HearingEvent = {
-          id: createFullTimestampId('h'),
-          caseId,
-          caseTitle: foundCase.caseTitle,
-          clientName: foundCase.clientName,
-          date: hearingDetails.nextHearingDate,
-          time: hearingDetails.time || '10:00 AM',
-          forum: hearingDetails.forum || foundCase.forum,
-          bench: hearingDetails.bench || 'Honourable High Court Bench',
-          counselAssigned: hearingDetails.counselAssigned || foundCase.assignedCounsel,
-          purpose: hearingDetails.nextHearingPurpose,
-          priority: foundCase.riskLevel === 'Critical' ? 'High' : 'Medium'
-        };
-        updatedHearings = [newHearing, ...hearings];
-      }
+        let updatedHearings: HearingEvent[];
+        let syncedHearing: HearingEvent;
 
-      setHearings(updatedHearings);
-      saveToStorage(STORAGE_KEYS.HEARINGS, updatedHearings);
-      updatedHearings.forEach((h) => saveToFirestoreDoc('hearings', h.id, h));
+        if (existingHearingIndex >= 0) {
+          syncedHearing = {
+            ...prev[existingHearingIndex],
+            time: hearingDetails.time || prev[existingHearingIndex].time || '10:00 AM',
+            bench: hearingDetails.bench || prev[existingHearingIndex].bench || 'Honourable High Court Bench',
+            purpose: hearingDetails.nextHearingPurpose,
+            counselAssigned:
+              hearingDetails.counselAssigned ||
+              prev[existingHearingIndex].counselAssigned ||
+              foundCase.assignedCounsel,
+            forum: hearingDetails.forum || prev[existingHearingIndex].forum || foundCase.forum
+          };
+          updatedHearings = prev.map((h, idx) => (idx === existingHearingIndex ? syncedHearing : h));
+        } else {
+          syncedHearing = {
+            id: createFullTimestampId('h'),
+            caseId,
+            caseTitle: foundCase.caseTitle,
+            clientName: foundCase.clientName,
+            date: hearingDetails.nextHearingDate,
+            time: hearingDetails.time || '10:00 AM',
+            forum: hearingDetails.forum || foundCase.forum,
+            bench: hearingDetails.bench || 'Honourable High Court Bench',
+            counselAssigned: hearingDetails.counselAssigned || foundCase.assignedCounsel,
+            purpose: hearingDetails.nextHearingPurpose,
+            priority: foundCase.riskLevel === 'Critical' ? 'High' : 'Medium'
+          };
+          updatedHearings = [syncedHearing, ...prev];
+        }
+
+        saveToStorage(STORAGE_KEYS.HEARINGS, updatedHearings);
+        saveToFirestoreDoc('hearings', syncedHearing.id, syncedHearing);
+        return updatedHearings;
+      });
     }
   };
 
   const updateHearing = (hearingId: string, updatedData: Partial<HearingEvent>) => {
-    let updatedDoc: HearingEvent | null = null;
-    const updated = hearings.map((h) => {
-      if (h.id === hearingId) {
-        const obj = { ...h, ...updatedData };
-        updatedDoc = obj;
-        return obj;
+    setHearings((prev) => {
+      let updatedDoc: HearingEvent | null = null;
+      const updated = prev.map((h) => {
+        if (h.id === hearingId) {
+          const obj = { ...h, ...updatedData };
+          updatedDoc = obj;
+          return obj;
+        }
+        return h;
+      });
+      saveToStorage(STORAGE_KEYS.HEARINGS, updated);
+      if (updatedDoc) {
+        saveToFirestoreDoc('hearings', hearingId, updatedDoc);
       }
-      return h;
+      return updated;
     });
-    setHearings(updated);
-    saveToStorage(STORAGE_KEYS.HEARINGS, updated);
-    if (updatedDoc) {
-      saveToFirestoreDoc('hearings', hearingId, updatedDoc);
-    }
   };
 
   // --- NOTIFICATION ACTIONS ---
@@ -1266,9 +1694,11 @@ export function usePortalStore() {
       sentAt: getTodayDateString(),
       status: 'Delivered'
     };
-    const updated = [newNotif, ...notifications];
-    setNotifications(updated);
-    saveToStorage(STORAGE_KEYS.NOTIFICATIONS, updated);
+    setNotifications((prev) => {
+      const updated = [newNotif, ...prev];
+      saveToStorage(STORAGE_KEYS.NOTIFICATIONS, updated);
+      return updated;
+    });
     saveToFirestoreDoc('notifications', newNotif.id, newNotif);
     return newNotif;
   };

@@ -143,6 +143,9 @@ const ADVOCATES = [
   'Hafiz Irfan Shabber Kayani'
 ];
 
+const getFutureDateString = (daysAhead: number) =>
+  new Date(Date.now() + 86400000 * daysAhead).toISOString().split('T')[0];
+
 const AUTHORIZED_ADMIN_CREDENTIALS: Record<string, string> = {
   'rahim.nawaz@i-con.pk': 'admin123',
 };
@@ -778,8 +781,14 @@ export const AdminPortal: React.FC = () => {
     const fromCaseNum = parseFileCodeFromFileNumber(c.fileNumber || c.caseRef);
     if (fromCaseNum) return fromCaseNum;
     const linkedClient = clients.find((cl) => cl.id === c.clientId);
+    if (linkedClient?.fileCategoryCode && FILE_CATEGORY_CONFIG[linkedClient.fileCategoryCode]) {
+      return linkedClient.fileCategoryCode;
+    }
+    const fromLinkedNum = parseFileCodeFromFileNumber(linkedClient?.fileNumber);
+    if (fromLinkedNum) return fromLinkedNum;
+    if (getCaseCategory(c) === 'Tax & FBR Litigation') return 'IT';
     if (linkedClient) return inferClientFileCode(linkedClient);
-    return getCaseCategory(c) === 'Tax & FBR Litigation' ? 'IT' : 'CF';
+    return 'CF';
   };
 
   const getCaseCategory = (c: CaseFile): CaseCategory => {
@@ -836,7 +845,24 @@ export const AdminPortal: React.FC = () => {
     Partial<Client> & { secpPassword?: string; secpPin?: string }
   >({});
   const [clientActionNotice, setClientActionNotice] = useState<string | null>(null);
+  const [clientModalError, setClientModalError] = useState<string | null>(null);
+  const [portalNotice, setPortalNotice] = useState<{ message: string; linkUrl?: string; linkLabel?: string } | null>(null);
+  const [drawerActionNotice, setDrawerActionNotice] = useState<string | null>(null);
   const [isExportingExcel, setIsExportingExcel] = useState<boolean>(false);
+
+  const showPortalNotice = (message: string, linkUrl?: string, linkLabel?: string) => {
+    setPortalNotice({ message, linkUrl, linkLabel });
+    setTimeout(() => {
+      setPortalNotice((prev) => (prev?.message === message ? null : prev));
+    }, 8000);
+  };
+
+  const showDrawerNotice = (message: string) => {
+    setDrawerActionNotice(message);
+    setTimeout(() => {
+      setDrawerActionNotice((prev) => (prev === message ? null : prev));
+    }, 6000);
+  };
 
   // Staff & Employee Access Control State
   const [staffSearchTerm, setStaffSearchTerm] = useState('');
@@ -1035,6 +1061,7 @@ export const AdminPortal: React.FC = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [caseGroupFilter, setCaseGroupFilter] = useState<'All' | 'Tax' | 'Other'>('All');
   const [caseFileCodeFilter, setCaseFileCodeFilter] = useState<'All' | FileCategoryCode>('All');
+  const [caseClientIdFilter, setCaseClientIdFilter] = useState<string>('All');
   const [caseCategoryFilter, setCaseCategoryFilter] = useState<string>('All');
   const [caseClientTypeFilter, setCaseClientTypeFilter] = useState<string>('All');
   const [statusFilter, setStatusFilter] = useState<string>('All');
@@ -1165,6 +1192,7 @@ export const AdminPortal: React.FC = () => {
       (caseGroupFilter === 'Tax' && taxFlag) ||
       (caseGroupFilter === 'Other' && !taxFlag);
     const matchesFileCode = caseFileCodeFilter === 'All' || caseFileCode === caseFileCodeFilter;
+    const matchesClientId = caseClientIdFilter === 'All' || c.clientId === caseClientIdFilter;
     const matchesCategory = caseCategoryFilter === 'All' || resolvedCategory === caseCategoryFilter;
     const matchesClientType = caseClientTypeFilter === 'All' || clientGroup === caseClientTypeFilter;
     const matchesStatus = statusFilter === 'All' || c.status === statusFilter;
@@ -1176,6 +1204,7 @@ export const AdminPortal: React.FC = () => {
       matchesSearch &&
       matchesGroup &&
       matchesFileCode &&
+      matchesClientId &&
       matchesCategory &&
       matchesClientType &&
       matchesStatus &&
@@ -2008,7 +2037,21 @@ export const AdminPortal: React.FC = () => {
   const [showSendNotifModal, setShowSendNotifModal] = useState(false);
 
   // Selected Case Detail Drawer & Sub-tab
-  const [selectedCase, setSelectedCase] = useState<CaseFile | null>(null);
+  const [selectedCaseId, setSelectedCaseId] = useState<string | null>(null);
+  const selectedCase = selectedCaseId ? cases.find((c) => c.id === selectedCaseId) || null : null;
+  const setSelectedCase = (
+    next: CaseFile | null | ((prev: CaseFile | null) => CaseFile | null)
+  ) => {
+    if (typeof next === 'function') {
+      setSelectedCaseId((currId) => {
+        const currObj = currId ? cases.find((c) => c.id === currId) || null : null;
+        const resolved = next(currObj);
+        return resolved ? resolved.id : null;
+      });
+    } else {
+      setSelectedCaseId(next ? next.id : null);
+    }
+  };
   const [caseDetailTab, setCaseDetailTab] = useState<'overview' | 'notices' | 'tasks' | 'notes' | 'documents' | 'billing' | 'whatsapp'>('overview');
 
   // Edit Case Details State
@@ -2080,7 +2123,7 @@ export const AdminPortal: React.FC = () => {
     );
 
     setIsEditingCaseHearing(false);
-    alert('Hearing schedule and previous hearing record updated successfully!');
+    showDrawerNotice('Hearing schedule and previous hearing record updated successfully.');
   };
 
   // Case File Details Edit Handlers
@@ -2124,7 +2167,7 @@ export const AdminPortal: React.FC = () => {
     }
     setSelectedCase((prev) => (prev ? { ...prev, ...editCaseForm } : null));
     setIsEditingCase(false);
-    alert('Case details and client portal access credentials updated successfully!');
+    showDrawerNotice('Case details and client portal access credentials updated successfully.');
   };
 
   // WhatsApp Message Generator
@@ -2187,7 +2230,7 @@ export const AdminPortal: React.FC = () => {
       message: getFormattedWhatsAppText()
     });
 
-    alert('Notification logged successfully in dispatch history!');
+    showDrawerNotice('WhatsApp notification logged in dispatch history.');
   };
 
   // Case Detail Inline Form States
@@ -2294,7 +2337,88 @@ export const AdminPortal: React.FC = () => {
     clientLoginPassword: 'Password123!'
   });
 
+  const getDefaultCaseSetupForClient = (cl?: Client): { caseCategory: CaseCategory; forum: LegalForum } => {
+    if (!cl) {
+      return { caseCategory: 'Tax & FBR Litigation', forum: 'Islamabad High Court (IHC)' };
+    }
+    const code = inferClientFileCode(cl);
+    if (code === 'INC') {
+      return { caseCategory: 'Corporate & SECP', forum: 'SECP / Regulatory Tribunal' };
+    }
+    if (code === 'CF') {
+      const courtText = (cl.pendingBeforeCourt || '').toLowerCase();
+      let forum: LegalForum = 'Islamabad High Court (IHC)';
+      if (courtText.includes('lahore')) forum = 'Lahore High Court (LHC)';
+      else if (courtText.includes('sindh')) forum = 'Sindh High Court (SHC)';
+      else if (courtText.includes('supreme')) forum = 'Supreme Court of Pakistan';
+      else if (courtText.includes('sessions')) forum = 'Sessions Court / Criminal Court';
+      else if (courtText.includes('family')) forum = 'Family & Guardian Court';
+      else if (courtText.includes('rent')) forum = 'Rent Controller Tribunal';
+      else if (courtText.includes('banking')) forum = 'Banking Court';
+      else if (courtText.includes('civil') || courtText.includes('district')) forum = 'Civil Court / District Court';
+      return { caseCategory: 'Civil Litigation', forum };
+    }
+    return { caseCategory: 'Tax & FBR Litigation', forum: 'Islamabad High Court (IHC)' };
+  };
+
+  const handleOpenAddCase = (preselectedClient?: Client) => {
+    const orderedClients = sortByFileNumber(clients);
+    const targetClient = preselectedClient || orderedClients[0];
+    const defaults = getDefaultCaseSetupForClient(targetClient);
+    setNewCaseData({
+      title: '',
+      clientId: targetClient?.id || '',
+      caseCategory: defaults.caseCategory,
+      cnoNumber: '',
+      sectionCode: defaults.caseCategory === 'Tax & FBR Litigation' ? '122(5A)' : defaults.caseCategory === 'Corporate & SECP' ? 'Sec 16/42' : 'Sec 9 CPC',
+      assignedCounsel: 'Hafiz Irfan Shabber Kayani',
+      forum: defaults.forum,
+      taxYear: defaults.caseCategory === 'Tax & FBR Litigation' ? 'Tax Year 2025' : 'Year 2026',
+      status: defaults.caseCategory === 'Tax & FBR Litigation' ? 'Notice Received' : 'High Court Writ Active',
+      riskLevel: 'High',
+      demandAmountPkr: defaults.caseCategory === 'Tax & FBR Litigation' ? 5000000 : 0,
+      savedAmountPkr: 0,
+      nextHearingDate: new Date(Date.now() + 86400000 * 5).toISOString().split('T')[0],
+      nextHearingTime: '10:00 AM',
+      nextHearingBench: 'Honourable Court Bench',
+      nextHearingPurpose: 'Initial Arguments & Cause List Proceedings',
+      summary: '',
+      initialNote: '',
+      initialTask: '',
+      clientLoginEmail: '',
+      clientLoginPassword: ''
+    });
+    setShowAddCaseModal(true);
+  };
+
+  const handleOpenAddNotice = () => {
+    const defaultCase = cases[0];
+    setNewNoticeData((prev) => ({
+      ...prev,
+      caseId: prev.caseId || defaultCase?.id || '',
+      clientId: prev.clientId || defaultCase?.clientId || clients[0]?.id || '',
+      dueDate: prev.dueDate || new Date(Date.now() + 86400000 * 7).toISOString().split('T')[0]
+    }));
+    setShowAddNoticeModal(true);
+  };
+
+  const handleOpenAddHearing = () => {
+    const defaultCase = cases[0];
+    setNewHearingData((prev) => {
+      const targetId = prev.caseId || defaultCase?.id || '';
+      const matched = cases.find((c) => c.id === targetId) || defaultCase;
+      return {
+        ...prev,
+        caseId: targetId,
+        forum: matched?.forum || prev.forum,
+        counselAssigned: matched?.assignedCounsel || prev.counselAssigned
+      };
+    });
+    setShowAddHearingModal(true);
+  };
+
   const handleOpenAddClient = (defaultCode: FileCategoryCode = 'IT') => {
+    setClientModalError(null);
     const nextFileNo = getNextFileNumber(defaultCode, clients, cases);
     setNewClientData({
       fileCategoryCode: defaultCode,
@@ -2393,9 +2517,10 @@ export const AdminPortal: React.FC = () => {
   // Submit Handlers
   const handleCreateCase = (e: React.FormEvent) => {
     e.preventDefault();
+    const targetClientId = newCaseData.clientId || sortByFileNumber(clients)[0]?.id || '';
     const created = addCase({
       title: newCaseData.title,
-      clientId: newCaseData.clientId,
+      clientId: targetClientId,
       caseCategory: newCaseData.caseCategory,
       assignedCounsel: newCaseData.assignedCounsel,
       forum: newCaseData.forum,
@@ -2405,7 +2530,7 @@ export const AdminPortal: React.FC = () => {
       demandAmountPkr: newCaseData.demandAmountPkr,
       summary: `${newCaseData.summary} ${
         newCaseData.cnoNumber ? `[CNO No: ${newCaseData.cnoNumber}, Sec: ${newCaseData.sectionCode}]` : ''
-      }`,
+      }`.trim(),
       nextHearingDate: newCaseData.nextHearingDate || undefined,
       nextHearingPurpose: newCaseData.nextHearingPurpose || undefined,
       clientLoginEmail: newCaseData.clientLoginEmail,
@@ -2432,16 +2557,20 @@ export const AdminPortal: React.FC = () => {
     }
 
     setShowAddCaseModal(false);
-    alert(`Case File ${created.caseRef} (${newCaseData.caseCategory}) registered successfully! ${
-      newCaseData.clientLoginEmail ? `Client Portal sign-in credentials created for ${newCaseData.clientLoginEmail}.` : ''
-    }`);
+    showPortalNotice(
+      `Case File ${created.fileNumber ? `[${created.fileNumber}] ` : ''}${created.caseRef} (${newCaseData.caseCategory}) registered and linked to ${created.clientName}.${
+        newCaseData.clientLoginEmail ? ` Client Portal login enabled for ${newCaseData.clientLoginEmail}.` : ''
+      }`
+    );
+    const defaultFirstClient = sortByFileNumber(clients)[0];
+    const defaults = getDefaultCaseSetupForClient(defaultFirstClient);
     setNewCaseData({
       title: '',
-      clientId: clients[0]?.id || '',
-      caseCategory: 'Tax & FBR Litigation',
+      clientId: defaultFirstClient?.id || '',
+      caseCategory: defaults.caseCategory,
       cnoNumber: '',
       sectionCode: '122(5A)',
-      forum: 'Islamabad High Court (IHC)' as LegalForum,
+      forum: defaults.forum,
       taxYear: 'Tax Year 2025',
       status: 'Notice Received' as CaseStatus,
       riskLevel: 'High' as RiskLevel,
@@ -2462,9 +2591,22 @@ export const AdminPortal: React.FC = () => {
 
   const handleCreateClient = (e: React.FormEvent) => {
     e.preventDefault();
+    setClientModalError(null);
     const resolvedCode = newClientData.fileCategoryCode;
-    const resolvedFileNo =
-      newClientData.fileNumber.trim() || getNextFileNumber(resolvedCode, clients, cases);
+    const resolvedFileNo = (
+      newClientData.fileNumber.trim() || getNextFileNumber(resolvedCode, clients, cases)
+    ).toUpperCase();
+
+    const duplicateClient = clients.find(
+      (c) => (c.fileNumber || '').trim().toUpperCase() === resolvedFileNo
+    );
+    if (duplicateClient) {
+      setClientModalError(
+        `File No. "${resolvedFileNo}" is already assigned to "${duplicateClient.name}". Please enter a unique File No. or click refresh.`
+      );
+      return;
+    }
+
     const resolvedClientType = getClientTypeFromFileCode(resolvedCode);
     const resolvedStatus =
       newClientData.activeClosed === 'Closed' ? 'Archived' : newClientData.status || 'Active';
@@ -2478,7 +2620,7 @@ export const AdminPortal: React.FC = () => {
 
     const createdClient = addClient(
       {
-        fileNumber: resolvedFileNo.toUpperCase(),
+        fileNumber: resolvedFileNo,
         fileCategoryCode: resolvedCode,
         name: cleanName,
         businessName: newClientData.businessName.trim() || cleanName,
@@ -2512,12 +2654,13 @@ export const AdminPortal: React.FC = () => {
     setShowAddClientModal(false);
     setRepositorySubTab('clients');
     setClientActionNotice(
-      `Client "${createdClient.name}" registered under ${resolvedFileNo.toUpperCase()} (${FILE_CATEGORY_CONFIG[resolvedCode].label}) and added to backend ${resolvedCode === 'CF' ? 'COURT CASES FILES' : 'AOP/NPO/COMPANY CLIENT FILES'} Excel register.`
+      `Client "${createdClient.name}" registered under ${resolvedFileNo} (${FILE_CATEGORY_CONFIG[resolvedCode].label}) and added to backend ${resolvedCode === 'CF' ? 'COURT CASES FILES' : 'AOP/NPO/COMPANY CLIENT FILES'} Excel register.`
     );
     setTimeout(() => setClientActionNotice(null), 7000);
   };
 
   const handleStartEditClient = (client: Client) => {
+    setClientModalError(null);
     const inferredCode = inferClientFileCode(client);
     const existingSecret = clientVaultSecrets[client.id];
     setEditingClient(client);
@@ -2550,16 +2693,33 @@ export const AdminPortal: React.FC = () => {
   const handleSaveClientEdit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!editingClient) return;
+    setClientModalError(null);
     const code = (editClientForm.fileCategoryCode || inferClientFileCode(editingClient)) as FileCategoryCode;
+    const resolvedFileNo = (
+      editClientForm.fileNumber?.trim() ||
+      getNextFileNumber(code, clients.filter((c) => c.id !== editingClient.id), cases)
+    ).toUpperCase();
+
+    const duplicateClient = clients.find(
+      (c) => c.id !== editingClient.id && (c.fileNumber || '').trim().toUpperCase() === resolvedFileNo
+    );
+    if (duplicateClient) {
+      setClientModalError(
+        `File No. "${resolvedFileNo}" is already used by "${duplicateClient.name}". Please enter a unique File No.`
+      );
+      return;
+    }
+
     updateClient(editingClient.id, {
       ...editClientForm,
+      fileNumber: resolvedFileNo,
       fileCategoryCode: code,
       clientType: getClientTypeFromFileCode(code),
       status: editClientForm.activeClosed === 'Closed' ? 'Archived' : editClientForm.status || 'Active',
     });
     setEditingClient(null);
     setClientActionNotice(
-      `Updated ${editClientForm.fileNumber || editingClient.name} and synced backend Excel list.`
+      `Updated ${resolvedFileNo} (${editClientForm.name || editingClient.name}) and synced linked cases & backend Excel register.`
     );
     setTimeout(() => setClientActionNotice(null), 5000);
   };
@@ -2592,8 +2752,15 @@ export const AdminPortal: React.FC = () => {
 
   const handleCreateNotice = (e: React.FormEvent) => {
     e.preventDefault();
-    addNotice(newNoticeData);
+    const targetCaseId = newNoticeData.caseId || cases[0]?.id || '';
+    const selCase = cases.find((c) => c.id === targetCaseId);
+    const created = addNotice({
+      ...newNoticeData,
+      caseId: targetCaseId,
+      clientId: selCase ? selCase.clientId : (newNoticeData.clientId || clients[0]?.id || ''),
+    });
     setShowAddNoticeModal(false);
+    showPortalNotice(`Notice ${created.cnoNumber} logged and linked to ${created.clientName}.`);
   };
 
   const handleCreateDoc = (e: React.FormEvent) => {
@@ -2608,7 +2775,9 @@ export const AdminPortal: React.FC = () => {
       clientId: targetClientId
     });
 
-    alert(`Document "${createdDoc.title || 'Legal Document'}" uploaded & synced to Case File [${selCase?.caseRef || 'REF'}] successfully!`);
+    showPortalNotice(
+      `Document "${createdDoc.title || 'Legal Document'}" uploaded & synced to Case File [${selCase?.fileNumber || selCase?.caseRef || 'REF'}].`
+    );
 
     setNewDocData({
       caseId: cases[0]?.id || '',
@@ -2647,20 +2816,22 @@ export const AdminPortal: React.FC = () => {
     });
 
     setShowAddInvoiceModal(false);
-    alert(`Invoice ${created.invoiceNumber} created successfully!`);
+    showPortalNotice(`Invoice ${created.invoiceNumber} issued for ${created.clientName} (Rs. ${created.totalAmountPkr.toLocaleString()}).`);
   };
 
   const handleCreateHearing = (e: React.FormEvent) => {
     e.preventDefault();
-    const selCase = cases.find((c) => c.id === newHearingData.caseId);
+    const targetCaseId = newHearingData.caseId || cases[0]?.id || '';
+    const selCase = cases.find((c) => c.id === targetCaseId);
     addHearing({
       ...newHearingData,
-      caseTitle: selCase ? selCase.caseTitle : 'Tax Case Hearing',
+      caseId: targetCaseId,
+      caseTitle: selCase ? selCase.caseTitle : 'Court Hearing',
       clientName: selCase ? selCase.clientName : 'Client'
     });
 
     const calUrl = buildGoogleCalendarUrl({
-      title: `Tax Hearing: ${selCase ? selCase.caseTitle : 'Court Hearing'}`,
+      title: `Court Hearing: ${selCase ? selCase.caseTitle : 'Court Hearing'}`,
       details: `Client: ${selCase ? selCase.clientName : 'Client'}\nPurpose: ${newHearingData.purpose}\nBench: ${newHearingData.bench}\nCounsel: ${newHearingData.counselAssigned}`,
       location: newHearingData.forum,
       startDate: newHearingData.date,
@@ -2668,10 +2839,11 @@ export const AdminPortal: React.FC = () => {
     });
 
     setShowAddHearingModal(false);
-
-    if (window.confirm('Hearing successfully scheduled! Open Google Calendar to sync event now?')) {
-      window.open(calUrl, '_blank');
-    }
+    showPortalNotice(
+      `Hearing scheduled for ${selCase ? selCase.caseTitle : 'selected case'} on ${newHearingData.date}.`,
+      calUrl,
+      'Sync to Google Calendar'
+    );
   };
 
   const handleSendNotif = (e: React.FormEvent) => {
@@ -2705,10 +2877,11 @@ export const AdminPortal: React.FC = () => {
     });
     setInlineTask({
       title: '',
-      assignedTo: 'Adv. Jamshaid Khan',
-      dueDate: new Date(Date.now() + 86400000 * 3).toISOString().split('T')[0],
+      assignedTo: 'Hafiz Irfan Shabber Kayani',
+      dueDate: getFutureDateString(3),
       priority: 'Urgent'
     });
+    showDrawerNotice('Associate task added and synced to case file.');
   };
 
   const handleAddInlineNote = (e: React.FormEvent) => {
@@ -2769,7 +2942,7 @@ export const AdminPortal: React.FC = () => {
       retainerFeePkr: 200000,
       hearingFeePkr: 50000,
       salesTaxPkr: 40000,
-      dueDate: new Date(Date.now() + 86400000 * 7).toISOString().split('T')[0]
+      dueDate: getFutureDateString(7)
     });
   };
 
@@ -3115,6 +3288,35 @@ export const AdminPortal: React.FC = () => {
 
       {/* Main Content Area */}
       <main className="flex-1 p-4 sm:p-6 lg:p-8 max-w-7xl mx-auto overflow-x-hidden">
+        {portalNotice && (
+          <div className="mb-4 bg-emerald-50 border border-emerald-300 text-emerald-950 px-5 py-3 rounded-2xl flex flex-wrap items-center justify-between gap-3 text-xs font-semibold shadow-sm">
+            <div className="flex items-center gap-2">
+              <CheckCircle2 className="w-4 h-4 text-[#0F6B4C] shrink-0" />
+              <span>{portalNotice.message}</span>
+            </div>
+            <div className="flex items-center gap-3">
+              {portalNotice.linkUrl && (
+                <a
+                  href={portalNotice.linkUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="bg-[#0A4B35] hover:bg-[#0F6B4C] text-white px-3 py-1 rounded-xl font-bold text-[11px] flex items-center gap-1"
+                >
+                  <ExternalLink className="w-3 h-3 text-[#F5A623]" />
+                  <span>{portalNotice.linkLabel || 'Open'}</span>
+                </a>
+              )}
+              <button
+                type="button"
+                onClick={() => setPortalNotice(null)}
+                className="text-emerald-800 hover:text-black font-bold cursor-pointer"
+              >
+                ✕
+              </button>
+            </div>
+          </div>
+        )}
+
         {/* --- TAB 1: DASHBOARD --- */}
         {effectiveActiveTab === 'dashboard' && (
           <div className="space-y-6">
@@ -3131,7 +3333,7 @@ export const AdminPortal: React.FC = () => {
                   {hasPermission('data_entry') && (
                     <button
                       type="button"
-                      onClick={() => setShowAddCaseModal(true)}
+                      onClick={() => handleOpenAddCase()}
                       className="bg-[#F5A623] hover:bg-[#E09415] text-[#1A1A1A] font-extrabold px-4 py-2.5 rounded-2xl text-xs flex items-center gap-1.5 shadow-sm transition-all cursor-pointer"
                     >
                       <Plus className="w-4 h-4" />
@@ -3183,14 +3385,14 @@ export const AdminPortal: React.FC = () => {
                 {hasPermission('data_entry') && (
                   <>
                     <button
-                      onClick={() => setShowAddNoticeModal(true)}
+                      onClick={handleOpenAddNotice}
                       className="bg-[#FAFAF7] hover:bg-[#0A4B35]/10 text-[#0F6B4C] border border-gray-200 px-3 py-1.5 rounded-xl flex items-center gap-1 shrink-0"
                     >
                       <AlertTriangle className="w-3.5 h-3.5 text-amber-600" />
                       <span>Log FBR Notice</span>
                     </button>
                     <button
-                      onClick={() => setShowAddHearingModal(true)}
+                      onClick={handleOpenAddHearing}
                       className="bg-[#FAFAF7] hover:bg-[#0A4B35]/10 text-[#0F6B4C] border border-gray-200 px-3 py-1.5 rounded-xl flex items-center gap-1 shrink-0"
                     >
                       <CalendarIcon className="w-3.5 h-3.5 text-[#F5A623]" />
@@ -3337,6 +3539,8 @@ export const AdminPortal: React.FC = () => {
                     const caseDocs = documents.filter((d) => d.caseId === c.id);
                     const caseInvs = invoices.filter((i) => i.caseId === c.id);
                     const cat = getCaseCategory(c);
+                    const linkedClient = clients.find((cl) => cl.id === c.clientId);
+                    const caseFileNo = c.fileNumber || linkedClient?.fileNumber;
                     return (
                       <div
                         key={c.id}
@@ -3345,6 +3549,11 @@ export const AdminPortal: React.FC = () => {
                       >
                         <div className="space-y-1">
                           <div className="flex items-center gap-2 flex-wrap">
+                            {caseFileNo && (
+                              <span className="text-[10px] font-mono font-extrabold bg-[#0A4B35] text-[#F5A623] px-2 py-0.5 rounded">
+                                {caseFileNo}
+                              </span>
+                            )}
                             <span className="text-[10px] font-mono font-bold bg-[#0A4B35] text-white px-2 py-0.5 rounded">
                               {c.caseRef}
                             </span>
@@ -3399,7 +3608,7 @@ export const AdminPortal: React.FC = () => {
                 <div className="bg-white p-6 rounded-3xl border border-[#0F6B4C]/15 shadow-sm space-y-4">
                   <div className="flex items-center justify-between">
                     <h3 className="font-heading font-extrabold text-base text-[#1A1A1A]">Cause List Court Schedule</h3>
-                    <button onClick={() => setShowAddHearingModal(true)} className="text-xs font-bold text-[#0F6B4C] flex items-center gap-1 hover:underline">
+                    <button onClick={handleOpenAddHearing} className="text-xs font-bold text-[#0F6B4C] flex items-center gap-1 hover:underline">
                       <Plus className="w-3.5 h-3.5 text-[#F5A623]" /> Add
                     </button>
                   </div>
@@ -3513,7 +3722,7 @@ export const AdminPortal: React.FC = () => {
 
                 <button
                   type="button"
-                  onClick={() => setShowAddHearingModal(true)}
+                  onClick={handleOpenAddHearing}
                   className="bg-[#0A4B35] hover:bg-[#0F6B4C] text-white font-extrabold px-4 py-2.5 rounded-2xl text-xs flex items-center gap-2 shadow-sm transition-all cursor-pointer"
                 >
                   <CalendarIcon className="w-4 h-4 text-[#F5A623]" />
@@ -3522,7 +3731,7 @@ export const AdminPortal: React.FC = () => {
 
                 <button
                   type="button"
-                  onClick={() => setShowAddCaseModal(true)}
+                  onClick={() => handleOpenAddCase()}
                   className="bg-[#F5A623] hover:bg-[#E09415] text-[#1A1A1A] font-extrabold px-5 py-2.5 rounded-2xl text-xs flex items-center gap-2 shadow-sm transition-all cursor-pointer"
                 >
                   <Plus className="w-4 h-4" />
@@ -3921,11 +4130,16 @@ export const AdminPortal: React.FC = () => {
                             <button
                               type="button"
                               onClick={() => {
-                                setSearchTerm(cl.fileNumber || cl.name);
+                                setSearchTerm('');
+                                setCaseClientIdFilter(cl.id);
                                 setCaseGroupFilter('All');
                                 setCaseFileCodeFilter('All');
                                 setCaseCategoryFilter('All');
                                 setCaseClientTypeFilter('All');
+                                setStatusFilter('All');
+                                setCounselFilter('All');
+                                setForumFilter('All');
+                                setTaxYearFilter('All');
                                 setRepositorySubTab('cases');
                               }}
                               className="text-xs font-extrabold text-[#0F6B4C] hover:underline flex items-center gap-1 cursor-pointer"
@@ -3946,14 +4160,7 @@ export const AdminPortal: React.FC = () => {
 
                               <button
                                 type="button"
-                                onClick={() => {
-                                  setNewCaseData((prev) => ({
-                                    ...prev,
-                                    clientId: cl.id,
-                                    caseCategory: group === 'Tax Client' ? 'Tax & FBR Litigation' : 'Civil Litigation'
-                                  }));
-                                  setShowAddCaseModal(true);
-                                }}
+                                onClick={() => handleOpenAddCase(cl)}
                                 className="px-3 py-1.5 rounded-xl bg-[#0A4B35] hover:bg-[#0F6B4C] text-white text-xs font-bold flex items-center gap-1 cursor-pointer"
                               >
                                 <Plus className="w-3.5 h-3.5 text-[#F5A623]" />
@@ -4061,10 +4268,26 @@ export const AdminPortal: React.FC = () => {
                   )}
                 </div>
 
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2 flex-wrap">
+                  {caseClientIdFilter !== 'All' && (() => {
+                    const fc = clients.find((cl) => cl.id === caseClientIdFilter);
+                    return (
+                      <button
+                        type="button"
+                        onClick={() => setCaseClientIdFilter('All')}
+                        className="px-3 py-1.5 rounded-xl bg-[#0A4B35] text-[#F5A623] font-extrabold text-xs flex items-center gap-1.5 cursor-pointer"
+                      >
+                        <span>
+                          Client: {fc?.fileNumber ? `[${fc.fileNumber}] ` : ''}{fc?.name || caseClientIdFilter}
+                        </span>
+                        <span className="text-white">✕</span>
+                      </button>
+                    );
+                  })()}
                   {(searchTerm ||
                     caseGroupFilter !== 'All' ||
                     caseFileCodeFilter !== 'All' ||
+                    caseClientIdFilter !== 'All' ||
                     caseCategoryFilter !== 'All' ||
                     caseClientTypeFilter !== 'All' ||
                     statusFilter !== 'All' ||
@@ -4077,6 +4300,7 @@ export const AdminPortal: React.FC = () => {
                         setSearchTerm('');
                         setCaseGroupFilter('All');
                         setCaseFileCodeFilter('All');
+                        setCaseClientIdFilter('All');
                         setCaseCategoryFilter('All');
                         setCaseClientTypeFilter('All');
                         setStatusFilter('All');
@@ -4192,6 +4416,7 @@ export const AdminPortal: React.FC = () => {
                     setSearchTerm('');
                     setCaseGroupFilter('All');
                     setCaseFileCodeFilter('All');
+                    setCaseClientIdFilter('All');
                     setCaseCategoryFilter('All');
                     setCaseClientTypeFilter('All');
                     setStatusFilter('All');
@@ -4658,17 +4883,14 @@ export const AdminPortal: React.FC = () => {
                         <div className="text-[11px] font-mono text-[#0F6B4C]">Size: {doc.fileSize}</div>
                       </div>
 
-                      <a
-                        href="#"
-                        onClick={(e) => {
-                          e.preventDefault();
-                          alert(`Simulated PDF Download: Downloading "${doc.title}"...`);
-                        }}
-                        className="bg-[#0A4B35] text-white p-3 rounded-2xl hover:bg-[#0F6B4C] transition-colors shrink-0"
+                      <button
+                        type="button"
+                        onClick={() => showPortalNotice(`Document "${doc.title}" prepared for download from Case Vault.`)}
+                        className="bg-[#0A4B35] text-white p-3 rounded-2xl hover:bg-[#0F6B4C] transition-colors shrink-0 cursor-pointer"
                         title="Download File"
                       >
                         <Download className="w-4 h-4 text-[#F5A623]" />
-                      </a>
+                      </button>
                     </div>
                   );
                 })}
@@ -6739,12 +6961,21 @@ export const AdminPortal: React.FC = () => {
                   <label className="font-bold text-gray-700 block mb-1">Select Client</label>
                   <select
                     value={newCaseData.clientId}
-                    onChange={(e) => setNewCaseData({ ...newCaseData, clientId: e.target.value })}
+                    onChange={(e) => {
+                      const nextClient = clients.find((cl) => cl.id === e.target.value);
+                      const defaults = getDefaultCaseSetupForClient(nextClient);
+                      setNewCaseData({
+                        ...newCaseData,
+                        clientId: e.target.value,
+                        caseCategory: defaults.caseCategory,
+                        forum: defaults.forum
+                      });
+                    }}
                     className="w-full bg-[#FAFAF7] p-2.5 rounded-xl border border-gray-200 font-bold"
                   >
-                    {clients.map((c) => (
+                    {sortByFileNumber(clients).map((c) => (
                       <option key={c.id} value={c.id}>
-                        {c.name} ({getClientGroup(c)})
+                        {c.fileNumber ? `[${c.fileNumber}] ` : ''}{c.name} ({getClientGroup(c)})
                       </option>
                     ))}
                   </select>
@@ -6994,12 +7225,20 @@ export const AdminPortal: React.FC = () => {
               </div>
               <button
                 type="button"
-                onClick={() => setShowAddClientModal(false)}
+                onClick={() => {
+                  setClientModalError(null);
+                  setShowAddClientModal(false);
+                }}
                 className="text-gray-400 hover:text-black font-bold cursor-pointer"
               >
                 ✕
               </button>
             </div>
+            {clientModalError && (
+              <div className="mb-3 bg-red-50 border border-red-200 text-red-800 px-3.5 py-2.5 rounded-xl text-xs font-bold">
+                {clientModalError}
+              </div>
+            )}
             <form onSubmit={handleCreateClient} className="space-y-3.5 text-xs">
               {/* File Category Selector (IT, ST, INC, CF) */}
               <div>
@@ -7436,12 +7675,20 @@ export const AdminPortal: React.FC = () => {
               </div>
               <button
                 type="button"
-                onClick={() => setEditingClient(null)}
+                onClick={() => {
+                  setClientModalError(null);
+                  setEditingClient(null);
+                }}
                 className="text-gray-400 hover:text-black font-bold cursor-pointer"
               >
                 ✕
               </button>
             </div>
+            {clientModalError && (
+              <div className="mb-3 bg-red-50 border border-red-200 text-red-800 px-3.5 py-2.5 rounded-xl text-xs font-bold">
+                {clientModalError}
+              </div>
+            )}
             <form onSubmit={handleSaveClientEdit} className="space-y-3 text-xs">
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                 <div>
@@ -7450,9 +7697,20 @@ export const AdminPortal: React.FC = () => {
                     value={editClientForm.fileCategoryCode || 'IT'}
                     onChange={(e) => {
                       const nextCode = e.target.value as FileCategoryCode;
+                      const currentPrefix = parseFileCodeFromFileNumber(editClientForm.fileNumber);
+                      const nextFileNumber =
+                        currentPrefix === nextCode && editClientForm.fileNumber
+                          ? editClientForm.fileNumber
+                          : getNextFileNumber(
+                              nextCode,
+                              clients.filter((cl) => cl.id !== editingClient?.id),
+                              cases
+                            );
+                      setClientModalError(null);
                       setEditClientForm({
                         ...editClientForm,
                         fileCategoryCode: nextCode,
+                        fileNumber: nextFileNumber,
                         clientType: getClientTypeFromFileCode(nextCode),
                         category: getDefaultClientCategoryForFileCode(nextCode),
                       });
@@ -7481,7 +7739,11 @@ export const AdminPortal: React.FC = () => {
                 </div>
 
                 <div>
-                  <label className="font-bold text-gray-700 block mb-1">Active/Closed</label>
+                  <label className="font-bold text-gray-700 block mb-1">
+                    {(editClientForm.fileCategoryCode || inferClientFileCode(editingClient)) === 'CF'
+                      ? 'Status (Contacts)'
+                      : 'Active/Closed'}
+                  </label>
                   <select
                     value={editClientForm.activeClosed || 'Active'}
                     onChange={(e) =>
@@ -7938,7 +8200,10 @@ export const AdminPortal: React.FC = () => {
                                 setCaseDetailTab('whatsapp');
                                 setWaTemplateType('notice');
                               } else {
-                                alert(`Notice Ref: ${notice.cnoNumber}\nClient: ${notice.clientName}\nDue Date: ${notice.dueDate}`);
+                                setShowNoticesModal(false);
+                                showPortalNotice(
+                                  `Notice Ref: ${notice.cnoNumber} • Client: ${notice.clientName} • Reply Due: ${notice.dueDate}`
+                                );
                               }
                             }}
                             className="bg-[#25D366] hover:bg-emerald-600 text-white font-extrabold px-3 py-1.5 rounded-xl text-xs flex items-center gap-1 shadow-sm cursor-pointer"
@@ -8312,7 +8577,15 @@ export const AdminPortal: React.FC = () => {
                 <SearchableCaseSelect
                   cases={cases}
                   value={newHearingData.caseId}
-                  onChange={(caseId) => setNewHearingData({ ...newHearingData, caseId: caseId })}
+                  onChange={(caseId) => {
+                    const sel = cases.find((c) => c.id === caseId);
+                    setNewHearingData({
+                      ...newHearingData,
+                      caseId,
+                      forum: sel?.forum || newHearingData.forum,
+                      counselAssigned: sel?.assignedCounsel || newHearingData.counselAssigned
+                    });
+                  }}
                 />
               </div>
 
@@ -8497,15 +8770,36 @@ export const AdminPortal: React.FC = () => {
         >
           <div className="bg-white w-full max-w-3xl h-full p-6 overflow-y-auto shadow-2xl flex flex-col justify-between">
             <div className="space-y-6">
+              {drawerActionNotice && (
+                <div className="bg-emerald-50 border border-emerald-300 text-emerald-950 px-4 py-2.5 rounded-2xl flex items-center justify-between text-xs font-semibold">
+                  <div className="flex items-center gap-2">
+                    <CheckCircle2 className="w-4 h-4 text-[#0F6B4C] shrink-0" />
+                    <span>{drawerActionNotice}</span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setDrawerActionNotice(null)}
+                    className="text-emerald-800 hover:text-black font-bold cursor-pointer"
+                  >
+                    ✕
+                  </button>
+                </div>
+              )}
+
               {/* Header */}
               <div className="flex items-start justify-between border-b pb-4 gap-4">
                 <div>
-                  <div className="flex items-center gap-2 mb-1">
+                  <div className="flex items-center gap-2 mb-1 flex-wrap">
+                    {selectedCase.fileNumber && (
+                      <span className="text-[10px] font-mono font-extrabold bg-[#0A4B35] text-[#F5A623] px-2.5 py-0.5 rounded-md">
+                        {selectedCase.fileNumber}
+                      </span>
+                    )}
                     <span className="text-[10px] font-mono font-extrabold bg-[#0A4B35] text-white px-2.5 py-0.5 rounded-md">
                       {selectedCase.caseRef}
                     </span>
                     <span className="text-xs font-bold text-[#0F6B4C] bg-emerald-100 px-2.5 py-0.5 rounded-md">
-                      Tax Year {selectedCase.taxYear}
+                      {selectedCase.taxYear}
                     </span>
                   </div>
                   <h2 className="text-xl font-heading font-extrabold text-[#1A1A1A]">
@@ -8529,6 +8823,7 @@ export const AdminPortal: React.FC = () => {
                     onClick={() => {
                       setSelectedCase(null);
                       setIsEditingCase(false);
+                      setDrawerActionNotice(null);
                     }}
                     className="text-gray-400 hover:text-black font-extrabold p-1 text-base ml-2"
                   >
@@ -8883,11 +9178,19 @@ export const AdminPortal: React.FC = () => {
                               className="w-full bg-[#FAFAF7] p-2 rounded-xl border border-gray-200 font-bold"
                             >
                               <option value="Islamabad High Court (IHC)">Islamabad High Court (IHC)</option>
+                              <option value="Lahore High Court (LHC)">Lahore High Court (LHC)</option>
+                              <option value="Sindh High Court (SHC)">Sindh High Court (SHC)</option>
+                              <option value="Supreme Court of Pakistan">Supreme Court of Pakistan</option>
                               <option value="Appellate Tribunal Inland Revenue (ATIR)">Appellate Tribunal (ATIR)</option>
                               <option value="Commissioner Inland Revenue (Appeals)">CIR (Appeals)</option>
                               <option value="FBR RTO Islamabad">FBR RTO Islamabad</option>
                               <option value="FBR LTO Rawalpindi">FBR LTO Rawalpindi</option>
-                              <option value="Supreme Court of Pakistan">Supreme Court of Pakistan</option>
+                              <option value="Civil Court / District Court">Civil Court / District Court</option>
+                              <option value="Sessions Court / Criminal Court">Sessions Court / Criminal Court</option>
+                              <option value="Family & Guardian Court">Family &amp; Guardian Court</option>
+                              <option value="Rent Controller Tribunal">Rent Controller Tribunal</option>
+                              <option value="Banking Court">Banking Court</option>
+                              <option value="SECP / Regulatory Tribunal">SECP / Regulatory Tribunal</option>
                             </select>
                           </div>
 
@@ -9677,16 +9980,14 @@ export const AdminPortal: React.FC = () => {
                               </div>
                             </div>
 
-                            <a
-                              href="#"
-                              onClick={(e) => {
-                                e.preventDefault();
-                                alert(`Downloading ${d.title}...`);
-                              }}
-                              className="bg-[#0A4B35] text-white p-2.5 rounded-xl hover:bg-[#0F6B4C]"
+                            <button
+                              type="button"
+                              onClick={() => showDrawerNotice(`Document "${d.title}" prepared for download.`)}
+                              className="bg-[#0A4B35] text-white p-2.5 rounded-xl hover:bg-[#0F6B4C] cursor-pointer"
+                              title="Download Document"
                             >
                               <Download className="w-4 h-4 text-[#F5A623]" />
-                            </a>
+                            </button>
                           </div>
                         ))
                     )}

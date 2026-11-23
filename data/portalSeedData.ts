@@ -19,27 +19,45 @@ import { ATTORNEYS, TESTIMONIALS, BLOG_POSTS } from '@/data/lawFirmData';
 export const INITIAL_CLIENTS: Client[] = [
   {
     id: 'cli-101',
+    fileNumber: 'AI-IT-001',
+    fileCategoryCode: 'IT',
     name: 'Al-Syed Logistics & Transport Pvt Ltd',
-    businessName: 'Al-Syed Logistics',
+    businessName: 'Al-Syed Logistics & Transport Pvt Ltd',
     cnic: '35202-1928374-1',
     ntn: '3948572-9',
-    category: 'Corporate',
+    clientType: 'Tax Client',
+    category: 'Income Tax (IT)',
+    entityStatus: 'COMPANY',
+    activeClosed: 'Active',
+    regIncorpNo: '0149210',
+    rtoCto: 'ISLAMABAD',
+    contactPerson: 'Syed Tariq Mehmood',
+    referralContact: 'HISK LEGAL',
     phone: '+92 300 8552011',
     email: 'finance@alsyedlogistics.com.pk',
     city: 'Islamabad',
     registeredAddress: 'Plot 42, I-9 Industrial Area, Islamabad',
-    activeCasesCount: 2,
+    activeCasesCount: 1,
     totalTaxSaved: 'Rs. 3.80 Crore',
     status: 'Active',
     createdAt: '2025-01-15'
   },
   {
     id: 'cli-102',
+    fileNumber: 'AI-IT-002',
+    fileCategoryCode: 'IT',
     name: 'Tariq Tech Solutions & Software Ltd',
-    businessName: 'Tariq Tech Solutions',
+    businessName: 'Tariq Tech Solutions & Software Ltd',
     cnic: '61101-8372645-3',
     ntn: '7483920-1',
-    category: 'IT & Freelancer',
+    clientType: 'Tax Client',
+    category: 'Income Tax (IT)',
+    entityStatus: 'COMPANY',
+    activeClosed: 'Active',
+    regIncorpNo: '0183412',
+    rtoCto: 'RAWALPINDI',
+    contactPerson: 'Tariq Jamil',
+    referralContact: 'HISK LEGAL',
     phone: '+92 321 5543100',
     email: 'tax@tariqtech.io',
     city: 'Islamabad',
@@ -51,27 +69,45 @@ export const INITIAL_CLIENTS: Client[] = [
   },
   {
     id: 'cli-103',
+    fileNumber: 'AI-IT-003',
+    fileCategoryCode: 'IT',
     name: 'Apex Builders & Commercial Developers',
-    businessName: 'Apex Builders',
+    businessName: 'Apex Builders & Commercial Developers',
     cnic: '37405-2234112-7',
     ntn: '2847593-4',
-    category: 'Property Owner',
+    clientType: 'Tax Client',
+    category: 'Income Tax (IT)',
+    entityStatus: 'AOP',
+    activeClosed: 'Active',
+    regIncorpNo: '0112945',
+    rtoCto: 'ISLAMABAD',
+    contactPerson: 'Ch. Kamran Rasheed',
+    referralContact: 'HISK LEGAL',
     phone: '+92 333 5129800',
     email: 'legal@apexbuilders.pk',
     city: 'Rawalpindi',
     registeredAddress: 'Plaza 18, Civic Centre, Phase 4, Bahria Town, Rawalpindi',
-    activeCasesCount: 2,
+    activeCasesCount: 1,
     totalTaxSaved: 'Rs. 8.50 Crore',
     status: 'Active',
     createdAt: '2024-11-20'
   },
   {
     id: 'cli-104',
+    fileNumber: 'AI-IT-004',
+    fileCategoryCode: 'IT',
     name: 'Dr. Sarah Ahmed (Consolidated Medical)',
     businessName: 'Consolidated Medical Diagnostic',
     cnic: '35201-9988776-2',
     ntn: '5928374-6',
-    category: 'High Net Worth Individual',
+    clientType: 'Tax Client',
+    category: 'Income Tax (IT)',
+    entityStatus: 'INDIVIDUAL',
+    activeClosed: 'Active',
+    regIncorpNo: 'MED-44912',
+    rtoCto: 'ISLAMABAD',
+    contactPerson: 'Dr. Sarah Ahmed',
+    referralContact: 'HISK LEGAL',
     phone: '+92 301 8443322',
     email: 'dr.sarah@clinic.pk',
     city: 'Islamabad',
@@ -80,17 +116,94 @@ export const INITIAL_CLIENTS: Client[] = [
     totalTaxSaved: 'Rs. 45 Lakh',
     status: 'Active',
     createdAt: '2025-06-05'
+  },
+  {
+    id: 'cli-105',
+    fileNumber: 'AI-ST-001',
+    fileCategoryCode: 'ST',
+    name: 'Khyber Steel & Rolling Mills (Pvt) Ltd',
+    businessName: 'Khyber Steel & Rolling Mills (Pvt) Ltd',
+    cnic: '17301-4455661-9',
+    ntn: '4120983-5',
+    clientType: 'Tax Client',
+    category: 'Sales Tax (ST)',
+    entityStatus: 'COMPANY',
+    activeClosed: 'Active',
+    regIncorpNo: '0195542',
+    rtoCto: 'ISLAMABAD',
+    contactPerson: 'Haji Jamshed Khan',
+    referralContact: 'HISK LEGAL',
+    phone: '+92 345 9012345',
+    email: 'accounts@khybersteel.pk',
+    city: 'Islamabad',
+    registeredAddress: 'Plot 19, Industrial Estate, Sector I-10/3, Islamabad',
+    activeCasesCount: 1,
+    totalTaxSaved: 'Rs. 2.15 Crore',
+    status: 'Active',
+    createdAt: '2025-08-12'
+  },
+  {
+    id: 'cli-106',
+    fileNumber: 'AI-INC-001',
+    fileCategoryCode: 'INC',
+    name: 'BRIGHT PHARMACEUTICALS (PRIVATE) LIMITED',
+    businessName: 'BRIGHT PHARMACEUTICALS (PRIVATE) LIMITED',
+    cnic: '',
+    ntn: 'A313332-6',
+    clientType: 'Other Category',
+    category: 'Incorporation (INC)',
+    entityStatus: 'COMPANY',
+    activeClosed: 'Active',
+    regIncorpNo: '017783',
+    rtoCto: 'ISLAMABAD',
+    contactPerson: 'MR. ZEESHAN',
+    referralContact: 'HISK LEGAL',
+    phone: '0341-5181334',
+    email: 'muzzafarkhan73@gmail.com',
+    city: 'ISLAMABAD',
+    registeredAddress: 'Blue Area, Jinnah Avenue, Islamabad',
+    activeCasesCount: 1,
+    totalTaxSaved: 'Rs. 0',
+    status: 'Active',
+    createdAt: '2025-09-01'
+  },
+  {
+    id: 'cli-107',
+    fileNumber: 'AI-CF-001',
+    fileCategoryCode: 'CF',
+    name: 'Mehmood Qaiser versus Muhammad Irfan (Appeal)',
+    businessName: 'Mehmood Qaiser versus Muhammad Irfan (Appeal)',
+    cnic: '',
+    ntn: '',
+    clientType: 'Other Category',
+    category: 'Court File (CF)',
+    entityStatus: 'Active',
+    activeClosed: 'Active',
+    pendingBeforeCourt: 'Islamabad High Court',
+    contactPerson: 'Masood Qaiser',
+    referralContact: 'Zia Ur Rehman - Stano G-11',
+    phone: '0300 5248310',
+    email: 'mehmood.qaiser@client.hisklegal.pk',
+    city: 'Islamabad',
+    registeredAddress: 'Sector G-11/3, Islamabad',
+    activeCasesCount: 1,
+    totalTaxSaved: 'Rs. 0',
+    status: 'Active',
+    createdAt: '2025-11-10'
   }
 ];
 
 export const INITIAL_CASES: CaseFile[] = [
   {
     id: 'case-2026-001',
+    fileNumber: 'AI-IT-003',
+    fileCategoryCode: 'IT',
     caseRef: 'IHC-WRIT-7E-2026/89',
     clientId: 'cli-103',
     clientName: 'Apex Builders & Commercial Developers',
     clientNtn: '2847593-4',
     caseTitle: 'High Court Writ Petition: Challenge Against Section 7E Deemed Property Tax Demand',
+    caseCategory: 'Tax & FBR Litigation',
     assignedCounsel: 'Hafiz Irfan Shabber Kayani',
     assignedCounselTitle: 'Advocate High Court | CEO & Founder',
     forum: 'Islamabad High Court (IHC)',
@@ -136,11 +249,14 @@ export const INITIAL_CASES: CaseFile[] = [
   },
   {
     id: 'case-2026-002',
+    fileNumber: 'AI-IT-001',
+    fileCategoryCode: 'IT',
     caseRef: 'ATIR-APP-122-2026/41',
     clientId: 'cli-101',
     clientName: 'Al-Syed Logistics & Transport Pvt Ltd',
     clientNtn: '3948572-9',
     caseTitle: 'Appellate Tribunal Appeal: Disallowance of Fuel & Fleet Operating Expenses u/s 122(5A)',
+    caseCategory: 'Tax & FBR Litigation',
     assignedCounsel: 'Hafiz Irfan Shabber Kayani',
     assignedCounselTitle: 'Advocate High Court | CEO & Founder',
     forum: 'Appellate Tribunal Inland Revenue (ATIR)',
@@ -176,11 +292,14 @@ export const INITIAL_CASES: CaseFile[] = [
   },
   {
     id: 'case-2026-003',
+    fileNumber: 'AI-IT-002',
+    fileCategoryCode: 'IT',
     caseRef: 'FBR-IT-154A-2026/14',
     clientId: 'cli-102',
     clientName: 'Tariq Tech Solutions & Software Ltd',
     clientNtn: '7483920-1',
     caseTitle: 'IT Export Tax Concession Audit u/s 154A & PSEB Exemption Clearance',
+    caseCategory: 'Tax & FBR Litigation',
     assignedCounsel: 'Hafiz Irfan Shabber Kayani',
     assignedCounselTitle: 'Advocate High Court | CEO & Founder',
     forum: 'FBR LTO Rawalpindi',
@@ -208,11 +327,14 @@ export const INITIAL_CASES: CaseFile[] = [
   },
   {
     id: 'case-2026-004',
-    caseRef: 'ISB-CIVIL-111-2026/05',
+    fileNumber: 'AI-IT-004',
+    fileCategoryCode: 'IT',
+    caseRef: 'ISB-IT-111-2026/05',
     clientId: 'cli-104',
     clientName: 'Dr. Sarah Ahmed (Consolidated Medical)',
     clientNtn: '5928374-6',
-    caseTitle: 'Section 111 Unexplained Wealth Reconciliation & High Court Revision',
+    caseTitle: 'Section 111 Unexplained Wealth Reconciliation & Revision Settlement',
+    caseCategory: 'Tax & FBR Litigation',
     assignedCounsel: 'Hafiz Irfan Shabber Kayani',
     assignedCounselTitle: 'Advocate High Court | CEO & Founder',
     forum: 'FBR RTO Islamabad',
@@ -243,6 +365,111 @@ export const INITIAL_CASES: CaseFile[] = [
         description: 'FBR Deputy Commissioner dropped all proceedings and accepted wealth statement.',
         advocateName: 'Hafiz Irfan Shabber Kayani',
         outcome: 'Case Closed with Zero Liability'
+      }
+    ]
+  },
+  {
+    id: 'case-2026-005',
+    fileNumber: 'AI-ST-001',
+    fileCategoryCode: 'ST',
+    caseRef: 'FBR-ST-21-2026/19',
+    clientId: 'cli-105',
+    clientName: 'Khyber Steel & Rolling Mills (Pvt) Ltd',
+    clientNtn: '4120983-5',
+    caseTitle: 'Sales Tax Input Adjustment Disallowance & STRN Suspension Challenge u/s 21(2)',
+    caseCategory: 'Tax & FBR Litigation',
+    assignedCounsel: 'Hafiz Irfan Shabber Kayani',
+    assignedCounselTitle: 'Advocate High Court | CEO & Founder',
+    forum: 'Commissioner Inland Revenue (Appeals)',
+    taxYear: 'Tax Period FY 2025',
+    status: 'CIR Appeal Pending',
+    riskLevel: 'High',
+    demandAmountPkr: 21500000,
+    savedAmountPkr: 21500000,
+    auditStage: 3,
+    summary: 'Contesting FBR RTO Islamabad blacklisting/suspension notice and Rs. 2.15 Crore input tax disallowance under Section 8B and Section 21(2) of the Sales Tax Act, 1990.',
+    nextHearingDate: '2026-08-09',
+    nextHearingPurpose: 'Arguments on STRN Restoration & Input Tax Verification',
+    createdAt: '2026-04-02',
+    timeline: [
+      {
+        id: 'tl-501',
+        date: '2026-04-05',
+        title: 'Sales Tax Suspension Notice Responded',
+        forum: 'FBR RTO Islamabad',
+        description: 'Submitted verified supplier CREST invoices and bank RTGS payment proofs.',
+        advocateName: 'Hafiz Irfan Shabber Kayani',
+        outcome: 'Appeal filed before CIR (Appeals)'
+      }
+    ]
+  },
+  {
+    id: 'case-2026-006',
+    fileNumber: 'AI-INC-001',
+    fileCategoryCode: 'INC',
+    caseRef: 'SECP-INC-2026/01',
+    clientId: 'cli-106',
+    clientName: 'BRIGHT PHARMACEUTICALS (PRIVATE) LIMITED',
+    clientNtn: 'A313332-6',
+    caseTitle: 'SECP Company Statutory Compliance, Form A / Form 29 & Annual Corporate Filing',
+    caseCategory: 'Corporate & SECP',
+    assignedCounsel: 'Hafiz Irfan Shabber Kayani',
+    assignedCounselTitle: 'Advocate High Court | CEO & Founder',
+    forum: 'SECP / Regulatory Tribunal',
+    taxYear: 'FY 2025-26',
+    status: 'Under Audit',
+    riskLevel: 'Medium',
+    demandAmountPkr: 1500000,
+    savedAmountPkr: 1500000,
+    auditStage: 3,
+    summary: 'Complete SECP incorporation governance, statutory Form A & Form 29 director regularization, and corporate licensing maintenance for Bright Pharmaceuticals (Private) Limited (Reg. 017783).',
+    nextHearingDate: '2026-08-18',
+    nextHearingPurpose: 'SECP CRO Islamabad Annual Return Compliance Filing',
+    createdAt: '2026-04-12',
+    timeline: [
+      {
+        id: 'tl-601',
+        date: '2026-04-14',
+        title: 'SECP Corporate File Audited & Form 29 Regularized',
+        forum: 'SECP / Regulatory Tribunal',
+        description: 'Updated shareholding structure and director particulars with CRO Islamabad.',
+        advocateName: 'Hafiz Irfan Shabber Kayani',
+        outcome: 'Compliance confirmation awaited'
+      }
+    ]
+  },
+  {
+    id: 'case-2026-007',
+    fileNumber: 'AI-CF-001',
+    fileCategoryCode: 'CF',
+    caseRef: 'IHC-CFA-2026/01',
+    clientId: 'cli-107',
+    clientName: 'Mehmood Qaiser versus Muhammad Irfan (Appeal)',
+    clientNtn: 'N/A',
+    caseTitle: 'Regular First Appeal (RFA): Mehmood Qaiser versus Muhammad Irfan',
+    caseCategory: 'Civil Litigation',
+    assignedCounsel: 'Hafiz Irfan Shabber Kayani',
+    assignedCounselTitle: 'Advocate High Court | CEO & Founder',
+    forum: 'Islamabad High Court (IHC)',
+    taxYear: 'Filing Year 2026',
+    status: 'High Court Writ Active',
+    riskLevel: 'High',
+    demandAmountPkr: 9500000,
+    savedAmountPkr: 0,
+    auditStage: 4,
+    summary: 'Civil appellate proceedings pending before the Honourable Islamabad High Court challenging trial court decree. Arguments fixed on maintainability and stay of execution.',
+    nextHearingDate: '2026-08-21',
+    nextHearingPurpose: 'Final Arguments on Appeal & Stay of Execution',
+    createdAt: '2026-05-03',
+    timeline: [
+      {
+        id: 'tl-701',
+        date: '2026-05-06',
+        title: 'Appeal Admitted for Regular Hearing at IHC',
+        forum: 'Islamabad High Court (IHC)',
+        description: 'Notice issued to respondent; lower court record requisitioned.',
+        advocateName: 'Hafiz Irfan Shabber Kayani',
+        outcome: 'Admitted & execution stayed'
       }
     ]
   }
@@ -296,6 +523,22 @@ export const INITIAL_NOTICES: FBRNotice[] = [
     disputedAmountPkr: 38000000,
     status: 'Order Passed',
     summary: 'Notice enforcing partial disallowance of fleet maintenance logs.'
+  },
+  {
+    id: 'not-304',
+    cnoNumber: 'CNO-2026-771023',
+    caseId: 'case-2026-005',
+    clientId: 'cli-105',
+    clientName: 'Khyber Steel & Rolling Mills (Pvt) Ltd',
+    sectionCode: '21(2) / 8B ST',
+    noticeTitle: 'Sales Tax Show Cause Notice for Input Tax Adjustment & STRN Suspension',
+    issuingOfficer: 'Assistant Commissioner Inland Revenue, Sales Tax Enforcement Unit I, RTO Islamabad',
+    taxYear: '2025',
+    dateReceived: '2026-04-02',
+    dueDate: '2026-08-09',
+    disputedAmountPkr: 21500000,
+    status: 'Pending Reply',
+    summary: 'Demanding reversal of input sales tax claims on raw billet purchases.'
   }
 ];
 
@@ -351,6 +594,45 @@ export const INITIAL_DOCUMENTS: DocumentItem[] = [
     fileType: 'pdf',
     downloadUrl: '#',
     isClientVisible: true
+  },
+  {
+    id: 'doc-505',
+    caseId: 'case-2026-005',
+    clientId: 'cli-105',
+    title: 'Sales Tax Input Invoice Ledger & CREST Cross-Match File',
+    category: 'FBR Notice',
+    fileSize: '3.1 MB',
+    uploadedBy: 'Hafiz Irfan Shabber Kayani',
+    uploadedAt: '2026-04-06',
+    fileType: 'pdf',
+    downloadUrl: '#',
+    isClientVisible: true
+  },
+  {
+    id: 'doc-506',
+    caseId: 'case-2026-006',
+    clientId: 'cli-106',
+    title: 'SECP Certificate of Incorporation & Certified Form 29',
+    category: 'Wakalatnama / Power of Attorney',
+    fileSize: '1.9 MB',
+    uploadedBy: 'Hafiz Irfan Shabber Kayani',
+    uploadedAt: '2026-04-14',
+    fileType: 'pdf',
+    downloadUrl: '#',
+    isClientVisible: true
+  },
+  {
+    id: 'doc-507',
+    caseId: 'case-2026-007',
+    clientId: 'cli-107',
+    title: 'IHC Appeal Paper Book & Stay Order Copy (Mehmood Qaiser vs Muhammad Irfan)',
+    category: 'Court Order / Stay Order',
+    fileSize: '5.2 MB',
+    uploadedBy: 'Hafiz Irfan Shabber Kayani',
+    uploadedAt: '2026-05-06',
+    fileType: 'pdf',
+    downloadUrl: '#',
+    isClientVisible: true
   }
 ];
 
@@ -384,6 +666,26 @@ export const INITIAL_TASKS: InternalTask[] = [
     priority: 'Normal',
     isCompleted: false,
     notes: 'Ensure NBP treasury receipt attached with main paper book.'
+  },
+  {
+    id: 'task-604',
+    caseId: 'case-2026-005',
+    title: 'Compile Supplier Sales Tax Verification Annexures for CIR Appeals',
+    assignedTo: 'Hafiz Irfan Shabber Kayani',
+    dueDate: '2026-08-07',
+    priority: 'High',
+    isCompleted: false,
+    notes: 'Attach Section 73 banking channel payment proofs.'
+  },
+  {
+    id: 'task-605',
+    caseId: 'case-2026-007',
+    title: 'Index Trial Court Record & File Written Synopsis before IHC Bench',
+    assignedTo: 'Hafiz Irfan Shabber Kayani',
+    dueDate: '2026-08-19',
+    priority: 'Urgent',
+    isCompleted: false,
+    notes: 'Coordinate with Masood Qaiser regarding original sale agreement.'
   }
 ];
 
@@ -402,6 +704,22 @@ export const INITIAL_NOTES: InternalNote[] = [
     author: 'Hafiz Irfan Shabber Kayani',
     date: '2026-03-21',
     text: 'Client provided all 12 bank export realization receipts. Reconciled perfectly with FBR portal records. Ready to file formal written reply.',
+    isPrivileged: true
+  },
+  {
+    id: 'note-703',
+    caseId: 'case-2026-006',
+    author: 'Hafiz Irfan Shabber Kayani',
+    date: '2026-04-14',
+    text: 'MR. ZEESHAN confirmed updated board resolution for Bright Pharmaceuticals (Private) Limited. SECP CRO Islamabad Form A submission ready.',
+    isPrivileged: true
+  },
+  {
+    id: 'note-704',
+    caseId: 'case-2026-007',
+    author: 'Hafiz Irfan Shabber Kayani',
+    date: '2026-05-07',
+    text: 'Referred by Zia Ur Rehman - Stano G-11. Masood Qaiser delivered certified lower court decree sheet for IHC regular appeal.',
     isPrivileged: true
   }
 ];
@@ -460,6 +778,60 @@ export const INITIAL_INVOICES: Invoice[] = [
     paidAmountPkr: 0,
     status: 'Pending',
     paymentMethod: 'Online PKR'
+  },
+  {
+    id: 'inv-804',
+    invoiceNumber: 'HISK-INV-2026-071',
+    caseId: 'case-2026-005',
+    clientId: 'cli-105',
+    clientName: 'Khyber Steel & Rolling Mills (Pvt) Ltd',
+    clientNtn: '4120983-5',
+    serviceDescription: 'Sales Tax STRN Suspension Defense & CIR Appeals Representation',
+    issueDate: '2026-04-05',
+    dueDate: '2026-04-20',
+    retainerFeePkr: 300000,
+    hearingFeePkr: 60000,
+    salesTaxPkr: 57600,
+    totalAmountPkr: 417600,
+    paidAmountPkr: 417600,
+    status: 'Paid',
+    paymentMethod: 'Bank Transfer'
+  },
+  {
+    id: 'inv-805',
+    invoiceNumber: 'HISK-INV-2026-083',
+    caseId: 'case-2026-006',
+    clientId: 'cli-106',
+    clientName: 'BRIGHT PHARMACEUTICALS (PRIVATE) LIMITED',
+    clientNtn: 'A313332-6',
+    serviceDescription: 'SECP Corporate Incorporation Compliance & Annual Form A / 29 Filing Fee',
+    issueDate: '2026-04-15',
+    dueDate: '2026-04-30',
+    retainerFeePkr: 150000,
+    hearingFeePkr: 25000,
+    salesTaxPkr: 28000,
+    totalAmountPkr: 203000,
+    paidAmountPkr: 0,
+    status: 'Pending',
+    paymentMethod: 'Bank Transfer'
+  },
+  {
+    id: 'inv-806',
+    invoiceNumber: 'HISK-INV-2026-095',
+    caseId: 'case-2026-007',
+    clientId: 'cli-107',
+    clientName: 'Mehmood Qaiser versus Muhammad Irfan (Appeal)',
+    clientNtn: 'N/A',
+    serviceDescription: 'Islamabad High Court Regular First Appeal Filing & Stay Arguments Retainer',
+    issueDate: '2026-05-07',
+    dueDate: '2026-05-22',
+    retainerFeePkr: 250000,
+    hearingFeePkr: 50000,
+    salesTaxPkr: 0,
+    totalAmountPkr: 300000,
+    paidAmountPkr: 150000,
+    status: 'Partially Paid',
+    paymentMethod: 'PayOrder / Cheque'
   }
 ];
 
@@ -502,6 +874,45 @@ export const INITIAL_HEARINGS: HearingEvent[] = [
     counselAssigned: 'Hafiz Irfan Shabber Kayani',
     purpose: 'Arguments on Confirmation of Interim Stay Order',
     priority: 'High'
+  },
+  {
+    id: 'hear-904',
+    caseId: 'case-2026-005',
+    caseTitle: 'Sales Tax Input Adjustment Disallowance & STRN Suspension Challenge',
+    clientName: 'Khyber Steel & Rolling Mills (Pvt) Ltd',
+    date: '2026-08-09',
+    time: '10:00 AM',
+    forum: 'Commissioner Inland Revenue (Appeals)',
+    bench: 'CIR (Appeals) Zone I, Islamabad',
+    counselAssigned: 'Hafiz Irfan Shabber Kayani',
+    purpose: 'Arguments on STRN Restoration & Input Tax Verification',
+    priority: 'High'
+  },
+  {
+    id: 'hear-905',
+    caseId: 'case-2026-006',
+    caseTitle: 'SECP Company Statutory Compliance & Form A / 29 Filing',
+    clientName: 'BRIGHT PHARMACEUTICALS (PRIVATE) LIMITED',
+    date: '2026-08-18',
+    time: '11:30 AM',
+    forum: 'SECP / Regulatory Tribunal',
+    bench: 'Company Registration Office (CRO) Islamabad',
+    counselAssigned: 'Hafiz Irfan Shabber Kayani',
+    purpose: 'SECP CRO Islamabad Annual Return Compliance Filing',
+    priority: 'Medium'
+  },
+  {
+    id: 'hear-906',
+    caseId: 'case-2026-007',
+    caseTitle: 'Regular First Appeal (RFA): Mehmood Qaiser versus Muhammad Irfan',
+    clientName: 'Mehmood Qaiser versus Muhammad Irfan (Appeal)',
+    date: '2026-08-21',
+    time: '09:30 AM',
+    forum: 'Islamabad High Court (IHC)',
+    bench: 'Single Bench Court 05 - Islamabad High Court',
+    counselAssigned: 'Hafiz Irfan Shabber Kayani',
+    purpose: 'Final Arguments on Appeal & Stay of Execution',
+    priority: 'High'
   }
 ];
 
@@ -529,6 +940,18 @@ export const INITIAL_NOTIFICATIONS: NotificationLog[] = [
     message: 'Dear Tariq Tech Team, Advocate Hafiz Irfan Shabber Kayani has finalized the audit reply for FBR Section 154A notice. Please log in to your Client Portal to review and approve.',
     sentAt: '2026-07-22 03:40 PM',
     status: 'Read'
+  },
+  {
+    id: 'notif-1003',
+    clientId: 'cli-107',
+    clientName: 'Mehmood Qaiser versus Muhammad Irfan (Appeal)',
+    caseId: 'case-2026-007',
+    type: 'WhatsApp',
+    recipientPhoneOrEmail: '0300 5248310',
+    title: 'IHC Appeal Cause List Date Update (AI-CF-001)',
+    message: 'HISK LEGAL Alert: Dear Masood Qaiser, your Islamabad High Court appeal (Mehmood Qaiser vs Muhammad Irfan) is fixed for 21-Aug-2026.',
+    sentAt: '2026-07-25 11:20 AM',
+    status: 'Delivered'
   }
 ];
 
@@ -564,6 +987,30 @@ export const INITIAL_CLIENT_CREDENTIALS = [
     email: 'dr.sarah@clinic.pk',
     password: 'Password123!',
     createdAt: '2025-06-05'
+  },
+  {
+    id: 'cred-105',
+    clientId: 'cli-105',
+    clientName: 'Khyber Steel & Rolling Mills (Pvt) Ltd',
+    email: 'accounts@khybersteel.pk',
+    password: 'Password123!',
+    createdAt: '2025-08-12'
+  },
+  {
+    id: 'cred-106',
+    clientId: 'cli-106',
+    clientName: 'BRIGHT PHARMACEUTICALS (PRIVATE) LIMITED',
+    email: 'muzzafarkhan73@gmail.com',
+    password: 'Password123!',
+    createdAt: '2025-09-01'
+  },
+  {
+    id: 'cred-107',
+    clientId: 'cli-107',
+    clientName: 'Mehmood Qaiser versus Muhammad Irfan (Appeal)',
+    email: 'mehmood.qaiser@client.hisklegal.pk',
+    password: 'Password123!',
+    createdAt: '2025-11-10'
   }
 ];
 

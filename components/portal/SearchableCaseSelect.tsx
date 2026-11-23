@@ -32,6 +32,7 @@ export const SearchableCaseSelect: React.FC<SearchableCaseSelectProps> = ({
     if (!searchQuery.trim()) return true;
     const q = searchQuery.toLowerCase();
     return (
+      (c.fileNumber && c.fileNumber.toLowerCase().includes(q)) ||
       (c.caseTitle && c.caseTitle.toLowerCase().includes(q)) ||
       (c.caseRef && c.caseRef.toLowerCase().includes(q)) ||
       (c.clientName && c.clientName.toLowerCase().includes(q)) ||
@@ -72,7 +73,7 @@ export const SearchableCaseSelect: React.FC<SearchableCaseSelectProps> = ({
               isOpen
                 ? searchQuery
                 : selectedCase
-                ? `[${selectedCase.caseRef}] ${selectedCase.caseTitle} — ${selectedCase.clientName}`
+                ? `${selectedCase.fileNumber ? `[${selectedCase.fileNumber}] ` : ''}[${selectedCase.caseRef}] ${selectedCase.caseTitle} — ${selectedCase.clientName}`
                 : searchQuery
             }
             onChange={(e) => {
@@ -84,7 +85,7 @@ export const SearchableCaseSelect: React.FC<SearchableCaseSelectProps> = ({
             }}
             placeholder={
               selectedCase
-                ? `[${selectedCase.caseRef}] ${selectedCase.caseTitle}`
+                ? `${selectedCase.fileNumber ? `[${selectedCase.fileNumber}] ` : ''}[${selectedCase.caseRef}] ${selectedCase.caseTitle}`
                 : placeholder
             }
             className="w-full bg-transparent text-xs font-bold text-[#0F6B4C] focus:outline-none placeholder:text-gray-400 placeholder:font-normal cursor-text"
@@ -123,6 +124,11 @@ export const SearchableCaseSelect: React.FC<SearchableCaseSelectProps> = ({
                 >
                   <div className="space-y-0.5 min-w-0 flex-1">
                     <div className="flex items-center gap-1.5 flex-wrap">
+                      {c.fileNumber && (
+                        <span className="bg-[#0A4B35] text-[#F5A623] font-mono font-extrabold text-[10px] px-1.5 py-0.5 rounded">
+                          {c.fileNumber}
+                        </span>
+                      )}
                       <span className="bg-[#0F6B4C]/10 text-[#0F6B4C] font-extrabold text-[10px] px-1.5 py-0.5 rounded">
                         {c.caseRef}
                       </span>

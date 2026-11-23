@@ -72,7 +72,7 @@ export function inferClientFileCode(client?: Client | null): FileCategoryCode {
 
   const cat = (client.category || '').toLowerCase();
   if (cat.includes('sales tax') || cat === 'sales tax (st)') return 'ST';
-  if (cat.includes('income tax') || cat === 'income tax (it)') return 'IT';
+  if (cat.includes('income tax') || cat === 'income tax (it)' || cat === 'tax client') return 'IT';
   if (cat.includes('incorporation') || cat.includes('corporate') || cat.includes('aop') || cat.includes('npo')) {
     return client.clientType === 'Tax Client' ? 'IT' : 'INC';
   }
@@ -178,7 +178,7 @@ function applyBorderRange(
   }
 }
 
-function buildIncFormatSheet(
+export function buildIncFormatSheet(
   workbook: ExcelJS.Workbook,
   tabName: string,
   titleBanner: string,
@@ -283,6 +283,13 @@ function buildIncFormatSheet(
     rowsData.map((r) => ({ ...r, fileNumber: r.client.fileNumber }))
   );
 
+  const usedIncFileNos = new Set(
+    sorted
+      .map((r) => r.client.fileNumber?.trim().toUpperCase())
+      .filter((v): v is string => Boolean(v))
+  );
+  const nextCounterByCode: Record<FileCategoryCode, number> = { IT: 1, ST: 1, INC: 1, CF: 1 };
+
   const minRows = Math.max(sorted.length, 10);
   for (let idx = 0; idx < minRows; idx++) {
     const rowIndex = 4 + idx;
@@ -292,7 +299,15 @@ function buildIncFormatSheet(
     if (idx < sorted.length) {
       const { client, secret } = sorted[idx];
       const code = inferClientFileCode(client);
-      const fallbackFileNo = client.fileNumber || `AI-${code}-${String(idx + 1).padStart(3, '0')}`;
+      let fallbackFileNo = client.fileNumber?.trim().toUpperCase() || '';
+      if (!fallbackFileNo) {
+        while (usedIncFileNos.has(`AI-${code}-${String(nextCounterByCode[code]).padStart(3, '0')}`)) {
+          nextCounterByCode[code] += 1;
+        }
+        fallbackFileNo = `AI-${code}-${String(nextCounterByCode[code]).padStart(3, '0')}`;
+        usedIncFileNos.add(fallbackFileNo);
+        nextCounterByCode[code] += 1;
+      }
       const activeClosedVal =
         client.activeClosed || (client.status === 'Archived' ? 'Closed' : 'Active');
 
@@ -333,7 +348,7 @@ function buildIncFormatSheet(
   return sheet;
 }
 
-function buildCourtCasesSheet(
+export function buildCourtCasesSheet(
   workbook: ExcelJS.Workbook,
   tabName: string,
   clients: Client[],
@@ -404,6 +419,13 @@ function buildCourtCasesSheet(
     clients.filter((cl) => inferClientFileCode(cl) === 'CF')
   );
 
+  const usedCfFileNos = new Set(
+    cfClients
+      .map((c) => c.fileNumber?.trim().toUpperCase())
+      .filter((v): v is string => Boolean(v))
+  );
+  let nextCfCounter = 1;
+
   const minRows = Math.max(cfClients.length, 10);
   for (let idx = 0; idx < minRows; idx++) {
     const rowIndex = 4 + idx;
@@ -413,7 +435,15 @@ function buildCourtCasesSheet(
     if (idx < cfClients.length) {
       const client = cfClients[idx];
       const linkedCase = cases.find((cs) => cs.clientId === client.id);
-      const fileNo = client.fileNumber || `AI-CF-${String(idx + 1).padStart(3, '0')}`;
+      let fileNo = client.fileNumber?.trim().toUpperCase() || '';
+      if (!fileNo) {
+        while (usedCfFileNos.has(`AI-CF-${String(nextCfCounter).padStart(3, '0')}`)) {
+          nextCfCounter += 1;
+        }
+        fileNo = `AI-CF-${String(nextCfCounter).padStart(3, '0')}`;
+        usedCfFileNos.add(fileNo);
+        nextCfCounter += 1;
+      }
       const courtName = client.pendingBeforeCourt || linkedCase?.forum || '';
       const activeStatus =
         client.activeClosed || (client.status === 'Archived' ? 'Closed' : 'Active');
@@ -462,11 +492,11 @@ async function triggerExcelDownload(workbook: ExcelJS.Workbook, fileName: string
   setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
 
-export async function exportMasterExcelWorkbook(
+export function buildMasterExcelWorkbook(
   clients: Client[],
   cases: CaseFile[],
   secretsMap: Record<string, ClientVaultSecret>
-) {
+): ExcelJS.Workbook {
   const workbook = new ExcelJS.Workbook();
   workbook.creator = 'HISK LEGAL Portal';
   workbook.created = new Date();
@@ -487,6 +517,15 @@ export async function exportMasterExcelWorkbook(
 
   buildCourtCasesSheet(workbook, 'COURT CASES FILES (CF)', clients, cases);
 
+  return workbook;
+}
+
+export async function exportMasterExcelWorkbook(
+  clients: Client[],
+  cases: CaseFile[],
+  secretsMap: Record<string, ClientVaultSecret>
+) {
+  const workbook = buildMasterExcelWorkbook(clients, cases, secretsMap);
   const dateTag = new Date().toISOString().split('T')[0];
   await triggerExcelDownload(workbook, `HISK_LEGAL_Client_Files_${dateTag}.xlsx`);
 }
