@@ -82,11 +82,25 @@ import {
   UserCog,
   UserPlus,
   Ban,
-  ShieldAlert
+  ShieldAlert,
+  FileSpreadsheet
 } from 'lucide-react';
 import { usePortalStore } from '@/lib/portalStore';
 import { InvoicePdfModal } from '@/components/portal/InvoicePdfModal';
 import { SearchableCaseSelect } from '@/components/portal/SearchableCaseSelect';
+import {
+  ALL_FILE_CATEGORY_CODES,
+  FILE_CATEGORY_CONFIG,
+  exportCourtCasesSheetExcel,
+  exportIncSheetExcel,
+  exportMasterExcelWorkbook,
+  getClientTypeFromFileCode,
+  getDefaultClientCategoryForFileCode,
+  getNextFileNumber,
+  inferClientFileCode,
+  parseFileCodeFromFileNumber,
+  sortByFileNumber,
+} from '@/lib/excelExport';
 import {
   CaseFile,
   Client,
@@ -107,6 +121,7 @@ import {
   ClientType,
   ClientCategory,
   CaseCategory,
+  FileCategoryCode,
   StaffAccount,
   StaffPermission,
   StaffRolePreset
@@ -546,6 +561,7 @@ export const AdminPortal: React.FC = () => {
     invoices,
     hearings,
     clientCredentials,
+    clientVaultSecrets,
     addClientCredential,
     addClient,
     updateClient,
@@ -699,6 +715,9 @@ export const AdminPortal: React.FC = () => {
 
   // Client & Case Classification Constants and Helpers
   const NON_TAX_CLIENT_CATEGORIES: ClientCategory[] = [
+    'Incorporation (INC)',
+    'Court File (CF)',
+    'Corporate',
     'Civil Litigation',
     'Criminal Defense',
     'Family Law',
@@ -708,6 +727,10 @@ export const AdminPortal: React.FC = () => {
   ];
 
   const ALL_CLIENT_CATEGORIES: ClientCategory[] = [
+    'Income Tax (IT)',
+    'Sales Tax (ST)',
+    'Incorporation (INC)',
+    'Court File (CF)',
     'Tax Client',
     'Corporate',
     'High Net Worth Individual',
@@ -736,6 +759,9 @@ export const AdminPortal: React.FC = () => {
 
   const getClientGroup = (client?: Client | null): ClientType => {
     if (!client) return 'Tax Client';
+    const fileCode = client.fileCategoryCode || parseFileCodeFromFileNumber(client.fileNumber);
+    if (fileCode === 'IT' || fileCode === 'ST') return 'Tax Client';
+    if (fileCode === 'INC' || fileCode === 'CF') return 'Other Category';
     if (client.clientType === 'Tax Client' || client.clientType === 'Other Category') {
       return client.clientType;
     }
@@ -743,6 +769,17 @@ export const AdminPortal: React.FC = () => {
       return 'Other Category';
     }
     return 'Tax Client';
+  };
+
+  const getCaseFileCode = (c: CaseFile): FileCategoryCode => {
+    if (c.fileCategoryCode && FILE_CATEGORY_CONFIG[c.fileCategoryCode]) {
+      return c.fileCategoryCode;
+    }
+    const fromCaseNum = parseFileCodeFromFileNumber(c.fileNumber || c.caseRef);
+    if (fromCaseNum) return fromCaseNum;
+    const linkedClient = clients.find((cl) => cl.id === c.clientId);
+    if (linkedClient) return inferClientFileCode(linkedClient);
+    return getCaseCategory(c) === 'Tax & FBR Litigation' ? 'IT' : 'CF';
   };
 
   const getCaseCategory = (c: CaseFile): CaseCategory => {
@@ -782,16 +819,24 @@ export const AdminPortal: React.FC = () => {
   };
 
   const isTaxCase = (c: CaseFile): boolean => {
+    const code = getCaseFileCode(c);
+    if (code === 'IT' || code === 'ST') return true;
+    if (code === 'INC' || code === 'CF') return false;
     return getCaseCategory(c) === 'Tax & FBR Litigation';
   };
 
   // Clients Directory Search & Filters
   const [clientSearchTerm, setClientSearchTerm] = useState('');
   const [clientGroupFilter, setClientGroupFilter] = useState<'All' | ClientType>('All');
+  const [clientFileCodeFilter, setClientFileCodeFilter] = useState<'All' | FileCategoryCode>('All');
   const [clientCategoryFilter, setClientCategoryFilter] = useState<string>('All');
   const [clientStatusFilter, setClientStatusFilter] = useState<string>('All');
   const [editingClient, setEditingClient] = useState<Client | null>(null);
-  const [editClientForm, setEditClientForm] = useState<Partial<Client>>({});
+  const [editClientForm, setEditClientForm] = useState<
+    Partial<Client> & { secpPassword?: string; secpPin?: string }
+  >({});
+  const [clientActionNotice, setClientActionNotice] = useState<string | null>(null);
+  const [isExportingExcel, setIsExportingExcel] = useState<boolean>(false);
 
   // Staff & Employee Access Control State
   const [staffSearchTerm, setStaffSearchTerm] = useState('');
@@ -989,6 +1034,7 @@ export const AdminPortal: React.FC = () => {
   // Case Management Search & Filters
   const [searchTerm, setSearchTerm] = useState('');
   const [caseGroupFilter, setCaseGroupFilter] = useState<'All' | 'Tax' | 'Other'>('All');
+  const [caseFileCodeFilter, setCaseFileCodeFilter] = useState<'All' | FileCategoryCode>('All');
   const [caseCategoryFilter, setCaseCategoryFilter] = useState<string>('All');
   const [caseClientTypeFilter, setCaseClientTypeFilter] = useState<string>('All');
   const [statusFilter, setStatusFilter] = useState<string>('All');
@@ -1026,27 +1072,53 @@ export const AdminPortal: React.FC = () => {
   const taxCasesCount = cases.filter((c) => isTaxCase(c)).length;
   const otherCasesCount = cases.filter((c) => !isTaxCase(c)).length;
 
-  const filteredClients = clients.filter((cl) => {
-    const q = clientSearchTerm.trim().toLowerCase();
-    const group = getClientGroup(cl);
-    const matchesSearch =
-      q === '' ||
-      cl.name.toLowerCase().includes(q) ||
-      (cl.businessName && cl.businessName.toLowerCase().includes(q)) ||
-      cl.ntn.toLowerCase().includes(q) ||
-      cl.cnic.toLowerCase().includes(q) ||
-      cl.phone.toLowerCase().includes(q) ||
-      cl.email.toLowerCase().includes(q) ||
-      cl.city.toLowerCase().includes(q) ||
-      cl.category.toLowerCase().includes(q) ||
-      group.toLowerCase().includes(q);
+  const clientCountByFileCode: Record<FileCategoryCode, number> = {
+    IT: clients.filter((cl) => inferClientFileCode(cl) === 'IT').length,
+    ST: clients.filter((cl) => inferClientFileCode(cl) === 'ST').length,
+    INC: clients.filter((cl) => inferClientFileCode(cl) === 'INC').length,
+    CF: clients.filter((cl) => inferClientFileCode(cl) === 'CF').length,
+  };
 
-    const matchesGroup = clientGroupFilter === 'All' || group === clientGroupFilter;
-    const matchesCategory = clientCategoryFilter === 'All' || cl.category === clientCategoryFilter;
-    const matchesStatus = clientStatusFilter === 'All' || cl.status === clientStatusFilter;
+  const caseCountByFileCode: Record<FileCategoryCode, number> = {
+    IT: cases.filter((c) => getCaseFileCode(c) === 'IT').length,
+    ST: cases.filter((c) => getCaseFileCode(c) === 'ST').length,
+    INC: cases.filter((c) => getCaseFileCode(c) === 'INC').length,
+    CF: cases.filter((c) => getCaseFileCode(c) === 'CF').length,
+  };
 
-    return matchesSearch && matchesGroup && matchesCategory && matchesStatus;
-  });
+  const filteredClients = sortByFileNumber(
+    clients.filter((cl) => {
+      const q = clientSearchTerm.trim().toLowerCase();
+      const group = getClientGroup(cl);
+      const fileCode = inferClientFileCode(cl);
+      const matchesSearch =
+        q === '' ||
+        (cl.fileNumber && cl.fileNumber.toLowerCase().includes(q)) ||
+        fileCode.toLowerCase().includes(q) ||
+        cl.name.toLowerCase().includes(q) ||
+        (cl.businessName && cl.businessName.toLowerCase().includes(q)) ||
+        cl.ntn.toLowerCase().includes(q) ||
+        cl.cnic.toLowerCase().includes(q) ||
+        (cl.regIncorpNo && cl.regIncorpNo.toLowerCase().includes(q)) ||
+        (cl.rtoCto && cl.rtoCto.toLowerCase().includes(q)) ||
+        (cl.contactPerson && cl.contactPerson.toLowerCase().includes(q)) ||
+        (cl.referralContact && cl.referralContact.toLowerCase().includes(q)) ||
+        (cl.pendingBeforeCourt && cl.pendingBeforeCourt.toLowerCase().includes(q)) ||
+        (cl.entityStatus && cl.entityStatus.toLowerCase().includes(q)) ||
+        cl.phone.toLowerCase().includes(q) ||
+        cl.email.toLowerCase().includes(q) ||
+        cl.city.toLowerCase().includes(q) ||
+        cl.category.toLowerCase().includes(q) ||
+        group.toLowerCase().includes(q);
+
+      const matchesGroup = clientGroupFilter === 'All' || group === clientGroupFilter;
+      const matchesFileCode = clientFileCodeFilter === 'All' || fileCode === clientFileCodeFilter;
+      const matchesCategory = clientCategoryFilter === 'All' || cl.category === clientCategoryFilter;
+      const matchesStatus = clientStatusFilter === 'All' || cl.status === clientStatusFilter;
+
+      return matchesSearch && matchesGroup && matchesFileCode && matchesCategory && matchesStatus;
+    })
+  );
 
   // Comprehensive Filtered Collections by Unique Data (CNO #, Section Code, Tax Year, Forum, Case Ref, NTN, File Size, Date, Author, Invoice #, Category, Client Type, etc.)
   const filteredCases = cases.filter((c) => {
@@ -1054,6 +1126,7 @@ export const AdminPortal: React.FC = () => {
     const linkedClient = clients.find((cl) => cl.id === c.clientId);
     const clientGroup = getClientGroup(linkedClient);
     const resolvedCategory = getCaseCategory(c);
+    const caseFileCode = getCaseFileCode(c);
     const taxFlag = isTaxCase(c);
 
     // Find linked notices to match CNO number, Section code, issuing officer
@@ -1066,6 +1139,9 @@ export const AdminPortal: React.FC = () => {
       q === '' ||
       c.caseTitle.toLowerCase().includes(q) ||
       c.caseRef.toLowerCase().includes(q) ||
+      (c.fileNumber && c.fileNumber.toLowerCase().includes(q)) ||
+      (linkedClient?.fileNumber && linkedClient.fileNumber.toLowerCase().includes(q)) ||
+      caseFileCode.toLowerCase().includes(q) ||
       (c.caseId && c.caseId.toLowerCase().includes(q)) ||
       c.clientName.toLowerCase().includes(q) ||
       c.clientNtn.toLowerCase().includes(q) ||
@@ -1088,6 +1164,7 @@ export const AdminPortal: React.FC = () => {
       caseGroupFilter === 'All' ||
       (caseGroupFilter === 'Tax' && taxFlag) ||
       (caseGroupFilter === 'Other' && !taxFlag);
+    const matchesFileCode = caseFileCodeFilter === 'All' || caseFileCode === caseFileCodeFilter;
     const matchesCategory = caseCategoryFilter === 'All' || resolvedCategory === caseCategoryFilter;
     const matchesClientType = caseClientTypeFilter === 'All' || clientGroup === caseClientTypeFilter;
     const matchesStatus = statusFilter === 'All' || c.status === statusFilter;
@@ -1098,6 +1175,7 @@ export const AdminPortal: React.FC = () => {
     return (
       matchesSearch &&
       matchesGroup &&
+      matchesFileCode &&
       matchesCategory &&
       matchesClientType &&
       matchesStatus &&
@@ -2165,10 +2243,21 @@ export const AdminPortal: React.FC = () => {
   }));
 
   const [newClientData, setNewClientData] = useState<{
+    fileCategoryCode: FileCategoryCode;
+    fileNumber: string;
     name: string;
     businessName: string;
+    activeClosed: 'Active' | 'Closed';
+    entityStatus: string;
     cnic: string;
+    regIncorpNo: string;
     ntn: string;
+    secpPassword: string;
+    secpPin: string;
+    rtoCto: string;
+    contactPerson: string;
+    referralContact: string;
+    pendingBeforeCourt: string;
     clientType: ClientType;
     category: ClientCategory;
     phone: string;
@@ -2179,12 +2268,23 @@ export const AdminPortal: React.FC = () => {
     clientLoginEmail: string;
     clientLoginPassword: string;
   }>({
+    fileCategoryCode: 'IT',
+    fileNumber: 'AI-IT-001',
     name: '',
     businessName: '',
+    activeClosed: 'Active',
+    entityStatus: 'COMPANY',
     cnic: '',
+    regIncorpNo: '',
     ntn: '',
+    secpPassword: '',
+    secpPin: '',
+    rtoCto: 'ISLAMABAD',
+    contactPerson: '',
+    referralContact: 'HISK LEGAL',
+    pendingBeforeCourt: 'Islamabad High Court',
     clientType: 'Tax Client',
-    category: 'Tax Client',
+    category: 'Income Tax (IT)',
     phone: '',
     email: '',
     city: 'Islamabad',
@@ -2193,6 +2293,37 @@ export const AdminPortal: React.FC = () => {
     clientLoginEmail: '',
     clientLoginPassword: 'Password123!'
   });
+
+  const handleOpenAddClient = (defaultCode: FileCategoryCode = 'IT') => {
+    const nextFileNo = getNextFileNumber(defaultCode, clients, cases);
+    setNewClientData({
+      fileCategoryCode: defaultCode,
+      fileNumber: nextFileNo,
+      name: '',
+      businessName: '',
+      activeClosed: 'Active',
+      entityStatus: defaultCode === 'CF' ? 'Active' : 'COMPANY',
+      cnic: '',
+      regIncorpNo: '',
+      ntn: '',
+      secpPassword: '',
+      secpPin: '',
+      rtoCto: 'ISLAMABAD',
+      contactPerson: '',
+      referralContact: defaultCode === 'CF' ? '' : 'HISK LEGAL',
+      pendingBeforeCourt: defaultCode === 'CF' ? 'Islamabad High Court' : '',
+      clientType: getClientTypeFromFileCode(defaultCode),
+      category: getDefaultClientCategoryForFileCode(defaultCode),
+      phone: '',
+      email: '',
+      city: 'Islamabad',
+      registeredAddress: '',
+      status: 'Active',
+      clientLoginEmail: '',
+      clientLoginPassword: 'Password123!'
+    });
+    setShowAddClientModal(true);
+  };
 
 
   const [newNoticeData, setNewNoticeData] = useState(() => ({
@@ -2331,37 +2462,82 @@ export const AdminPortal: React.FC = () => {
 
   const handleCreateClient = (e: React.FormEvent) => {
     e.preventDefault();
-    const loginEmail = newClientData.email || newClientData.clientLoginEmail;
+    const resolvedCode = newClientData.fileCategoryCode;
+    const resolvedFileNo =
+      newClientData.fileNumber.trim() || getNextFileNumber(resolvedCode, clients, cases);
+    const resolvedClientType = getClientTypeFromFileCode(resolvedCode);
+    const resolvedStatus =
+      newClientData.activeClosed === 'Closed' ? 'Archived' : newClientData.status || 'Active';
+
+    const cleanName = newClientData.name.trim() || newClientData.businessName.trim();
+    const fallbackPortalEmail =
+      newClientData.email.trim() ||
+      newClientData.clientLoginEmail.trim() ||
+      `${resolvedFileNo.toLowerCase()}@client.hisklegal.pk`;
     const loginPass = newClientData.clientLoginPassword || 'Password123!';
-    
-    const createdClient = addClient(newClientData, loginEmail, loginPass);
+
+    const createdClient = addClient(
+      {
+        fileNumber: resolvedFileNo.toUpperCase(),
+        fileCategoryCode: resolvedCode,
+        name: cleanName,
+        businessName: newClientData.businessName.trim() || cleanName,
+        activeClosed: newClientData.activeClosed,
+        entityStatus:
+          resolvedCode === 'CF'
+            ? newClientData.activeClosed
+            : newClientData.entityStatus || 'COMPANY',
+        cnic: newClientData.cnic.trim(),
+        regIncorpNo: newClientData.regIncorpNo.trim(),
+        ntn: newClientData.ntn.trim(),
+        secpPassword: newClientData.secpPassword,
+        secpPin: newClientData.secpPin,
+        rtoCto: newClientData.rtoCto.trim().toUpperCase(),
+        contactPerson: newClientData.contactPerson.trim(),
+        referralContact: newClientData.referralContact.trim(),
+        pendingBeforeCourt:
+          resolvedCode === 'CF' ? newClientData.pendingBeforeCourt.trim() : '',
+        clientType: resolvedClientType,
+        category: newClientData.category || getDefaultClientCategoryForFileCode(resolvedCode),
+        phone: newClientData.phone.trim(),
+        email: newClientData.email.trim(),
+        city: newClientData.rtoCto.trim() || newClientData.city || 'Islamabad',
+        registeredAddress: newClientData.registeredAddress.trim(),
+        status: resolvedStatus,
+      },
+      fallbackPortalEmail,
+      loginPass
+    );
+
     setShowAddClientModal(false);
-    setNewClientData({
-      name: '',
-      businessName: '',
-      cnic: '',
-      ntn: '',
-      clientType: 'Tax Client',
-      category: 'Tax Client',
-      phone: '',
-      email: '',
-      city: 'Islamabad',
-      registeredAddress: '',
-      status: 'Active',
-      clientLoginEmail: '',
-      clientLoginPassword: 'Password123!'
-    });
-    alert(`Client Profile created for ${createdClient.name} (${createdClient.clientType || newClientData.clientType})! Client Portal sign-in credentials created: Email: ${loginEmail}, Password: ${loginPass}`);
+    setRepositorySubTab('clients');
+    setClientActionNotice(
+      `Client "${createdClient.name}" registered under ${resolvedFileNo.toUpperCase()} (${FILE_CATEGORY_CONFIG[resolvedCode].label}) and added to backend ${resolvedCode === 'CF' ? 'COURT CASES FILES' : 'AOP/NPO/COMPANY CLIENT FILES'} Excel register.`
+    );
+    setTimeout(() => setClientActionNotice(null), 7000);
   };
 
   const handleStartEditClient = (client: Client) => {
+    const inferredCode = inferClientFileCode(client);
+    const existingSecret = clientVaultSecrets[client.id];
     setEditingClient(client);
     setEditClientForm({
+      fileCategoryCode: inferredCode,
+      fileNumber: client.fileNumber || getNextFileNumber(inferredCode, clients, cases),
       name: client.name,
-      businessName: client.businessName || '',
+      businessName: client.businessName || client.name,
+      activeClosed: client.activeClosed || (client.status === 'Archived' ? 'Closed' : 'Active'),
+      entityStatus: client.entityStatus || (inferredCode === 'CF' ? 'Active' : 'COMPANY'),
       ntn: client.ntn,
       cnic: client.cnic,
-      clientType: getClientGroup(client),
+      regIncorpNo: client.regIncorpNo || '',
+      secpPassword: existingSecret?.secpPassword || '',
+      secpPin: existingSecret?.secpPin || '',
+      rtoCto: client.rtoCto || client.city || '',
+      contactPerson: client.contactPerson || '',
+      referralContact: client.referralContact || '',
+      pendingBeforeCourt: client.pendingBeforeCourt || '',
+      clientType: getClientTypeFromFileCode(inferredCode),
       category: client.category,
       phone: client.phone,
       email: client.email,
@@ -2374,8 +2550,43 @@ export const AdminPortal: React.FC = () => {
   const handleSaveClientEdit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!editingClient) return;
-    updateClient(editingClient.id, editClientForm);
+    const code = (editClientForm.fileCategoryCode || inferClientFileCode(editingClient)) as FileCategoryCode;
+    updateClient(editingClient.id, {
+      ...editClientForm,
+      fileCategoryCode: code,
+      clientType: getClientTypeFromFileCode(code),
+      status: editClientForm.activeClosed === 'Closed' ? 'Archived' : editClientForm.status || 'Active',
+    });
     setEditingClient(null);
+    setClientActionNotice(
+      `Updated ${editClientForm.fileNumber || editingClient.name} and synced backend Excel list.`
+    );
+    setTimeout(() => setClientActionNotice(null), 5000);
+  };
+
+  const handleExportExcel = async (
+    mode: 'MASTER' | 'ALL_INC' | 'IT' | 'ST' | 'INC' | 'CF'
+  ) => {
+    setIsExportingExcel(true);
+    try {
+      if (mode === 'MASTER') {
+        await exportMasterExcelWorkbook(clients, cases, clientVaultSecrets);
+        setClientActionNotice(
+          'Exported Master Excel Workbook (.xlsx) with AOP/NPO/COMPANY CLIENT FILES (IT/ST/INC) & COURT CASES FILES (CF) sheets.'
+        );
+      } else if (mode === 'CF') {
+        await exportCourtCasesSheetExcel(clients, cases);
+        setClientActionNotice('Exported COURT CASES FILES (AI-CF) Excel sheet (.xlsx).');
+      } else {
+        await exportIncSheetExcel(clients, clientVaultSecrets, mode);
+        setClientActionNotice(
+          `Exported AOP/NPO/COMPANY CLIENT FILES Excel sheet (${mode === 'ALL_INC' ? 'IT + ST + INC' : `AI-${mode}`}).`
+        );
+      }
+      setTimeout(() => setClientActionNotice(null), 6000);
+    } finally {
+      setIsExportingExcel(false);
+    }
   };
 
 
@@ -3283,11 +3494,21 @@ export const AdminPortal: React.FC = () => {
               <div className="flex items-center gap-2 flex-wrap">
                 <button
                   type="button"
-                  onClick={() => setShowAddClientModal(true)}
+                  onClick={() => handleOpenAddClient('IT')}
                   className="bg-white hover:bg-[#FAFAF7] text-[#0A4B35] border border-[#0F6B4C]/30 font-extrabold px-4 py-2.5 rounded-2xl text-xs flex items-center gap-2 shadow-sm transition-all cursor-pointer"
                 >
                   <UserCheck className="w-4 h-4 text-[#0F6B4C]" />
                   <span>Register New Client</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => handleExportExcel('MASTER')}
+                  disabled={isExportingExcel}
+                  className="bg-emerald-50 hover:bg-emerald-100 text-[#0A4B35] border border-[#0F6B4C]/30 font-extrabold px-4 py-2.5 rounded-2xl text-xs flex items-center gap-2 shadow-sm transition-all cursor-pointer disabled:opacity-50"
+                >
+                  <FileSpreadsheet className="w-4 h-4 text-[#0F6B4C]" />
+                  <span>{isExportingExcel ? 'Exporting...' : 'Export Excel (.xlsx)'}</span>
                 </button>
 
                 <button
@@ -3309,6 +3530,22 @@ export const AdminPortal: React.FC = () => {
                 </button>
               </div>
             </div>
+
+            {clientActionNotice && (
+              <div className="bg-emerald-50 border border-emerald-300 text-emerald-900 px-5 py-3 rounded-2xl flex items-center justify-between text-xs font-semibold shadow-sm">
+                <div className="flex items-center gap-2">
+                  <CheckCircle2 className="w-4 h-4 text-[#0F6B4C] shrink-0" />
+                  <span>{clientActionNotice}</span>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setClientActionNotice(null)}
+                  className="text-emerald-700 hover:text-emerald-900 font-bold"
+                >
+                  ✕
+                </button>
+              </div>
+            )}
 
             {/* Unified Segmented Switcher: Case & Litigation Repository vs Clients Directory */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -3351,10 +3588,10 @@ export const AdminPortal: React.FC = () => {
                 <div>
                   <div className="flex items-center gap-2 text-xs font-extrabold">
                     <UserCheck className={`w-4 h-4 ${repositorySubTab === 'clients' ? 'text-[#F5A623]' : 'text-[#0F6B4C]'}`} />
-                    <span>Clients Directory</span>
+                    <span>Clients Directory (Excel Sheet Registers)</span>
                   </div>
                   <div className="text-[11px] opacity-80 mt-1">
-                    {taxClientsCount} Tax Clients • {otherClientsCount} Other Categories
+                    IT: {clientCountByFileCode.IT} • ST: {clientCountByFileCode.ST} • INC: {clientCountByFileCode.INC} • CF: {clientCountByFileCode.CF}
                   </div>
                 </div>
                 <span
@@ -3369,14 +3606,17 @@ export const AdminPortal: React.FC = () => {
 
             {/* SUB-VIEW 1: CLIENTS DIRECTORY */}
             {repositorySubTab === 'clients' && (
-              <div className="space-y-6">
+              <div className="space-y-5">
                 {/* Client Separation Tabs (All / Tax Clients / Other Categories) */}
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                   <button
                     type="button"
-                    onClick={() => setClientGroupFilter('All')}
+                    onClick={() => {
+                      setClientGroupFilter('All');
+                      setClientFileCodeFilter('All');
+                    }}
                     className={`p-4 rounded-2xl border text-left transition-all cursor-pointer ${
-                      clientGroupFilter === 'All'
+                      clientGroupFilter === 'All' && clientFileCodeFilter === 'All'
                         ? 'bg-[#0A4B35] text-white border-[#0A4B35] shadow-md'
                         : 'bg-white text-[#1A1A1A] border-[#0F6B4C]/15 hover:border-[#0F6B4C]/40'
                     }`}
@@ -3387,29 +3627,100 @@ export const AdminPortal: React.FC = () => {
 
                   <button
                     type="button"
-                    onClick={() => setClientGroupFilter('Tax Client')}
+                    onClick={() => {
+                      setClientGroupFilter('Tax Client');
+                      setClientFileCodeFilter('All');
+                    }}
                     className={`p-4 rounded-2xl border text-left transition-all cursor-pointer ${
                       clientGroupFilter === 'Tax Client'
                         ? 'bg-[#0F6B4C] text-white border-[#0F6B4C] shadow-md'
                         : 'bg-white text-[#1A1A1A] border-[#0F6B4C]/15 hover:border-[#0F6B4C]/40'
                     }`}
                   >
-                    <div className="text-[11px] font-bold uppercase tracking-wider opacity-80">Tax Clients (FBR / ATIR / NTN)</div>
+                    <div className="text-[11px] font-bold uppercase tracking-wider opacity-80">Tax Clients (AI-IT &amp; AI-ST)</div>
                     <div className="text-2xl font-heading font-extrabold mt-1">{taxClientsCount} Tax Clients</div>
                   </button>
 
                   <button
                     type="button"
-                    onClick={() => setClientGroupFilter('Other Category')}
+                    onClick={() => {
+                      setClientGroupFilter('Other Category');
+                      setClientFileCodeFilter('All');
+                    }}
                     className={`p-4 rounded-2xl border text-left transition-all cursor-pointer ${
                       clientGroupFilter === 'Other Category'
                         ? 'bg-[#F5A623] text-[#1A1A1A] border-[#F5A623] shadow-md'
                         : 'bg-white text-[#1A1A1A] border-[#0F6B4C]/15 hover:border-[#F5A623]/60'
                     }`}
                   >
-                    <div className="text-[11px] font-bold uppercase tracking-wider opacity-80">Other Categories (Civil / Family / Corporate)</div>
+                    <div className="text-[11px] font-bold uppercase tracking-wider opacity-80">Other Categories (AI-INC &amp; AI-CF)</div>
                     <div className="text-2xl font-heading font-extrabold mt-1">{otherClientsCount} Other Clients</div>
                   </button>
+                </div>
+
+                {/* File Number Register Pills + Exact Screenshot Excel Exports */}
+                <div className="bg-white p-4 rounded-2xl border border-[#0F6B4C]/15 flex flex-col lg:flex-row lg:items-center justify-between gap-3">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span className="text-[11px] font-extrabold text-[#5A6275] uppercase mr-1">File No. Series:</span>
+                    <button
+                      type="button"
+                      onClick={() => setClientFileCodeFilter('All')}
+                      className={`px-3 py-1.5 rounded-xl text-xs font-extrabold transition-all cursor-pointer border ${
+                        clientFileCodeFilter === 'All'
+                          ? 'bg-[#0A4B35] text-white border-[#0A4B35]'
+                          : 'bg-[#FAFAF7] text-[#1A1A1A] border-gray-200 hover:border-[#0F6B4C]'
+                      }`}
+                    >
+                      All ({clients.length})
+                    </button>
+                    {ALL_FILE_CATEGORY_CODES.map((code) => {
+                      const meta = FILE_CATEGORY_CONFIG[code];
+                      const active = clientFileCodeFilter === code;
+                      return (
+                        <button
+                          key={code}
+                          type="button"
+                          onClick={() => {
+                            setClientFileCodeFilter(code);
+                            setClientGroupFilter('All');
+                          }}
+                          className={`px-3 py-1.5 rounded-xl text-xs font-extrabold transition-all cursor-pointer border ${
+                            active
+                              ? meta.clientType === 'Tax Client'
+                                ? 'bg-[#0F6B4C] text-white border-[#0F6B4C]'
+                                : 'bg-[#F5A623] text-[#1A1A1A] border-[#F5A623]'
+                              : 'bg-[#FAFAF7] text-[#1A1A1A] border-gray-200 hover:border-[#0F6B4C]'
+                          }`}
+                        >
+                          {meta.shortLabel} ({meta.prefix}###) • {clientCountByFileCode[code]}
+                        </button>
+                      );
+                    })}
+                  </div>
+
+                  {/* Screenshot-Matched Excel Export Bar */}
+                  <div className="flex flex-wrap items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => handleExportExcel('ALL_INC')}
+                      disabled={isExportingExcel}
+                      className="px-3 py-1.5 rounded-xl bg-emerald-50 hover:bg-emerald-100 text-[#0A4B35] border border-emerald-300 text-[11px] font-extrabold flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
+                      title="Export AOP/NPO/COMPANY CLIENT FILES sheet (includes IT, ST & INC)"
+                    >
+                      <Download className="w-3.5 h-3.5" />
+                      <span>INC Sheet (IT/ST/INC)</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleExportExcel('CF')}
+                      disabled={isExportingExcel}
+                      className="px-3 py-1.5 rounded-xl bg-amber-50 hover:bg-amber-100 text-[#1A1A1A] border border-amber-300 text-[11px] font-extrabold flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
+                      title="Export COURT CASES FILES sheet (AI-CF)"
+                    >
+                      <Download className="w-3.5 h-3.5" />
+                      <span>Court Cases Sheet (CF)</span>
+                    </button>
+                  </div>
                 </div>
 
                 {/* Client Search & Category Filter Bar */}
@@ -3418,7 +3729,7 @@ export const AdminPortal: React.FC = () => {
                     <Search className="w-4 h-4 text-[#0F6B4C] shrink-0" />
                     <input
                       type="text"
-                      placeholder="Search clients by Name, Business, NTN, CNIC, Phone, Email, City, or Category..."
+                      placeholder="Search by File No. (AI-IT-001), Business/Client Name, NTN, CNIC/Login ID, Reg No, RTO, Contact Person, Referral..."
                       value={clientSearchTerm}
                       onChange={(e) => setClientSearchTerm(e.target.value)}
                       className="w-full bg-[#FAFAF7] p-2.5 rounded-xl border border-gray-200 focus:outline-none focus:border-[#0F6B4C] text-xs font-medium"
@@ -3457,15 +3768,20 @@ export const AdminPortal: React.FC = () => {
                       <option value="All">All Statuses</option>
                       <option value="Active">Active</option>
                       <option value="On Hold">On Hold</option>
-                      <option value="Archived">Archived</option>
+                      <option value="Archived">Closed / Archived</option>
                     </select>
 
-                    {(clientSearchTerm || clientGroupFilter !== 'All' || clientCategoryFilter !== 'All' || clientStatusFilter !== 'All') && (
+                    {(clientSearchTerm ||
+                      clientGroupFilter !== 'All' ||
+                      clientFileCodeFilter !== 'All' ||
+                      clientCategoryFilter !== 'All' ||
+                      clientStatusFilter !== 'All') && (
                       <button
                         type="button"
                         onClick={() => {
                           setClientSearchTerm('');
                           setClientGroupFilter('All');
+                          setClientFileCodeFilter('All');
                           setClientCategoryFilter('All');
                           setClientStatusFilter('All');
                         }}
@@ -3490,6 +3806,7 @@ export const AdminPortal: React.FC = () => {
                       onClick={() => {
                         setClientSearchTerm('');
                         setClientGroupFilter('All');
+                        setClientFileCodeFilter('All');
                         setClientCategoryFilter('All');
                         setClientStatusFilter('All');
                       }}
@@ -3502,7 +3819,9 @@ export const AdminPortal: React.FC = () => {
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     {filteredClients.map((cl) => {
                       const group = getClientGroup(cl);
+                      const fileCode = inferClientFileCode(cl);
                       const linkedCases = cases.filter((c) => c.clientId === cl.id);
+                      const secret = clientVaultSecrets[cl.id];
                       return (
                         <div
                           key={cl.id}
@@ -3511,6 +3830,11 @@ export const AdminPortal: React.FC = () => {
                           <div className="space-y-2.5">
                             <div className="flex flex-wrap items-center justify-between gap-2">
                               <div className="flex flex-wrap items-center gap-1.5">
+                                {cl.fileNumber && (
+                                  <span className="text-[10px] font-mono font-extrabold px-2.5 py-1 rounded-full bg-[#0A4B35] text-[#F5A623]">
+                                    {cl.fileNumber}
+                                  </span>
+                                )}
                                 <span
                                   className={`text-[10px] font-extrabold px-2.5 py-1 rounded-full ${
                                     group === 'Tax Client'
@@ -3521,46 +3845,85 @@ export const AdminPortal: React.FC = () => {
                                   {group}
                                 </span>
                                 <span className="text-[10px] font-bold bg-[#E8F5F0] text-[#0F6B4C] px-2.5 py-1 rounded-full">
-                                  {cl.category}
+                                  {FILE_CATEGORY_CONFIG[fileCode].shortLabel}
                                 </span>
+                                {cl.entityStatus && fileCode !== 'CF' && (
+                                  <span className="text-[10px] font-bold bg-gray-100 text-gray-800 px-2 py-0.5 rounded-full">
+                                    {cl.entityStatus}
+                                  </span>
+                                )}
                               </div>
                               <span className="text-[10px] font-bold px-2.5 py-0.5 rounded-full bg-gray-100 text-gray-700">
-                                {cl.status}
+                                {cl.activeClosed || cl.status}
                               </span>
                             </div>
 
                             <div>
                               <h3 className="font-heading font-extrabold text-base text-[#1A1A1A]">{cl.name}</h3>
-                              {cl.businessName && (
+                              {cl.businessName && cl.businessName !== cl.name && (
                                 <p className="text-xs text-[#5A6275] font-medium">{cl.businessName}</p>
                               )}
                             </div>
 
-                            <div className="grid grid-cols-2 gap-2 text-[11px] text-[#5A6275] bg-[#FAFAF7] p-3 rounded-2xl border border-gray-100">
-                              <div>
-                                <span className="font-bold text-[#1A1A1A]">NTN:</span> <span className="font-mono">{cl.ntn || 'N/A'}</span>
+                            {fileCode === 'CF' ? (
+                              <div className="grid grid-cols-2 gap-2 text-[11px] text-[#5A6275] bg-[#FAFAF7] p-3 rounded-2xl border border-gray-100">
+                                <div className="col-span-2">
+                                  <span className="font-bold text-[#1A1A1A]">Pending Before Court of Law:</span>{' '}
+                                  <span className="text-[#0F6B4C] font-bold">{cl.pendingBeforeCourt || 'N/A'}</span>
+                                </div>
+                                <div>
+                                  <span className="font-bold text-[#1A1A1A]">Contact Person:</span> {cl.contactPerson || 'N/A'}
+                                </div>
+                                <div>
+                                  <span className="font-bold text-[#1A1A1A]">Mobile No.:</span> {cl.phone || 'N/A'}
+                                </div>
+                                <div className="col-span-2">
+                                  <span className="font-bold text-[#1A1A1A]">REFERRAL CONTACT:</span> {cl.referralContact || 'N/A'}
+                                </div>
                               </div>
-                              <div>
-                                <span className="font-bold text-[#1A1A1A]">CNIC:</span> <span className="font-mono">{cl.cnic}</span>
+                            ) : (
+                              <div className="grid grid-cols-2 gap-2 text-[11px] text-[#5A6275] bg-[#FAFAF7] p-3 rounded-2xl border border-gray-100">
+                                <div>
+                                  <span className="font-bold text-[#1A1A1A]">NTN:</span> <span className="font-mono">{cl.ntn || 'N/A'}</span>
+                                </div>
+                                <div>
+                                  <span className="font-bold text-[#1A1A1A]">CNIC / Login ID:</span> <span className="font-mono">{cl.cnic || 'N/A'}</span>
+                                </div>
+                                <div>
+                                  <span className="font-bold text-[#1A1A1A]">Reg./Incorp. No.:</span> <span className="font-mono">{cl.regIncorpNo || 'N/A'}</span>
+                                </div>
+                                <div>
+                                  <span className="font-bold text-[#1A1A1A]">RTO/CTO:</span> {cl.rtoCto || cl.city || 'N/A'}
+                                </div>
+                                <div>
+                                  <span className="font-bold text-[#1A1A1A]">Contact Person:</span> {cl.contactPerson || 'N/A'}
+                                </div>
+                                <div>
+                                  <span className="font-bold text-[#1A1A1A]">Mobile No.:</span> {cl.phone || 'N/A'}
+                                </div>
+                                <div className="truncate">
+                                  <span className="font-bold text-[#1A1A1A]">E-mail address:</span> {cl.email || 'N/A'}
+                                </div>
+                                <div className="truncate">
+                                  <span className="font-bold text-[#1A1A1A]">REFERRAL CONTACT:</span> {cl.referralContact || 'N/A'}
+                                </div>
+                                {(secret?.secpPassword || secret?.secpPin) && (
+                                  <div className="col-span-2 text-[10px] text-[#0F6B4C] font-mono bg-emerald-50/70 px-2.5 py-1 rounded-xl border border-emerald-200/60 flex flex-wrap gap-3">
+                                    <span><strong>SECP Pass:</strong> {secret.secpPassword || '—'}</span>
+                                    <span><strong>SECP PIN:</strong> {secret.secpPin || '—'}</span>
+                                  </div>
+                                )}
                               </div>
-                              <div>
-                                <span className="font-bold text-[#1A1A1A]">Phone:</span> {cl.phone}
-                              </div>
-                              <div>
-                                <span className="font-bold text-[#1A1A1A]">City:</span> {cl.city}
-                              </div>
-                              <div className="col-span-2 truncate">
-                                <span className="font-bold text-[#1A1A1A]">Email:</span> {cl.email}
-                              </div>
-                            </div>
+                            )}
                           </div>
 
                           <div className="flex flex-wrap items-center justify-between gap-2 pt-3 border-t border-gray-100">
                             <button
                               type="button"
                               onClick={() => {
-                                setSearchTerm(cl.name);
+                                setSearchTerm(cl.fileNumber || cl.name);
                                 setCaseGroupFilter('All');
+                                setCaseFileCodeFilter('All');
                                 setCaseCategoryFilter('All');
                                 setCaseClientTypeFilter('All');
                                 setRepositorySubTab('cases');
@@ -3615,10 +3978,11 @@ export const AdminPortal: React.FC = () => {
                 type="button"
                 onClick={() => {
                   setCaseGroupFilter('All');
+                  setCaseFileCodeFilter('All');
                   setCaseCategoryFilter('All');
                 }}
                 className={`px-4 py-2 rounded-2xl text-xs font-extrabold transition-all cursor-pointer border ${
-                  caseGroupFilter === 'All'
+                  caseGroupFilter === 'All' && caseFileCodeFilter === 'All'
                     ? 'bg-[#0A4B35] text-white border-[#0A4B35] shadow-sm'
                     : 'bg-white text-[#1A1A1A] border-[#0F6B4C]/15 hover:border-[#0F6B4C]/40'
                 }`}
@@ -3629,6 +3993,7 @@ export const AdminPortal: React.FC = () => {
                 type="button"
                 onClick={() => {
                   setCaseGroupFilter('Tax');
+                  setCaseFileCodeFilter('All');
                   setCaseCategoryFilter('All');
                 }}
                 className={`px-4 py-2 rounded-2xl text-xs font-extrabold transition-all cursor-pointer border ${
@@ -3643,6 +4008,7 @@ export const AdminPortal: React.FC = () => {
                 type="button"
                 onClick={() => {
                   setCaseGroupFilter('Other');
+                  setCaseFileCodeFilter('All');
                   setCaseCategoryFilter('All');
                 }}
                 className={`px-4 py-2 rounded-2xl text-xs font-extrabold transition-all cursor-pointer border ${
@@ -3653,6 +4019,23 @@ export const AdminPortal: React.FC = () => {
               >
                 Other Categories ({otherCasesCount})
               </button>
+              {ALL_FILE_CATEGORY_CODES.map((code) => (
+                <button
+                  key={code}
+                  type="button"
+                  onClick={() => {
+                    setCaseFileCodeFilter(caseFileCodeFilter === code ? 'All' : code);
+                    setCaseGroupFilter('All');
+                  }}
+                  className={`px-3 py-2 rounded-2xl text-xs font-bold transition-all cursor-pointer border ${
+                    caseFileCodeFilter === code
+                      ? 'bg-[#0A4B35] text-[#F5A623] border-[#0A4B35] shadow-sm'
+                      : 'bg-white text-[#5A6275] border-gray-200 hover:border-[#0F6B4C]'
+                  }`}
+                >
+                  AI-{code} ({caseCountByFileCode[code]})
+                </button>
+              ))}
             </div>
 
             {/* Filter Bar */}
@@ -3662,7 +4045,7 @@ export const AdminPortal: React.FC = () => {
                   <Search className="w-4 h-4 text-[#0F6B4C] shrink-0" />
                   <input
                     type="text"
-                    placeholder="Search by Case Title, Category, Client Type, Ref #, CNO No, Section Code, NTN, Client, Forum, Year, Counsel..."
+                    placeholder="Search by File No. (AI-IT/ST/INC/CF), Case Title, Category, Ref #, CNO No, NTN, Client, Forum, Year, Counsel..."
                     value={searchTerm}
                     onChange={(e) => setSearchTerm(e.target.value)}
                     className="w-full bg-[#FAFAF7] p-2.5 rounded-xl border border-gray-200 focus:outline-none focus:border-[#0F6B4C] text-xs font-medium"
@@ -3681,6 +4064,7 @@ export const AdminPortal: React.FC = () => {
                 <div className="flex items-center gap-2">
                   {(searchTerm ||
                     caseGroupFilter !== 'All' ||
+                    caseFileCodeFilter !== 'All' ||
                     caseCategoryFilter !== 'All' ||
                     caseClientTypeFilter !== 'All' ||
                     statusFilter !== 'All' ||
@@ -3692,6 +4076,7 @@ export const AdminPortal: React.FC = () => {
                       onClick={() => {
                         setSearchTerm('');
                         setCaseGroupFilter('All');
+                        setCaseFileCodeFilter('All');
                         setCaseCategoryFilter('All');
                         setCaseClientTypeFilter('All');
                         setStatusFilter('All');
@@ -3806,6 +4191,7 @@ export const AdminPortal: React.FC = () => {
                   onClick={() => {
                     setSearchTerm('');
                     setCaseGroupFilter('All');
+                    setCaseFileCodeFilter('All');
                     setCaseCategoryFilter('All');
                     setCaseClientTypeFilter('All');
                     setStatusFilter('All');
@@ -3824,6 +4210,7 @@ export const AdminPortal: React.FC = () => {
                   const resolvedCategory = getCaseCategory(c);
                   const linkedClient = clients.find((cl) => cl.id === c.clientId);
                   const clientGroup = getClientGroup(linkedClient);
+                  const clientFileNo = c.fileNumber || linkedClient?.fileNumber;
                   return (
                     <div
                       key={c.id}
@@ -3831,6 +4218,11 @@ export const AdminPortal: React.FC = () => {
                     >
                       <div className="space-y-2 flex-1">
                         <div className="flex flex-wrap items-center gap-2">
+                          {clientFileNo && (
+                            <span className="text-[10px] font-mono font-extrabold bg-[#0A4B35] text-[#F5A623] px-2.5 py-0.5 rounded-md">
+                              {clientFileNo}
+                            </span>
+                          )}
                           <span className="text-[10px] font-mono font-extrabold bg-[#0A4B35] text-white px-2.5 py-0.5 rounded-md">
                             {c.caseRef}
                           </span>
@@ -6585,163 +6977,443 @@ export const AdminPortal: React.FC = () => {
         </div>
       )}
 
-      {/* MODAL 2: NEW CLIENT */}
+      {/* MODAL 2: NEW CLIENT (SHEET-MATCHED REGISTER) */}
       {showAddClientModal && (
         <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-white rounded-3xl max-w-lg w-full p-6 border border-[#0F6B4C]/20 shadow-2xl max-h-[92vh] overflow-y-auto">
-            <div className="flex justify-between items-center mb-4">
-              <h3 className="text-lg font-heading font-extrabold text-[#1A1A1A]">Register Client Profile</h3>
-              <button onClick={() => setShowAddClientModal(false)} className="text-gray-400 hover:text-black">
+          <div className="bg-white rounded-3xl max-w-2xl w-full p-6 border border-[#0F6B4C]/20 shadow-2xl max-h-[92vh] overflow-y-auto">
+            <div className="flex justify-between items-center mb-4 border-b pb-3">
+              <div>
+                <span className="text-[10px] font-extrabold text-[#F5A623] uppercase tracking-wider block">
+                  {newClientData.fileCategoryCode === 'CF'
+                    ? 'COURT CASES FILES Sheet Register'
+                    : 'AOP/NPO/COMPANY CLIENT FILES Sheet Register'}
+                </span>
+                <h3 className="text-lg font-heading font-extrabold text-[#1A1A1A]">
+                  Register Client Profile ({newClientData.fileNumber})
+                </h3>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowAddClientModal(false)}
+                className="text-gray-400 hover:text-black font-bold cursor-pointer"
+              >
                 ✕
               </button>
             </div>
-            <form onSubmit={handleCreateClient} className="space-y-3 text-xs">
-              <div className="grid grid-cols-2 gap-3">
+            <form onSubmit={handleCreateClient} className="space-y-3.5 text-xs">
+              {/* File Category Selector (IT, ST, INC, CF) */}
+              <div>
+                <label className="font-bold text-gray-800 block mb-1.5">
+                  File Category / Excel Register <span className="text-red-500">*</span>
+                </label>
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                  {ALL_FILE_CATEGORY_CODES.map((code) => {
+                    const meta = FILE_CATEGORY_CONFIG[code];
+                    const selected = newClientData.fileCategoryCode === code;
+                    return (
+                      <button
+                        key={code}
+                        type="button"
+                        onClick={() => {
+                          const nextNum = getNextFileNumber(code, clients, cases);
+                          setNewClientData((prev) => ({
+                            ...prev,
+                            fileCategoryCode: code,
+                            fileNumber: nextNum,
+                            clientType: getClientTypeFromFileCode(code),
+                            category: getDefaultClientCategoryForFileCode(code),
+                            entityStatus: code === 'CF' ? prev.activeClosed : prev.entityStatus || 'COMPANY',
+                          }));
+                        }}
+                        className={`p-2.5 rounded-xl border text-left transition-all cursor-pointer ${
+                          selected
+                            ? meta.clientType === 'Tax Client'
+                              ? 'bg-[#0F6B4C] text-white border-[#0F6B4C] shadow-sm'
+                              : 'bg-[#F5A623] text-[#1A1A1A] border-[#F5A623] shadow-sm'
+                            : 'bg-[#FAFAF7] text-gray-800 border-gray-200 hover:border-[#0F6B4C]'
+                        }`}
+                      >
+                        <div className="font-mono font-extrabold text-[11px]">{meta.prefix}###</div>
+                        <div className="font-bold text-[11px] mt-0.5">{meta.shortLabel}</div>
+                        <div className="text-[9px] opacity-80">{meta.clientType}</div>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                 <div>
-                  <label className="font-bold text-gray-700 block mb-1">Client Separation Group</label>
-                  <select
-                    value={newClientData.clientType}
-                    onChange={(e) => {
-                      const nextType = e.target.value as ClientType;
-                      setNewClientData({
-                        ...newClientData,
-                        clientType: nextType,
-                        category:
-                          nextType === 'Tax Client' && NON_TAX_CLIENT_CATEGORIES.includes(newClientData.category)
-                            ? 'Tax Client'
-                            : nextType === 'Other Category' && !NON_TAX_CLIENT_CATEGORIES.includes(newClientData.category)
-                            ? 'Civil Litigation'
-                            : newClientData.category
-                      });
-                    }}
-                    className="w-full bg-[#FAFAF7] p-2.5 rounded-xl border border-gray-200 font-bold text-[#0F6B4C]"
-                  >
-                    <option value="Tax Client">Tax Client</option>
-                    <option value="Other Category">Other Category</option>
-                  </select>
+                  <label className="font-bold text-gray-700 block mb-1">
+                    File No. <span className="text-red-500">*</span>
+                  </label>
+                  <div className="flex items-center gap-1.5">
+                    <input
+                      type="text"
+                      required
+                      value={newClientData.fileNumber}
+                      onChange={(e) =>
+                        setNewClientData({ ...newClientData, fileNumber: e.target.value.toUpperCase() })
+                      }
+                      className="w-full bg-[#FAFAF7] p-2.5 rounded-xl border border-gray-200 font-mono font-extrabold text-[#0A4B35]"
+                    />
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setNewClientData((prev) => ({
+                          ...prev,
+                          fileNumber: getNextFileNumber(prev.fileCategoryCode, clients, cases),
+                        }))
+                      }
+                      className="p-2.5 rounded-xl bg-gray-100 hover:bg-gray-200 text-gray-700 shrink-0 cursor-pointer"
+                      title="Auto-generate next sequential File No."
+                    >
+                      <RefreshCw className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
                 </div>
 
                 <div>
-                  <label className="font-bold text-gray-700 block mb-1">Specific Category</label>
+                  <label className="font-bold text-gray-700 block mb-1">Separation Group</label>
+                  <div className="w-full bg-gray-100 p-2.5 rounded-xl border border-gray-200 font-extrabold text-[#0A4B35]">
+                    {getClientTypeFromFileCode(newClientData.fileCategoryCode)}
+                  </div>
+                </div>
+
+                <div>
+                  <label className="font-bold text-gray-700 block mb-1">
+                    {newClientData.fileCategoryCode === 'CF' ? 'Status (Contacts)' : 'Active/Closed'}
+                  </label>
                   <select
-                    value={newClientData.category}
-                    onChange={(e) => {
-                      const nextCat = e.target.value as ClientCategory;
+                    value={newClientData.activeClosed}
+                    onChange={(e) =>
                       setNewClientData({
                         ...newClientData,
-                        category: nextCat,
-                        clientType: NON_TAX_CLIENT_CATEGORIES.includes(nextCat) ? 'Other Category' : 'Tax Client'
-                      });
-                    }}
+                        activeClosed: e.target.value as 'Active' | 'Closed',
+                        status: e.target.value === 'Closed' ? 'Archived' : 'Active',
+                      })
+                    }
                     className="w-full bg-[#FAFAF7] p-2.5 rounded-xl border border-gray-200 font-bold"
                   >
-                    {ALL_CLIENT_CATEGORIES.map((cat) => (
-                      <option key={cat} value={cat}>
-                        {cat}
-                      </option>
-                    ))}
+                    <option value="Active">Active</option>
+                    <option value="Closed">Closed</option>
                   </select>
                 </div>
               </div>
 
-              <div>
-                <label className="font-bold text-gray-700 block mb-1">Client Full Name / Entity</label>
-                <input
-                  type="text"
-                  required
-                  placeholder="e.g. Al-Farooq Traders"
-                  value={newClientData.name}
-                  onChange={(e) => setNewClientData({ ...newClientData, name: e.target.value })}
-                  className="w-full bg-[#FAFAF7] p-2.5 rounded-xl border border-gray-200"
-                />
-              </div>
+              {newClientData.fileCategoryCode === 'CF' ? (
+                <>
+                  {/* COURT CASES FILES FIELDS */}
+                  <div>
+                    <label className="font-bold text-gray-700 block mb-1">
+                      Name of Client <span className="text-red-500">*</span>
+                    </label>
+                    <input
+                      type="text"
+                      required
+                      placeholder="e.g. Mehmood Qaiser versus Muhammad Irfan (Appeal)"
+                      value={newClientData.name}
+                      onChange={(e) =>
+                        setNewClientData({
+                          ...newClientData,
+                          name: e.target.value,
+                          businessName: e.target.value,
+                        })
+                      }
+                      className="w-full bg-[#FAFAF7] p-2.5 rounded-xl border border-gray-200 font-bold"
+                    />
+                  </div>
 
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="font-bold text-gray-700 block mb-1">NTN Number (Optional for Non-Tax)</label>
-                  <input
-                    type="text"
-                    placeholder="3948572-9 or N/A"
-                    value={newClientData.ntn}
-                    onChange={(e) => setNewClientData({ ...newClientData, ntn: e.target.value })}
-                    className="w-full bg-[#FAFAF7] p-2.5 rounded-xl border border-gray-200 font-mono"
-                  />
-                </div>
-                <div>
-                  <label className="font-bold text-gray-700 block mb-1">CNIC Number</label>
-                  <input
-                    type="text"
-                    required
-                    placeholder="35202-1234567-1"
-                    value={newClientData.cnic}
-                    onChange={(e) => setNewClientData({ ...newClientData, cnic: e.target.value })}
-                    className="w-full bg-[#FAFAF7] p-2.5 rounded-xl border border-gray-200 font-mono"
-                  />
-                </div>
-              </div>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div>
+                      <label className="font-bold text-gray-700 block mb-1">
+                        Pending Before Court of Law <span className="text-red-500">*</span>
+                      </label>
+                      <input
+                        type="text"
+                        required
+                        placeholder="e.g. Islamabad High Court"
+                        value={newClientData.pendingBeforeCourt}
+                        onChange={(e) =>
+                          setNewClientData({ ...newClientData, pendingBeforeCourt: e.target.value })
+                        }
+                        className="w-full bg-[#FAFAF7] p-2.5 rounded-xl border border-gray-200"
+                      />
+                    </div>
+                    <div>
+                      <label className="font-bold text-gray-700 block mb-1">Contact Person</label>
+                      <input
+                        type="text"
+                        placeholder="e.g. Masood Qaiser"
+                        value={newClientData.contactPerson}
+                        onChange={(e) =>
+                          setNewClientData({ ...newClientData, contactPerson: e.target.value })
+                        }
+                        className="w-full bg-[#FAFAF7] p-2.5 rounded-xl border border-gray-200"
+                      />
+                    </div>
+                  </div>
 
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="font-bold text-gray-700 block mb-1">Phone (WhatsApp)</label>
-                  <input
-                    type="text"
-                    required
-                    placeholder="+92 300 1234567"
-                    value={newClientData.phone}
-                    onChange={(e) => setNewClientData({ ...newClientData, phone: e.target.value })}
-                    className="w-full bg-[#FAFAF7] p-2.5 rounded-xl border border-gray-200"
-                  />
-                </div>
-                <div>
-                  <label className="font-bold text-gray-700 block mb-1">Email</label>
-                  <input
-                    type="email"
-                    required
-                    placeholder="client@company.pk"
-                    value={newClientData.email}
-                    onChange={(e) => setNewClientData({ ...newClientData, email: e.target.value })}
-                    className="w-full bg-[#FAFAF7] p-2.5 rounded-xl border border-gray-200"
-                  />
-                </div>
-              </div>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div>
+                      <label className="font-bold text-gray-700 block mb-1">
+                        Mobile No. (Contacts) <span className="text-red-500">*</span>
+                      </label>
+                      <input
+                        type="text"
+                        required
+                        placeholder="0300 5248310"
+                        value={newClientData.phone}
+                        onChange={(e) => setNewClientData({ ...newClientData, phone: e.target.value })}
+                        className="w-full bg-[#FAFAF7] p-2.5 rounded-xl border border-gray-200"
+                      />
+                    </div>
+                    <div>
+                      <label className="font-bold text-gray-700 block mb-1">REFERRAL CONTACT</label>
+                      <input
+                        type="text"
+                        placeholder="e.g. Zia Ur Rehman - Stano G-11"
+                        value={newClientData.referralContact}
+                        onChange={(e) =>
+                          setNewClientData({ ...newClientData, referralContact: e.target.value })
+                        }
+                        className="w-full bg-[#FAFAF7] p-2.5 rounded-xl border border-gray-200"
+                      />
+                    </div>
+                  </div>
 
-              <div>
-                <label className="font-bold text-gray-700 block mb-1">City</label>
-                <input
-                  type="text"
-                  placeholder="Islamabad"
-                  value={newClientData.city}
-                  onChange={(e) => setNewClientData({ ...newClientData, city: e.target.value })}
-                  className="w-full bg-[#FAFAF7] p-2.5 rounded-xl border border-gray-200"
-                />
-              </div>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div>
+                      <label className="font-bold text-gray-700 block mb-1">E-mail address (Optional)</label>
+                      <input
+                        type="email"
+                        placeholder="client@example.com"
+                        value={newClientData.email}
+                        onChange={(e) => setNewClientData({ ...newClientData, email: e.target.value })}
+                        className="w-full bg-[#FAFAF7] p-2.5 rounded-xl border border-gray-200"
+                      />
+                    </div>
+                    <div>
+                      <label className="font-bold text-gray-700 block mb-1">Set Client Portal Password</label>
+                      <input
+                        type="text"
+                        value={newClientData.clientLoginPassword || 'Password123!'}
+                        onChange={(e) =>
+                          setNewClientData({ ...newClientData, clientLoginPassword: e.target.value })
+                        }
+                        className="w-full bg-[#FAFAF7] p-2.5 rounded-xl border border-gray-200 font-mono"
+                      />
+                    </div>
+                  </div>
+                </>
+              ) : (
+                <>
+                  {/* INC / IT / ST SHEET FIELDS */}
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                    <div className="sm:col-span-2">
+                      <label className="font-bold text-gray-700 block mb-1">
+                        Name of Business <span className="text-red-500">*</span>
+                      </label>
+                      <input
+                        type="text"
+                        required
+                        placeholder="e.g. BRIGHT PHARMACEUTICALS (PRIVATE) LIMITED"
+                        value={newClientData.name}
+                        onChange={(e) =>
+                          setNewClientData({
+                            ...newClientData,
+                            name: e.target.value,
+                            businessName: e.target.value,
+                          })
+                        }
+                        className="w-full bg-[#FAFAF7] p-2.5 rounded-xl border border-gray-200 font-bold"
+                      />
+                    </div>
+                    <div>
+                      <label className="font-bold text-gray-700 block mb-1">Status</label>
+                      <select
+                        value={newClientData.entityStatus}
+                        onChange={(e) =>
+                          setNewClientData({ ...newClientData, entityStatus: e.target.value })
+                        }
+                        className="w-full bg-[#FAFAF7] p-2.5 rounded-xl border border-gray-200 font-bold"
+                      >
+                        <option value="COMPANY">COMPANY</option>
+                        <option value="AOP">AOP</option>
+                        <option value="NPO">NPO</option>
+                        <option value="INDIVIDUAL">INDIVIDUAL</option>
+                        <option value="SMC-PVT">SMC-PVT</option>
+                        <option value="PARTNERSHIP">PARTNERSHIP</option>
+                      </select>
+                    </div>
+                  </div>
 
-              <div>
-                <label className="font-bold text-gray-700 block mb-1">Set Client Portal Password</label>
-                <input
-                  type="text"
-                  required
-                  placeholder="Password123!"
-                  value={newClientData.clientLoginPassword || 'Password123!'}
-                  onChange={(e) => setNewClientData({ ...newClientData, clientLoginPassword: e.target.value })}
-                  className="w-full bg-[#FAFAF7] p-2.5 rounded-xl border border-gray-200 font-mono"
-                />
-                <span className="text-[10px] text-gray-500 mt-1 block">Client can use this email &amp; password to sign in to their Client Portal</span>
-              </div>
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                    <div>
+                      <label className="font-bold text-gray-700 block mb-1">CNIC / Login ID</label>
+                      <input
+                        type="text"
+                        placeholder="35202-1234567-1"
+                        value={newClientData.cnic}
+                        onChange={(e) => setNewClientData({ ...newClientData, cnic: e.target.value })}
+                        className="w-full bg-[#FAFAF7] p-2.5 rounded-xl border border-gray-200 font-mono"
+                      />
+                    </div>
+                    <div>
+                      <label className="font-bold text-gray-700 block mb-1">Reg./Incorp. No.</label>
+                      <input
+                        type="text"
+                        placeholder="017783"
+                        value={newClientData.regIncorpNo}
+                        onChange={(e) =>
+                          setNewClientData({ ...newClientData, regIncorpNo: e.target.value })
+                        }
+                        className="w-full bg-[#FAFAF7] p-2.5 rounded-xl border border-gray-200 font-mono"
+                      />
+                    </div>
+                    <div>
+                      <label className="font-bold text-gray-700 block mb-1">NTN</label>
+                      <input
+                        type="text"
+                        placeholder="A313332-6"
+                        value={newClientData.ntn}
+                        onChange={(e) => setNewClientData({ ...newClientData, ntn: e.target.value })}
+                        className="w-full bg-[#FAFAF7] p-2.5 rounded-xl border border-gray-200 font-mono"
+                      />
+                    </div>
+                  </div>
 
-              <div className="flex justify-end gap-2 pt-3">
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                    <div>
+                      <label className="font-bold text-gray-700 block mb-1">SECP Password</label>
+                      <input
+                        type="text"
+                        placeholder="Stored in staff-only vault"
+                        value={newClientData.secpPassword}
+                        onChange={(e) =>
+                          setNewClientData({ ...newClientData, secpPassword: e.target.value })
+                        }
+                        className="w-full bg-[#FAFAF7] p-2.5 rounded-xl border border-gray-200 font-mono"
+                      />
+                    </div>
+                    <div>
+                      <label className="font-bold text-gray-700 block mb-1">SECP PIN</label>
+                      <input
+                        type="text"
+                        placeholder="PIN"
+                        value={newClientData.secpPin}
+                        onChange={(e) =>
+                          setNewClientData({ ...newClientData, secpPin: e.target.value })
+                        }
+                        className="w-full bg-[#FAFAF7] p-2.5 rounded-xl border border-gray-200 font-mono"
+                      />
+                    </div>
+                    <div>
+                      <label className="font-bold text-gray-700 block mb-1">RTO/CTO</label>
+                      <input
+                        type="text"
+                        placeholder="ISLAMABAD"
+                        value={newClientData.rtoCto}
+                        onChange={(e) =>
+                          setNewClientData({
+                            ...newClientData,
+                            rtoCto: e.target.value,
+                            city: e.target.value,
+                          })
+                        }
+                        className="w-full bg-[#FAFAF7] p-2.5 rounded-xl border border-gray-200"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div>
+                      <label className="font-bold text-gray-700 block mb-1">Contact Person</label>
+                      <input
+                        type="text"
+                        placeholder="e.g. MR. ZEESHAN"
+                        value={newClientData.contactPerson}
+                        onChange={(e) =>
+                          setNewClientData({ ...newClientData, contactPerson: e.target.value })
+                        }
+                        className="w-full bg-[#FAFAF7] p-2.5 rounded-xl border border-gray-200"
+                      />
+                    </div>
+                    <div>
+                      <label className="font-bold text-gray-700 block mb-1">REFERRAL CONTACT</label>
+                      <input
+                        type="text"
+                        placeholder="HISK LEGAL"
+                        value={newClientData.referralContact}
+                        onChange={(e) =>
+                          setNewClientData({ ...newClientData, referralContact: e.target.value })
+                        }
+                        className="w-full bg-[#FAFAF7] p-2.5 rounded-xl border border-gray-200"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div>
+                      <label className="font-bold text-gray-700 block mb-1">
+                        E-mail address (Contacts) <span className="text-red-500">*</span>
+                      </label>
+                      <input
+                        type="email"
+                        required
+                        placeholder="muzzafarkhan73@gmail.com"
+                        value={newClientData.email}
+                        onChange={(e) => setNewClientData({ ...newClientData, email: e.target.value })}
+                        className="w-full bg-[#FAFAF7] p-2.5 rounded-xl border border-gray-200"
+                      />
+                    </div>
+                    <div>
+                      <label className="font-bold text-gray-700 block mb-1">
+                        Mobile No. (Contacts) <span className="text-red-500">*</span>
+                      </label>
+                      <input
+                        type="text"
+                        required
+                        placeholder="0341-5181334"
+                        value={newClientData.phone}
+                        onChange={(e) => setNewClientData({ ...newClientData, phone: e.target.value })}
+                        className="w-full bg-[#FAFAF7] p-2.5 rounded-xl border border-gray-200"
+                      />
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="font-bold text-gray-700 block mb-1">Set Client Portal Password</label>
+                    <input
+                      type="text"
+                      required
+                      placeholder="Password123!"
+                      value={newClientData.clientLoginPassword || 'Password123!'}
+                      onChange={(e) =>
+                        setNewClientData({ ...newClientData, clientLoginPassword: e.target.value })
+                      }
+                      className="w-full bg-[#FAFAF7] p-2.5 rounded-xl border border-gray-200 font-mono"
+                    />
+                    <span className="text-[10px] text-gray-500 mt-1 block">
+                      Client uses their E-mail address &amp; this password to sign in; SECP credentials stay staff-only and sync to the Excel register.
+                    </span>
+                  </div>
+                </>
+              )}
+
+              <div className="flex justify-end gap-2 pt-3 border-t">
                 <button
                   type="button"
                   onClick={() => setShowAddClientModal(false)}
-                  className="px-4 py-2 rounded-xl border text-gray-600 font-bold"
+                  className="px-4 py-2 rounded-xl border text-gray-600 font-bold cursor-pointer"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
-                  className="px-5 py-2 rounded-xl bg-[#0A4B35] text-white font-extrabold shadow-sm"
+                  className="px-5 py-2.5 rounded-xl bg-[#0A4B35] hover:bg-[#0F6B4C] text-white font-extrabold shadow-sm cursor-pointer"
                 >
-                  Save Client
+                  Save Client &amp; Add to Excel Register
                 </button>
               </div>
             </form>
@@ -6752,112 +7424,317 @@ export const AdminPortal: React.FC = () => {
       {/* MODAL 2B: EDIT CLIENT / RECLASSIFY CATEGORY */}
       {editingClient && (
         <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-white rounded-3xl max-w-lg w-full p-6 border border-[#0F6B4C]/20 shadow-2xl max-h-[92vh] overflow-y-auto">
-            <div className="flex justify-between items-center mb-4">
-              <h3 className="text-lg font-heading font-extrabold text-[#1A1A1A]">Edit Client &amp; Category</h3>
-              <button onClick={() => setEditingClient(null)} className="text-gray-400 hover:text-black">
+          <div className="bg-white rounded-3xl max-w-2xl w-full p-6 border border-[#0F6B4C]/20 shadow-2xl max-h-[92vh] overflow-y-auto">
+            <div className="flex justify-between items-center mb-4 border-b pb-3">
+              <div>
+                <span className="text-[10px] font-extrabold text-[#F5A623] uppercase tracking-wider block">
+                  Edit Client &amp; File Register
+                </span>
+                <h3 className="text-lg font-heading font-extrabold text-[#1A1A1A]">
+                  {editingClient.name} ({editClientForm.fileNumber})
+                </h3>
+              </div>
+              <button
+                type="button"
+                onClick={() => setEditingClient(null)}
+                className="text-gray-400 hover:text-black font-bold cursor-pointer"
+              >
                 ✕
               </button>
             </div>
             <form onSubmit={handleSaveClientEdit} className="space-y-3 text-xs">
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                 <div>
-                  <label className="font-bold text-gray-700 block mb-1">Client Separation Group</label>
+                  <label className="font-bold text-gray-700 block mb-1">File Category</label>
                   <select
-                    value={editClientForm.clientType || 'Tax Client'}
-                    onChange={(e) => setEditClientForm({ ...editClientForm, clientType: e.target.value as ClientType })}
+                    value={editClientForm.fileCategoryCode || 'IT'}
+                    onChange={(e) => {
+                      const nextCode = e.target.value as FileCategoryCode;
+                      setEditClientForm({
+                        ...editClientForm,
+                        fileCategoryCode: nextCode,
+                        clientType: getClientTypeFromFileCode(nextCode),
+                        category: getDefaultClientCategoryForFileCode(nextCode),
+                      });
+                    }}
                     className="w-full bg-[#FAFAF7] p-2.5 rounded-xl border border-gray-200 font-bold text-[#0F6B4C]"
                   >
-                    <option value="Tax Client">Tax Client</option>
-                    <option value="Other Category">Other Category</option>
-                  </select>
-                </div>
-
-                <div>
-                  <label className="font-bold text-gray-700 block mb-1">Specific Category</label>
-                  <select
-                    value={editClientForm.category || 'Tax Client'}
-                    onChange={(e) => setEditClientForm({ ...editClientForm, category: e.target.value as ClientCategory })}
-                    className="w-full bg-[#FAFAF7] p-2.5 rounded-xl border border-gray-200 font-bold"
-                  >
-                    {ALL_CLIENT_CATEGORIES.map((cat) => (
-                      <option key={cat} value={cat}>
-                        {cat}
+                    {ALL_FILE_CATEGORY_CODES.map((code) => (
+                      <option key={code} value={code}>
+                        {FILE_CATEGORY_CONFIG[code].label}
                       </option>
                     ))}
                   </select>
                 </div>
-              </div>
 
-              <div>
-                <label className="font-bold text-gray-700 block mb-1">Client Full Name / Entity</label>
-                <input
-                  type="text"
-                  required
-                  value={editClientForm.name || ''}
-                  onChange={(e) => setEditClientForm({ ...editClientForm, name: e.target.value })}
-                  className="w-full bg-[#FAFAF7] p-2.5 rounded-xl border border-gray-200 font-bold"
-                />
-              </div>
-
-              <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="font-bold text-gray-700 block mb-1">NTN Number</label>
-                  <input
-                    type="text"
-                    value={editClientForm.ntn || ''}
-                    onChange={(e) => setEditClientForm({ ...editClientForm, ntn: e.target.value })}
-                    className="w-full bg-[#FAFAF7] p-2.5 rounded-xl border border-gray-200 font-mono"
-                  />
-                </div>
-                <div>
-                  <label className="font-bold text-gray-700 block mb-1">CNIC Number</label>
+                  <label className="font-bold text-gray-700 block mb-1">File No.</label>
                   <input
                     type="text"
                     required
-                    value={editClientForm.cnic || ''}
-                    onChange={(e) => setEditClientForm({ ...editClientForm, cnic: e.target.value })}
-                    className="w-full bg-[#FAFAF7] p-2.5 rounded-xl border border-gray-200 font-mono"
+                    value={editClientForm.fileNumber || ''}
+                    onChange={(e) =>
+                      setEditClientForm({ ...editClientForm, fileNumber: e.target.value.toUpperCase() })
+                    }
+                    className="w-full bg-[#FAFAF7] p-2.5 rounded-xl border border-gray-200 font-mono font-extrabold text-[#0A4B35]"
                   />
                 </div>
-              </div>
 
-              <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="font-bold text-gray-700 block mb-1">Phone</label>
-                  <input
-                    type="text"
-                    required
-                    value={editClientForm.phone || ''}
-                    onChange={(e) => setEditClientForm({ ...editClientForm, phone: e.target.value })}
-                    className="w-full bg-[#FAFAF7] p-2.5 rounded-xl border border-gray-200"
-                  />
-                </div>
-                <div>
-                  <label className="font-bold text-gray-700 block mb-1">Status</label>
+                  <label className="font-bold text-gray-700 block mb-1">Active/Closed</label>
                   <select
-                    value={editClientForm.status || 'Active'}
-                    onChange={(e) => setEditClientForm({ ...editClientForm, status: e.target.value as any })}
+                    value={editClientForm.activeClosed || 'Active'}
+                    onChange={(e) =>
+                      setEditClientForm({
+                        ...editClientForm,
+                        activeClosed: e.target.value as 'Active' | 'Closed',
+                        status: e.target.value === 'Closed' ? 'Archived' : 'Active',
+                      })
+                    }
                     className="w-full bg-[#FAFAF7] p-2.5 rounded-xl border border-gray-200 font-bold"
                   >
                     <option value="Active">Active</option>
-                    <option value="On Hold">On Hold</option>
-                    <option value="Archived">Archived</option>
+                    <option value="Closed">Closed</option>
                   </select>
                 </div>
               </div>
 
-              <div className="flex justify-end gap-2 pt-3">
+              {(editClientForm.fileCategoryCode || inferClientFileCode(editingClient)) === 'CF' ? (
+                <>
+                  <div>
+                    <label className="font-bold text-gray-700 block mb-1">Name of Client</label>
+                    <input
+                      type="text"
+                      required
+                      value={editClientForm.name || ''}
+                      onChange={(e) =>
+                        setEditClientForm({
+                          ...editClientForm,
+                          name: e.target.value,
+                          businessName: e.target.value,
+                        })
+                      }
+                      className="w-full bg-[#FAFAF7] p-2.5 rounded-xl border border-gray-200 font-bold"
+                    />
+                  </div>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div>
+                      <label className="font-bold text-gray-700 block mb-1">Pending Before Court of Law</label>
+                      <input
+                        type="text"
+                        value={editClientForm.pendingBeforeCourt || ''}
+                        onChange={(e) =>
+                          setEditClientForm({ ...editClientForm, pendingBeforeCourt: e.target.value })
+                        }
+                        className="w-full bg-[#FAFAF7] p-2.5 rounded-xl border border-gray-200"
+                      />
+                    </div>
+                    <div>
+                      <label className="font-bold text-gray-700 block mb-1">Contact Person</label>
+                      <input
+                        type="text"
+                        value={editClientForm.contactPerson || ''}
+                        onChange={(e) =>
+                          setEditClientForm({ ...editClientForm, contactPerson: e.target.value })
+                        }
+                        className="w-full bg-[#FAFAF7] p-2.5 rounded-xl border border-gray-200"
+                      />
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div>
+                      <label className="font-bold text-gray-700 block mb-1">Mobile No.</label>
+                      <input
+                        type="text"
+                        required
+                        value={editClientForm.phone || ''}
+                        onChange={(e) => setEditClientForm({ ...editClientForm, phone: e.target.value })}
+                        className="w-full bg-[#FAFAF7] p-2.5 rounded-xl border border-gray-200"
+                      />
+                    </div>
+                    <div>
+                      <label className="font-bold text-gray-700 block mb-1">REFERRAL CONTACT</label>
+                      <input
+                        type="text"
+                        value={editClientForm.referralContact || ''}
+                        onChange={(e) =>
+                          setEditClientForm({ ...editClientForm, referralContact: e.target.value })
+                        }
+                        className="w-full bg-[#FAFAF7] p-2.5 rounded-xl border border-gray-200"
+                      />
+                    </div>
+                  </div>
+                </>
+              ) : (
+                <>
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                    <div className="sm:col-span-2">
+                      <label className="font-bold text-gray-700 block mb-1">Name of Business</label>
+                      <input
+                        type="text"
+                        required
+                        value={editClientForm.name || ''}
+                        onChange={(e) =>
+                          setEditClientForm({
+                            ...editClientForm,
+                            name: e.target.value,
+                            businessName: e.target.value,
+                          })
+                        }
+                        className="w-full bg-[#FAFAF7] p-2.5 rounded-xl border border-gray-200 font-bold"
+                      />
+                    </div>
+                    <div>
+                      <label className="font-bold text-gray-700 block mb-1">Status</label>
+                      <select
+                        value={editClientForm.entityStatus || 'COMPANY'}
+                        onChange={(e) =>
+                          setEditClientForm({ ...editClientForm, entityStatus: e.target.value })
+                        }
+                        className="w-full bg-[#FAFAF7] p-2.5 rounded-xl border border-gray-200 font-bold"
+                      >
+                        <option value="COMPANY">COMPANY</option>
+                        <option value="AOP">AOP</option>
+                        <option value="NPO">NPO</option>
+                        <option value="INDIVIDUAL">INDIVIDUAL</option>
+                        <option value="SMC-PVT">SMC-PVT</option>
+                        <option value="PARTNERSHIP">PARTNERSHIP</option>
+                      </select>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                    <div>
+                      <label className="font-bold text-gray-700 block mb-1">CNIC / Login ID</label>
+                      <input
+                        type="text"
+                        value={editClientForm.cnic || ''}
+                        onChange={(e) => setEditClientForm({ ...editClientForm, cnic: e.target.value })}
+                        className="w-full bg-[#FAFAF7] p-2.5 rounded-xl border border-gray-200 font-mono"
+                      />
+                    </div>
+                    <div>
+                      <label className="font-bold text-gray-700 block mb-1">Reg./Incorp. No.</label>
+                      <input
+                        type="text"
+                        value={editClientForm.regIncorpNo || ''}
+                        onChange={(e) =>
+                          setEditClientForm({ ...editClientForm, regIncorpNo: e.target.value })
+                        }
+                        className="w-full bg-[#FAFAF7] p-2.5 rounded-xl border border-gray-200 font-mono"
+                      />
+                    </div>
+                    <div>
+                      <label className="font-bold text-gray-700 block mb-1">NTN</label>
+                      <input
+                        type="text"
+                        value={editClientForm.ntn || ''}
+                        onChange={(e) => setEditClientForm({ ...editClientForm, ntn: e.target.value })}
+                        className="w-full bg-[#FAFAF7] p-2.5 rounded-xl border border-gray-200 font-mono"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                    <div>
+                      <label className="font-bold text-gray-700 block mb-1">SECP Password</label>
+                      <input
+                        type="text"
+                        value={editClientForm.secpPassword || ''}
+                        onChange={(e) =>
+                          setEditClientForm({ ...editClientForm, secpPassword: e.target.value })
+                        }
+                        className="w-full bg-[#FAFAF7] p-2.5 rounded-xl border border-gray-200 font-mono"
+                      />
+                    </div>
+                    <div>
+                      <label className="font-bold text-gray-700 block mb-1">SECP PIN</label>
+                      <input
+                        type="text"
+                        value={editClientForm.secpPin || ''}
+                        onChange={(e) =>
+                          setEditClientForm({ ...editClientForm, secpPin: e.target.value })
+                        }
+                        className="w-full bg-[#FAFAF7] p-2.5 rounded-xl border border-gray-200 font-mono"
+                      />
+                    </div>
+                    <div>
+                      <label className="font-bold text-gray-700 block mb-1">RTO/CTO</label>
+                      <input
+                        type="text"
+                        value={editClientForm.rtoCto || ''}
+                        onChange={(e) =>
+                          setEditClientForm({
+                            ...editClientForm,
+                            rtoCto: e.target.value,
+                            city: e.target.value,
+                          })
+                        }
+                        className="w-full bg-[#FAFAF7] p-2.5 rounded-xl border border-gray-200"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div>
+                      <label className="font-bold text-gray-700 block mb-1">Contact Person</label>
+                      <input
+                        type="text"
+                        value={editClientForm.contactPerson || ''}
+                        onChange={(e) =>
+                          setEditClientForm({ ...editClientForm, contactPerson: e.target.value })
+                        }
+                        className="w-full bg-[#FAFAF7] p-2.5 rounded-xl border border-gray-200"
+                      />
+                    </div>
+                    <div>
+                      <label className="font-bold text-gray-700 block mb-1">REFERRAL CONTACT</label>
+                      <input
+                        type="text"
+                        value={editClientForm.referralContact || ''}
+                        onChange={(e) =>
+                          setEditClientForm({ ...editClientForm, referralContact: e.target.value })
+                        }
+                        className="w-full bg-[#FAFAF7] p-2.5 rounded-xl border border-gray-200"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div>
+                      <label className="font-bold text-gray-700 block mb-1">E-mail address</label>
+                      <input
+                        type="email"
+                        value={editClientForm.email || ''}
+                        onChange={(e) => setEditClientForm({ ...editClientForm, email: e.target.value })}
+                        className="w-full bg-[#FAFAF7] p-2.5 rounded-xl border border-gray-200"
+                      />
+                    </div>
+                    <div>
+                      <label className="font-bold text-gray-700 block mb-1">Mobile No.</label>
+                      <input
+                        type="text"
+                        required
+                        value={editClientForm.phone || ''}
+                        onChange={(e) => setEditClientForm({ ...editClientForm, phone: e.target.value })}
+                        className="w-full bg-[#FAFAF7] p-2.5 rounded-xl border border-gray-200"
+                      />
+                    </div>
+                  </div>
+                </>
+              )}
+
+              <div className="flex justify-end gap-2 pt-3 border-t">
                 <button
                   type="button"
                   onClick={() => setEditingClient(null)}
-                  className="px-4 py-2 rounded-xl border text-gray-600 font-bold"
+                  className="px-4 py-2 rounded-xl border text-gray-600 font-bold cursor-pointer"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
-                  className="px-5 py-2 rounded-xl bg-[#0A4B35] text-white font-extrabold shadow-sm"
+                  className="px-5 py-2 rounded-xl bg-[#0A4B35] text-white font-extrabold shadow-sm cursor-pointer"
                 >
                   Update Client
                 </button>

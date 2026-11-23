@@ -57,6 +57,11 @@ service cloud.firestore {
       allow write: if hasStaffPerm('data_entry');
     }
 
+    // Staff-only isolated portal secrets (SECP Password / SECP PIN)
+    match /client_vault_secrets/{clientId} {
+      allow read, write: if hasStaffPerm('data_entry');
+    }
+
     match /cases/{caseId} {
       allow read: if true;
       allow write: if hasStaffPerm('data_entry');

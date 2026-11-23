@@ -23,7 +23,8 @@ import {
   CaseCategory,
   StaffAccount,
   StaffPermission,
-  StaffRolePreset
+  StaffRolePreset,
+  ClientVaultSecret
 } from '@/types/portal';
 import {
   INITIAL_CLIENTS,
@@ -125,7 +126,8 @@ const STORAGE_KEYS = {
   REVIEWS: 'hisk_portal_reviews_v2',
   INSIGHTS: 'hisk_portal_insights_v2',
   PARTNERS: 'hisk_portal_partners_v2',
-  STAFF_ACCOUNTS: 'hisk_portal_staff_accounts_v1'
+  STAFF_ACCOUNTS: 'hisk_portal_staff_accounts_v1',
+  CLIENT_VAULT_SECRETS: 'hisk_portal_client_secrets_v1'
 };
 
 const createUniqueId = (prefix: string) => `${prefix}-${Date.now().toString().slice(-4)}`;
@@ -292,6 +294,16 @@ export function usePortalStore() {
       return saved ? JSON.parse(saved) : [];
     } catch {
       return [];
+    }
+  });
+
+  const [clientVaultSecrets, setClientVaultSecrets] = useState<Record<string, ClientVaultSecret>>(() => {
+    if (typeof window === 'undefined') return {};
+    try {
+      const saved = localStorage.getItem(STORAGE_KEYS.CLIENT_VAULT_SECRETS);
+      return saved ? JSON.parse(saved) : {};
+    } catch {
+      return {};
     }
   });
 
@@ -506,9 +518,10 @@ export function usePortalStore() {
       }
     }, (err) => console.warn('Membership Partners snapshot error:', err));
 
-    // 16. Staff & Employee Access Control (Auth-scoped to protect staff records)
+    // 16. Staff & Employee Access Control + Staff-Only Client Vault Secrets
     let unsubStaffList: (() => void) | null = null;
     let unsubSelfStaff: (() => void) | null = null;
+    let unsubVaultSecrets: (() => void) | null = null;
 
     const unsubAuth = onAuthStateChanged(auth, async (user) => {
       if (unsubStaffList) {
@@ -519,21 +532,29 @@ export function usePortalStore() {
         unsubSelfStaff();
         unsubSelfStaff = null;
       }
+      if (unsubVaultSecrets) {
+        unsubVaultSecrets();
+        unsubVaultSecrets = null;
+      }
 
       const email = user?.email?.trim().toLowerCase();
       if (!email) return;
 
-      let canManageStaff = isSuperAdminEmail(email);
+      const isSuperAdmin = isSuperAdminEmail(email);
+      let canManageStaff = isSuperAdmin;
+      let canManageClients = isSuperAdmin;
 
-      if (!canManageStaff) {
+      if (!isSuperAdmin) {
         try {
           const selfSnap = await getDoc(doc(db, 'staff_accounts', email));
           if (selfSnap.exists()) {
             const selfData = selfSnap.data() as StaffAccount;
-            canManageStaff =
-              selfData.status === 'Active' &&
-              Array.isArray(selfData.permissions) &&
-              selfData.permissions.includes('staff_management');
+            const activePerms =
+              selfData.status === 'Active' && Array.isArray(selfData.permissions)
+                ? selfData.permissions
+                : [];
+            canManageStaff = activePerms.includes('staff_management');
+            canManageClients = activePerms.includes('data_entry');
           }
         } catch (err) {
           console.warn('Self staff lookup error:', err);
@@ -571,6 +592,25 @@ export function usePortalStore() {
           }
         );
       }
+
+      if (canManageClients) {
+        unsubVaultSecrets = onSnapshot(
+          collection(db, 'client_vault_secrets'),
+          (snap) => {
+            const map: Record<string, ClientVaultSecret> = {};
+            snap.docs.forEach((d) => {
+              const data = d.data() as ClientVaultSecret;
+              map[d.id] = { ...data, clientId: data.clientId || d.id };
+            });
+            setClientVaultSecrets(map);
+            saveToStorage(STORAGE_KEYS.CLIENT_VAULT_SECRETS, map);
+          },
+          (err) => {
+            const info = buildFirestoreErrorInfo(err, OperationType.LIST, 'client_vault_secrets');
+            console.warn('Client vault secrets snapshot error:', JSON.stringify(info));
+          }
+        );
+      }
     });
 
     return () => {
@@ -592,23 +632,51 @@ export function usePortalStore() {
       unsubAuth();
       if (unsubStaffList) unsubStaffList();
       if (unsubSelfStaff) unsubSelfStaff();
+      if (unsubVaultSecrets) unsubVaultSecrets();
     };
   }, []);
 
   // --- CLIENT ACTIONS ---
-  const addClient = (client: Omit<Client, 'id' | 'createdAt' | 'activeCasesCount' | 'totalTaxSaved'>, loginEmail?: string, loginPassword?: string) => {
+  const saveClientVaultSecret = (clientId: string, secpPassword?: string, secpPin?: string) => {
+    const cleanPass = secpPassword?.trim() || '';
+    const cleanPin = secpPin?.trim() || '';
+    const secretDoc: ClientVaultSecret = {
+      clientId,
+      secpPassword: cleanPass,
+      secpPin: cleanPin,
+      updatedAt: getTodayDateString(),
+    };
+    const nextMap = { ...clientVaultSecrets, [clientId]: secretDoc };
+    setClientVaultSecrets(nextMap);
+    saveToStorage(STORAGE_KEYS.CLIENT_VAULT_SECRETS, nextMap);
+    saveToFirestoreDoc('client_vault_secrets', clientId, secretDoc);
+  };
+
+  const addClient = (
+    client: Omit<Client, 'id' | 'createdAt' | 'activeCasesCount' | 'totalTaxSaved'> & {
+      secpPassword?: string;
+      secpPin?: string;
+    },
+    loginEmail?: string,
+    loginPassword?: string
+  ) => {
     const newId = createUniqueId('cli');
-    const newClient: Client = {
-      ...client,
+    const { secpPassword, secpPin, ...publicClientFields } = client;
+    const newClient: Client = stripUndefined({
+      ...publicClientFields,
       id: newId,
       activeCasesCount: 0,
       totalTaxSaved: 'Rs. 0',
       createdAt: getTodayDateString()
-    };
+    });
     const updated = [newClient, ...clients];
     setClients(updated);
     saveToStorage(STORAGE_KEYS.CLIENTS, updated);
     saveToFirestoreDoc('clients', newClient.id, newClient);
+
+    if (secpPassword || secpPin) {
+      saveClientVaultSecret(newClient.id, secpPassword, secpPin);
+    }
 
     // Save client login credential if provided
     if (loginEmail && loginPassword) {
@@ -623,11 +691,15 @@ export function usePortalStore() {
     return newClient;
   };
 
-  const updateClient = (clientId: string, updatedData: Partial<Client>) => {
+  const updateClient = (
+    clientId: string,
+    updatedData: Partial<Client> & { secpPassword?: string; secpPin?: string }
+  ) => {
+    const { secpPassword, secpPin, ...publicUpdates } = updatedData;
     let targetClient: Client | null = null;
     const updated = clients.map((c) => {
       if (c.id === clientId) {
-        targetClient = { ...c, ...updatedData };
+        targetClient = stripUndefined({ ...c, ...publicUpdates });
         return targetClient;
       }
       return c;
@@ -636,6 +708,14 @@ export function usePortalStore() {
     saveToStorage(STORAGE_KEYS.CLIENTS, updated);
     if (targetClient) {
       saveToFirestoreDoc('clients', clientId, targetClient);
+    }
+    if (secpPassword !== undefined || secpPin !== undefined) {
+      const existingSecret = clientVaultSecrets[clientId];
+      saveClientVaultSecret(
+        clientId,
+        secpPassword !== undefined ? secpPassword : existingSecret?.secpPassword,
+        secpPin !== undefined ? secpPin : existingSecret?.secpPin
+      );
     }
   };
 
@@ -675,9 +755,11 @@ export function usePortalStore() {
     clientLoginPassword?: string;
   }) => {
     const client = clients.find((c) => c.id === caseData.clientId);
-    const newCase: CaseFile = {
+    const newCase: CaseFile = stripUndefined({
       id: `case-${getCurrentYearNumber()}-${getRandom3DigitNum()}`,
       caseRef: `HISK-${caseData.forum.split(' ')[0]}-${createUniqueId('')}`,
+      fileNumber: client?.fileNumber,
+      fileCategoryCode: client?.fileCategoryCode,
       clientId: caseData.clientId,
       clientName: client ? client.name : 'Corporate Client',
       clientNtn: client ? client.ntn : 'N/A',
@@ -706,7 +788,7 @@ export function usePortalStore() {
           advocateName: caseData.assignedCounsel
         }
       ]
-    };
+    });
 
     const updatedCases = [newCase, ...cases];
     setCases(updatedCases);
@@ -1603,8 +1685,10 @@ export function usePortalStore() {
     insights,
     partners,
     staffAccounts,
+    clientVaultSecrets,
     addClient,
     updateClient,
+    saveClientVaultSecret,
     addClientCredential,
     addCase,
     updateCase,

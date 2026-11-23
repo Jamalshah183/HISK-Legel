@@ -29,8 +29,14 @@ export type LegalForum =
 
 export type ClientType = 'Tax Client' | 'Other Category';
 
+export type FileCategoryCode = 'IT' | 'ST' | 'INC' | 'CF';
+
 export type ClientCategory =
   | 'Tax Client'
+  | 'Income Tax (IT)'
+  | 'Sales Tax (ST)'
+  | 'Incorporation (INC)'
+  | 'Court File (CF)'
   | 'Corporate'
   | 'High Net Worth Individual'
   | 'IT & Freelancer'
@@ -54,16 +60,32 @@ export type CaseCategory =
   | 'High Court Writs'
   | 'Other Legal Matter';
 
+export interface ClientVaultSecret {
+  clientId: string;
+  secpPassword?: string;
+  secpPin?: string;
+  updatedAt?: string;
+}
+
 export interface Client {
   id: string;
-  name: string;
+  fileNumber?: string; // e.g., AI-IT-001, AI-ST-001, AI-INC-001, AI-CF-001
+  fileCategoryCode?: FileCategoryCode; // 'IT' | 'ST' | 'INC' | 'CF'
+  name: string; // Name of Business (INC/IT/ST) or Name of Client (CF)
   businessName?: string;
-  cnic: string;
+  cnic: string; // CNIC / Login ID
   ntn: string;
   clientType?: ClientType;
   category: ClientCategory;
-  phone: string;
-  email: string;
+  entityStatus?: string; // Sheet column 'Status' e.g. COMPANY, AOP, NPO, INDIVIDUAL
+  activeClosed?: 'Active' | 'Closed'; // Sheet column 'Active/Closed'
+  regIncorpNo?: string; // Reg./Incorp. No.
+  rtoCto?: string; // RTO/CTO
+  contactPerson?: string; // Contact Person
+  referralContact?: string; // REFERRAL CONTACT
+  pendingBeforeCourt?: string; // Pending Before Court of Law (for CF)
+  phone: string; // Mobile No.
+  email: string; // E-mail address
   city: string;
   registeredAddress: string;
   activeCasesCount: number;
@@ -106,6 +128,8 @@ export interface CaseFile {
   id: string;
   caseId?: string;
   clientId: string;
+  fileNumber?: string;
+  fileCategoryCode?: FileCategoryCode;
   caseTitle: string;
   caseCategory?: CaseCategory;
   clientName: string;

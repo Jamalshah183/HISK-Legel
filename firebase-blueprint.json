@@ -2,7 +2,11 @@
   "entities": {
     "clients": {
       "title": "Clients",
-      "description": "Taxpayers and corporate clients managed by firm"
+      "description": "Taxpayers, incorporation clients, and court case clients separated by file number codes (AI-IT, AI-ST, AI-INC, AI-CF)"
+    },
+    "clientVaultSecrets": {
+      "title": "Client Portal Secrets",
+      "description": "Staff-only isolated client portal credentials such as SECP Password and SECP PIN keyed by clientId"
     },
     "cases": {
       "title": "Cases",
