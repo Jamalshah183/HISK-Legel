@@ -112,11 +112,12 @@ export default function AdminPortalPage() {
   const [portalMode, setPortalMode] = useState<'admin' | 'client'>('admin');
   const { clients } = usePortalStore();
 
-  const [currentUser, setCurrentUser] = useState<FirebaseUser | null>(getInitialAdminSession);
-  const [isAdminLoggedIn, setIsAdminLoggedIn] = useState<boolean>(() => !!getInitialAdminSession());
-  const [authLoading, setAuthLoading] = useState<boolean>(false);
+  const [currentUser, setCurrentUser] = useState<FirebaseUser | null>(null);
+  const [isAdminLoggedIn, setIsAdminLoggedIn] = useState<boolean>(false);
+  const [authLoading, setAuthLoading] = useState<boolean>(true);
   const [authError, setAuthError] = useState<string | null>(null);
   const [authSuccessMessage, setAuthSuccessMessage] = useState<string | null>(null);
+  const localPartnerFallbackRef = React.useRef<boolean>(false);
 
   // Email & Password login states
   const [emailInput, setEmailInput] = useState<string>('');
@@ -130,6 +131,7 @@ export default function AdminPortalPage() {
       if (user && email) {
         const access = await verifyAdminOrStaffAccess(email);
         if (access.authorized) {
+          localPartnerFallbackRef.current = false;
           setCurrentUser(user);
           setIsAdminLoggedIn(true);
           try {
@@ -151,12 +153,12 @@ export default function AdminPortalPage() {
           setCurrentUser(null);
           if (access.reason) setAuthError(access.reason);
         }
-      } else {
-        const saved = typeof window !== 'undefined' ? localStorage.getItem('hisk_admin_auth_user') : null;
-        if (!saved) {
-          setIsAdminLoggedIn(false);
-          setCurrentUser(null);
-        }
+      } else if (!localPartnerFallbackRef.current) {
+        try {
+          localStorage.removeItem('hisk_admin_auth_user');
+        } catch (e) {}
+        setIsAdminLoggedIn(false);
+        setCurrentUser(null);
       }
       setAuthLoading(false);
     });
@@ -240,11 +242,31 @@ export default function AdminPortalPage() {
     // Direct authorization check for pre-configured credentials (e.g. rahim.nawaz@i-con.pk / admin123)
     if (AUTHORIZED_ADMIN_CREDENTIALS[cleanEmail] && AUTHORIZED_ADMIN_CREDENTIALS[cleanEmail] === passwordInput) {
       resetRateLimit('admin_login');
-      const sessionUser = {
-        email: cleanEmail,
-        displayName: 'Rahim Nawaz (Admin Partner)',
-        uid: 'admin-partner-' + cleanEmail.replace(/[^a-zA-Z0-9]/g, '_'),
-      } as unknown as FirebaseUser;
+
+      let signedInUser: FirebaseUser | null = null;
+      try {
+        const res = await signInWithEmailAndPassword(auth, cleanEmail, passwordInput);
+        signedInUser = res.user;
+      } catch {
+        try {
+          const res = await createUserWithEmailAndPassword(auth, cleanEmail, passwordInput);
+          signedInUser = res.user;
+        } catch {
+          signedInUser = null;
+        }
+      }
+
+      if (!signedInUser) {
+        localPartnerFallbackRef.current = true;
+      }
+
+      const sessionUser =
+        signedInUser ||
+        ({
+          email: cleanEmail,
+          displayName: 'Rahim Nawaz (Admin Partner)',
+          uid: 'admin-partner-' + cleanEmail.replace(/[^a-zA-Z0-9]/g, '_'),
+        } as unknown as FirebaseUser);
 
       try {
         localStorage.setItem(
@@ -263,11 +285,6 @@ export default function AdminPortalPage() {
       setIsAdminLoggedIn(true);
       setAuthSuccessMessage('Authorized successfully as Rahim Nawaz (Admin). Access granted!');
       setAuthLoading(false);
-
-      // Attempt background Firebase Auth sync/creation
-      signInWithEmailAndPassword(auth, cleanEmail, passwordInput).catch(() => {
-        createUserWithEmailAndPassword(auth, cleanEmail, passwordInput).catch(() => {});
-      });
       return;
     }
 

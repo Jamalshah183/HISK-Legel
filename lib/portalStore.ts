@@ -44,8 +44,21 @@ import {
   INITIAL_PARTNERS
 } from '@/data/portalSeedData';
 import { db, auth } from './firebase';
-import { collection, onSnapshot, doc, setDoc, updateDoc, deleteDoc, deleteField, getDoc, getDocFromServer } from 'firebase/firestore';
-import { onAuthStateChanged } from 'firebase/auth';
+import {
+  collection,
+  onSnapshot,
+  doc,
+  setDoc,
+  updateDoc,
+  deleteDoc,
+  deleteField,
+  getDoc,
+  getDocFromServer,
+  getDocs,
+  query,
+  where
+} from 'firebase/firestore';
+import { onAuthStateChanged, User as FirebaseUser } from 'firebase/auth';
 import { isSuperAdminEmail, resolveStaffPermissions } from './staffPermissions';
 import {
   inferClientFileCode,
@@ -426,6 +439,7 @@ export function usePortalStore() {
   });
 
   const [isLoaded, setIsLoaded] = useState<boolean>(true);
+  const [firebaseAuthUser, setFirebaseAuthUser] = useState<FirebaseUser | null>(() => auth.currentUser);
   const clientsRef = useRef<Client[]>(clients);
   const casesRef = useRef<CaseFile[]>(cases);
   const noticesRef = useRef<FBRNotice[]>(notices);
@@ -437,6 +451,9 @@ export function usePortalStore() {
   const notificationsRef = useRef<NotificationLog[]>(notifications);
   const clientCredentialsRef = useRef<ClientCredential[]>(clientCredentials);
   const hasAttemptedBackfillRef = useRef<boolean>(false);
+  const firestoreDocIdsRef = useRef<Record<string, Map<string, Set<string>>>>({});
+  const firestoreSeededColsRef = useRef<Record<string, boolean>>({});
+  const seedingMetaLoadedRef = useRef<boolean>(false);
 
   useEffect(() => {
     clientsRef.current = clients;
@@ -460,6 +477,54 @@ export function usePortalStore() {
     }
   };
 
+  const mapSnapshotDocs = <T extends { id?: string }>(colName: string, snap: { docs: Array<{ id: string; data: () => any }> }): T[] => {
+    const colMap = new Map<string, Set<string>>();
+    const items = snap.docs.map((d) => {
+      const raw = d.data() || {};
+      const resolvedId = typeof raw.id === 'string' && raw.id.trim() ? raw.id : d.id;
+
+      const addKey = (key: string) => {
+        if (!key) return;
+        let set = colMap.get(key);
+        if (!set) {
+          set = new Set<string>();
+          colMap.set(key, set);
+        }
+        set.add(d.id);
+      };
+
+      addKey(d.id);
+      addKey(resolvedId);
+
+      return {
+        ...raw,
+        id: resolvedId,
+      } as T;
+    });
+    firestoreDocIdsRef.current[colName] = colMap;
+    return items;
+  };
+
+  const persistSeededFlagToFirestore = (colKey: string) => {
+    markCollectionSeeded(colKey);
+    firestoreSeededColsRef.current[colKey] = true;
+    if (auth.currentUser) {
+      setDoc(
+        doc(db, 'portal_meta', 'seeding'),
+        { [colKey]: true, updatedAt: getTodayDateString() },
+        { merge: true }
+      ).catch(() => {});
+    }
+  };
+
+  const shouldAutoSeedEmptyCollection = (colKey: string): boolean => {
+    if (!auth.currentUser) return false;
+    if (!seedingMetaLoadedRef.current) return false;
+    if (firestoreSeededColsRef.current[colKey]) return false;
+    if (hasSeededCollection(colKey)) return false;
+    return true;
+  };
+
   const saveToFirestoreDoc = async (colName: string, id: string, data: any) => {
     try {
       await setDoc(doc(db, colName, id), stripUndefined(data), { merge: true });
@@ -469,26 +534,69 @@ export function usePortalStore() {
     }
   };
 
-
-
   const deleteFromFirestoreDoc = async (colName: string, id: string): Promise<{ ok: boolean; error?: string }> => {
     if (!auth.currentUser) {
       return {
         ok: false,
-        error: 'Active Firebase sign-in is required to delete records from the database.',
+        error: 'Active Firebase Google/Admin sign-in is required to delete records from the Firestore database.',
       };
     }
+
+    const targetDocIds = new Set<string>();
+    if (id) targetDocIds.add(id);
+    const tracked = firestoreDocIdsRef.current[colName]?.get(id);
+    if (tracked) {
+      tracked.forEach((docId) => targetDocIds.add(docId));
+    }
+
     try {
-      await deleteDoc(doc(db, colName, id));
+      // Also query Firestore by `id` field in case the document was stored under a different document key
+      try {
+        const matchedSnap = await getDocs(query(collection(db, colName), where('id', '==', id)));
+        matchedSnap.docs.forEach((d) => targetDocIds.add(d.id));
+      } catch {
+        // Ignore fallback query issues on restricted collections
+      }
+
+      const uniqueDocIds = Array.from(targetDocIds);
+      await Promise.all(uniqueDocIds.map((docId) => deleteDoc(doc(db, colName, docId))));
       return { ok: true };
     } catch (err) {
       const info = buildFirestoreErrorInfo(err, OperationType.DELETE, `${colName}/${id}`);
       console.warn('Firestore delete error:', JSON.stringify(info));
+      const rawMsg = err instanceof Error ? err.message : `Failed to delete ${colName}/${id} from database.`;
+      const friendlyError = rawMsg.toLowerCase().includes('permission')
+        ? `Firestore permission denied for ${auth.currentUser.email || 'current account'} while deleting from "${colName}". Please re-verify your authorized Admin Google session.`
+        : rawMsg;
       return {
         ok: false,
-        error: err instanceof Error ? err.message : `Failed to delete ${colName}/${id} from database.`,
+        error: friendlyError,
       };
     }
+  };
+
+  const deleteDocsByFieldMatch = async (
+    colName: string,
+    fieldName: 'clientId' | 'caseId',
+    values: string[]
+  ): Promise<string[]> => {
+    const cleanValues = Array.from(new Set(values.filter(Boolean)));
+    if (cleanValues.length === 0 || !auth.currentUser) return [];
+    const deletedDataIds: string[] = [];
+    for (const val of cleanValues) {
+      try {
+        const snap = await getDocs(query(collection(db, colName), where(fieldName, '==', val)));
+        for (const d of snap.docs) {
+          const dataId = (d.data() as any)?.id || d.id;
+          await deleteDoc(d.ref);
+          deletedDataIds.push(dataId);
+          if (d.id !== dataId) deletedDataIds.push(d.id);
+        }
+      } catch {
+        // Ignore query errors (e.g. if user doesn't hold permission for a secondary collection)
+      }
+    }
+    return deletedDataIds;
   };
 
   // Setup Firestore Real-time Listeners and Auto-Seed if empty
@@ -627,11 +735,31 @@ export function usePortalStore() {
       }
     };
 
+    const unsubSeedingMeta = onSnapshot(
+      doc(db, 'portal_meta', 'seeding'),
+      (metaSnap) => {
+        seedingMetaLoadedRef.current = true;
+        if (metaSnap.exists()) {
+          const data = metaSnap.data() || {};
+          Object.entries(data).forEach(([k, v]) => {
+            if (v === true) {
+              firestoreSeededColsRef.current[k] = true;
+              markCollectionSeeded(k);
+            }
+          });
+        }
+      },
+      () => {
+        seedingMetaLoadedRef.current = true;
+      }
+    );
+
     // 1. Clients
     const unsubClients = onSnapshot(collection(db, 'clients'), (snap) => {
       if (snap.empty) {
-        if (!hasSeededCollection('clients')) {
-          markCollectionSeeded('clients');
+        firestoreDocIdsRef.current['clients'] = new Map();
+        if (shouldAutoSeedEmptyCollection('clients')) {
+          persistSeededFlagToFirestore('clients');
           INITIAL_CLIENTS.forEach((c) => saveToFirestoreDoc('clients', c.id, c));
         } else {
           rawFirestoreClientsRef.current = [];
@@ -639,8 +767,8 @@ export function usePortalStore() {
           saveToStorage(STORAGE_KEYS.CLIENTS, []);
         }
       } else {
-        markCollectionSeeded('clients');
-        const items = snap.docs.map((d) => d.data() as Client);
+        persistSeededFlagToFirestore('clients');
+        const items = mapSnapshotDocs<Client>('clients', snap);
         rawFirestoreClientsRef.current = items;
         const currentCases = rawFirestoreCasesRef.current || casesRef.current;
         const normalizedClients = normalizeClientList(items, currentCases);
@@ -658,8 +786,9 @@ export function usePortalStore() {
     // 2. Cases
     const unsubCases = onSnapshot(collection(db, 'cases'), (snap) => {
       if (snap.empty) {
-        if (!hasSeededCollection('cases')) {
-          markCollectionSeeded('cases');
+        firestoreDocIdsRef.current['cases'] = new Map();
+        if (shouldAutoSeedEmptyCollection('cases')) {
+          persistSeededFlagToFirestore('cases');
           INITIAL_CASES.forEach((c) => saveToFirestoreDoc('cases', c.id, c));
         } else {
           rawFirestoreCasesRef.current = [];
@@ -667,8 +796,8 @@ export function usePortalStore() {
           saveToStorage(STORAGE_KEYS.CASES, []);
         }
       } else {
-        markCollectionSeeded('cases');
-        const items = snap.docs.map((d) => d.data() as CaseFile);
+        persistSeededFlagToFirestore('cases');
+        const items = mapSnapshotDocs<CaseFile>('cases', snap);
         rawFirestoreCasesRef.current = items;
         const currentClients = rawFirestoreClientsRef.current || clientsRef.current;
         const normalizedClients = normalizeClientList(currentClients, items);
@@ -684,8 +813,9 @@ export function usePortalStore() {
     // 3. Notices
     const unsubNotices = onSnapshot(collection(db, 'notices'), (snap) => {
       if (snap.empty) {
-        if (!hasSeededCollection('notices')) {
-          markCollectionSeeded('notices');
+        firestoreDocIdsRef.current['notices'] = new Map();
+        if (shouldAutoSeedEmptyCollection('notices')) {
+          persistSeededFlagToFirestore('notices');
           INITIAL_NOTICES.forEach((n) => saveToFirestoreDoc('notices', n.id, n));
         } else {
           rawFirestoreNoticesRef.current = [];
@@ -693,8 +823,8 @@ export function usePortalStore() {
           saveToStorage(STORAGE_KEYS.NOTICES, []);
         }
       } else {
-        markCollectionSeeded('notices');
-        const items = snap.docs.map((d) => d.data() as FBRNotice);
+        persistSeededFlagToFirestore('notices');
+        const items = mapSnapshotDocs<FBRNotice>('notices', snap);
         rawFirestoreNoticesRef.current = items;
         setNotices(items);
         saveToStorage(STORAGE_KEYS.NOTICES, items);
@@ -704,8 +834,9 @@ export function usePortalStore() {
     // 4. Documents
     const unsubDocs = onSnapshot(collection(db, 'documents'), (snap) => {
       if (snap.empty) {
-        if (!hasSeededCollection('documents')) {
-          markCollectionSeeded('documents');
+        firestoreDocIdsRef.current['documents'] = new Map();
+        if (shouldAutoSeedEmptyCollection('documents')) {
+          persistSeededFlagToFirestore('documents');
           INITIAL_DOCUMENTS.forEach((d) => saveToFirestoreDoc('documents', d.id, d));
         } else {
           rawFirestoreDocsRef.current = [];
@@ -713,8 +844,8 @@ export function usePortalStore() {
           saveToStorage(STORAGE_KEYS.DOCUMENTS, []);
         }
       } else {
-        markCollectionSeeded('documents');
-        const items = snap.docs.map((d) => d.data() as DocumentItem);
+        persistSeededFlagToFirestore('documents');
+        const items = mapSnapshotDocs<DocumentItem>('documents', snap);
         rawFirestoreDocsRef.current = items;
         setDocuments(items);
         saveToStorage(STORAGE_KEYS.DOCUMENTS, items);
@@ -724,8 +855,9 @@ export function usePortalStore() {
     // 5. Tasks
     const unsubTasks = onSnapshot(collection(db, 'tasks'), (snap) => {
       if (snap.empty) {
-        if (!hasSeededCollection('tasks')) {
-          markCollectionSeeded('tasks');
+        firestoreDocIdsRef.current['tasks'] = new Map();
+        if (shouldAutoSeedEmptyCollection('tasks')) {
+          persistSeededFlagToFirestore('tasks');
           INITIAL_TASKS.forEach((t) => saveToFirestoreDoc('tasks', t.id, t));
         } else {
           rawFirestoreTasksRef.current = [];
@@ -733,8 +865,8 @@ export function usePortalStore() {
           saveToStorage(STORAGE_KEYS.TASKS, []);
         }
       } else {
-        markCollectionSeeded('tasks');
-        const items = snap.docs.map((d) => d.data() as InternalTask);
+        persistSeededFlagToFirestore('tasks');
+        const items = mapSnapshotDocs<InternalTask>('tasks', snap);
         rawFirestoreTasksRef.current = items;
         setTasks(items);
         saveToStorage(STORAGE_KEYS.TASKS, items);
@@ -744,8 +876,9 @@ export function usePortalStore() {
     // 6. Notes
     const unsubNotes = onSnapshot(collection(db, 'notes'), (snap) => {
       if (snap.empty) {
-        if (!hasSeededCollection('notes')) {
-          markCollectionSeeded('notes');
+        firestoreDocIdsRef.current['notes'] = new Map();
+        if (shouldAutoSeedEmptyCollection('notes')) {
+          persistSeededFlagToFirestore('notes');
           INITIAL_NOTES.forEach((n) => saveToFirestoreDoc('notes', n.id, n));
         } else {
           rawFirestoreNotesRef.current = [];
@@ -753,8 +886,8 @@ export function usePortalStore() {
           saveToStorage(STORAGE_KEYS.NOTES, []);
         }
       } else {
-        markCollectionSeeded('notes');
-        const items = snap.docs.map((d) => d.data() as InternalNote);
+        persistSeededFlagToFirestore('notes');
+        const items = mapSnapshotDocs<InternalNote>('notes', snap);
         rawFirestoreNotesRef.current = items;
         setNotes(items);
         saveToStorage(STORAGE_KEYS.NOTES, items);
@@ -764,8 +897,9 @@ export function usePortalStore() {
     // 7. Invoices
     const unsubInvoices = onSnapshot(collection(db, 'invoices'), (snap) => {
       if (snap.empty) {
-        if (!hasSeededCollection('invoices')) {
-          markCollectionSeeded('invoices');
+        firestoreDocIdsRef.current['invoices'] = new Map();
+        if (shouldAutoSeedEmptyCollection('invoices')) {
+          persistSeededFlagToFirestore('invoices');
           INITIAL_INVOICES.forEach((i) => saveToFirestoreDoc('invoices', i.id, i));
         } else {
           rawFirestoreInvoicesRef.current = [];
@@ -773,8 +907,8 @@ export function usePortalStore() {
           saveToStorage(STORAGE_KEYS.INVOICES, []);
         }
       } else {
-        markCollectionSeeded('invoices');
-        const items = snap.docs.map((d) => d.data() as Invoice);
+        persistSeededFlagToFirestore('invoices');
+        const items = mapSnapshotDocs<Invoice>('invoices', snap);
         rawFirestoreInvoicesRef.current = items;
         setInvoices(items);
         saveToStorage(STORAGE_KEYS.INVOICES, items);
@@ -784,8 +918,9 @@ export function usePortalStore() {
     // 8. Hearings
     const unsubHearings = onSnapshot(collection(db, 'hearings'), (snap) => {
       if (snap.empty) {
-        if (!hasSeededCollection('hearings')) {
-          markCollectionSeeded('hearings');
+        firestoreDocIdsRef.current['hearings'] = new Map();
+        if (shouldAutoSeedEmptyCollection('hearings')) {
+          persistSeededFlagToFirestore('hearings');
           INITIAL_HEARINGS.forEach((h) => saveToFirestoreDoc('hearings', h.id, h));
         } else {
           rawFirestoreHearingsRef.current = [];
@@ -793,8 +928,8 @@ export function usePortalStore() {
           saveToStorage(STORAGE_KEYS.HEARINGS, []);
         }
       } else {
-        markCollectionSeeded('hearings');
-        const items = snap.docs.map((d) => d.data() as HearingEvent);
+        persistSeededFlagToFirestore('hearings');
+        const items = mapSnapshotDocs<HearingEvent>('hearings', snap);
         rawFirestoreHearingsRef.current = items;
         setHearings(items);
         saveToStorage(STORAGE_KEYS.HEARINGS, items);
@@ -804,8 +939,9 @@ export function usePortalStore() {
     // 9. Notifications
     const unsubNotifs = onSnapshot(collection(db, 'notifications'), (snap) => {
       if (snap.empty) {
-        if (!hasSeededCollection('notifications')) {
-          markCollectionSeeded('notifications');
+        firestoreDocIdsRef.current['notifications'] = new Map();
+        if (shouldAutoSeedEmptyCollection('notifications')) {
+          persistSeededFlagToFirestore('notifications');
           INITIAL_NOTIFICATIONS.forEach((n) => saveToFirestoreDoc('notifications', n.id, n));
         } else {
           rawFirestoreNotifsRef.current = [];
@@ -813,8 +949,8 @@ export function usePortalStore() {
           saveToStorage(STORAGE_KEYS.NOTIFICATIONS, []);
         }
       } else {
-        markCollectionSeeded('notifications');
-        const items = snap.docs.map((d) => d.data() as NotificationLog);
+        persistSeededFlagToFirestore('notifications');
+        const items = mapSnapshotDocs<NotificationLog>('notifications', snap);
         rawFirestoreNotifsRef.current = items;
         setNotifications(items);
         saveToStorage(STORAGE_KEYS.NOTIFICATIONS, items);
@@ -824,8 +960,9 @@ export function usePortalStore() {
     // 10. Client Credentials
     const unsubCreds = onSnapshot(collection(db, 'clientCredentials'), (snap) => {
       if (snap.empty) {
-        if (!hasSeededCollection('clientCredentials')) {
-          markCollectionSeeded('clientCredentials');
+        firestoreDocIdsRef.current['clientCredentials'] = new Map();
+        if (shouldAutoSeedEmptyCollection('clientCredentials')) {
+          persistSeededFlagToFirestore('clientCredentials');
           INITIAL_CLIENT_CREDENTIALS.forEach((c) => saveToFirestoreDoc('clientCredentials', c.id, c));
         } else {
           rawFirestoreCredsRef.current = [];
@@ -833,8 +970,8 @@ export function usePortalStore() {
           saveToStorage(STORAGE_KEYS.CLIENT_CREDENTIALS, []);
         }
       } else {
-        markCollectionSeeded('clientCredentials');
-        const items = snap.docs.map((d) => d.data() as ClientCredential);
+        persistSeededFlagToFirestore('clientCredentials');
+        const items = mapSnapshotDocs<ClientCredential>('clientCredentials', snap);
         rawFirestoreCredsRef.current = items;
         setClientCredentials(items);
         saveToStorage(STORAGE_KEYS.CLIENT_CREDENTIALS, items);
@@ -844,16 +981,17 @@ export function usePortalStore() {
     // 11. Practice Areas
     const unsubPracticeAreas = onSnapshot(collection(db, 'practice_areas'), (snap) => {
       if (snap.empty) {
-        if (!hasSeededCollection('practice_areas')) {
-          markCollectionSeeded('practice_areas');
+        firestoreDocIdsRef.current['practice_areas'] = new Map();
+        if (shouldAutoSeedEmptyCollection('practice_areas')) {
+          persistSeededFlagToFirestore('practice_areas');
           INITIAL_PRACTICE_AREAS.forEach((pa) => saveToFirestoreDoc('practice_areas', pa.id, pa));
         } else {
           setPracticeAreas([]);
           saveToStorage(STORAGE_KEYS.PRACTICE_AREAS, []);
         }
       } else {
-        markCollectionSeeded('practice_areas');
-        const items = snap.docs.map((d) => d.data() as PracticeArea);
+        persistSeededFlagToFirestore('practice_areas');
+        const items = mapSnapshotDocs<PracticeArea>('practice_areas', snap);
         setPracticeAreas(items);
         saveToStorage(STORAGE_KEYS.PRACTICE_AREAS, items);
       }
@@ -862,16 +1000,17 @@ export function usePortalStore() {
     // 12. Team Members
     const unsubTeam = onSnapshot(collection(db, 'team_members'), (snap) => {
       if (snap.empty) {
-        if (!hasSeededCollection('team_members')) {
-          markCollectionSeeded('team_members');
+        firestoreDocIdsRef.current['team_members'] = new Map();
+        if (shouldAutoSeedEmptyCollection('team_members')) {
+          persistSeededFlagToFirestore('team_members');
           INITIAL_TEAM_MEMBERS.forEach((m) => saveToFirestoreDoc('team_members', m.id, m));
         } else {
           setTeamMembers([]);
           saveToStorage(STORAGE_KEYS.TEAM_MEMBERS, []);
         }
       } else {
-        markCollectionSeeded('team_members');
-        const items = snap.docs.map((d) => d.data() as TeamMember);
+        persistSeededFlagToFirestore('team_members');
+        const items = mapSnapshotDocs<TeamMember>('team_members', snap);
         // Sort by order or ceo first
         items.sort((a, b) => {
           if (a.isCeo && !b.isCeo) return -1;
@@ -886,16 +1025,17 @@ export function usePortalStore() {
     // 13. Client Reviews & Testimonials
     const unsubReviews = onSnapshot(collection(db, 'client_reviews'), (snap) => {
       if (snap.empty) {
-        if (!hasSeededCollection('client_reviews')) {
-          markCollectionSeeded('client_reviews');
+        firestoreDocIdsRef.current['client_reviews'] = new Map();
+        if (shouldAutoSeedEmptyCollection('client_reviews')) {
+          persistSeededFlagToFirestore('client_reviews');
           INITIAL_REVIEWS.forEach((r) => saveToFirestoreDoc('client_reviews', r.id, r));
         } else {
           setReviews([]);
           saveToStorage(STORAGE_KEYS.REVIEWS, []);
         }
       } else {
-        markCollectionSeeded('client_reviews');
-        const items = snap.docs.map((d) => d.data() as ReviewItem);
+        persistSeededFlagToFirestore('client_reviews');
+        const items = mapSnapshotDocs<ReviewItem>('client_reviews', snap);
         setReviews(items);
         saveToStorage(STORAGE_KEYS.REVIEWS, items);
       }
@@ -904,16 +1044,17 @@ export function usePortalStore() {
     // 14. Legal Insights & Blog Articles
     const unsubInsights = onSnapshot(collection(db, 'legal_insights'), (snap) => {
       if (snap.empty) {
-        if (!hasSeededCollection('legal_insights')) {
-          markCollectionSeeded('legal_insights');
+        firestoreDocIdsRef.current['legal_insights'] = new Map();
+        if (shouldAutoSeedEmptyCollection('legal_insights')) {
+          persistSeededFlagToFirestore('legal_insights');
           INITIAL_INSIGHTS.forEach((ins) => saveToFirestoreDoc('legal_insights', ins.id, ins));
         } else {
           setInsights([]);
           saveToStorage(STORAGE_KEYS.INSIGHTS, []);
         }
       } else {
-        markCollectionSeeded('legal_insights');
-        const items = snap.docs.map((d) => d.data() as LegalInsightItem);
+        persistSeededFlagToFirestore('legal_insights');
+        const items = mapSnapshotDocs<LegalInsightItem>('legal_insights', snap);
         setInsights(items);
         saveToStorage(STORAGE_KEYS.INSIGHTS, items);
       }
@@ -922,16 +1063,17 @@ export function usePortalStore() {
     // 15. Membership & Partners
     const unsubPartners = onSnapshot(collection(db, 'membership_partners'), (snap) => {
       if (snap.empty) {
-        if (!hasSeededCollection('membership_partners')) {
-          markCollectionSeeded('membership_partners');
+        firestoreDocIdsRef.current['membership_partners'] = new Map();
+        if (shouldAutoSeedEmptyCollection('membership_partners')) {
+          persistSeededFlagToFirestore('membership_partners');
           INITIAL_PARTNERS.forEach((p) => saveToFirestoreDoc('membership_partners', p.id, p));
         } else {
           setPartners([]);
           saveToStorage(STORAGE_KEYS.PARTNERS, []);
         }
       } else {
-        markCollectionSeeded('membership_partners');
-        const items = snap.docs.map((d) => d.data() as PartnerItem);
+        persistSeededFlagToFirestore('membership_partners');
+        const items = mapSnapshotDocs<PartnerItem>('membership_partners', snap);
         items.sort((a, b) => (a.order || 99) - (b.order || 99));
         setPartners(items);
         saveToStorage(STORAGE_KEYS.PARTNERS, items);
@@ -944,6 +1086,7 @@ export function usePortalStore() {
     let unsubVaultSecrets: (() => void) | null = null;
 
     const unsubAuth = onAuthStateChanged(auth, async (user) => {
+      setFirebaseAuthUser(user);
       if (unsubStaffList) {
         unsubStaffList();
         unsubStaffList = null;
@@ -1043,6 +1186,7 @@ export function usePortalStore() {
     });
 
     return () => {
+      unsubSeedingMeta();
       unsubClients();
       unsubCases();
       unsubNotices();
@@ -1962,22 +2106,25 @@ export function usePortalStore() {
   };
 
   const deleteClient = async (clientId: string): Promise<{ ok: boolean; error?: string }> => {
-    markCollectionSeeded('clients');
-    markCollectionSeeded('clientCredentials');
-    markCollectionSeeded('cases');
-    markCollectionSeeded('notices');
-    markCollectionSeeded('hearings');
-    markCollectionSeeded('documents');
-    markCollectionSeeded('invoices');
-    markCollectionSeeded('tasks');
-    markCollectionSeeded('notes');
-    markCollectionSeeded('notifications');
+    persistSeededFlagToFirestore('clients');
+    persistSeededFlagToFirestore('clientCredentials');
+    persistSeededFlagToFirestore('cases');
+    persistSeededFlagToFirestore('notices');
+    persistSeededFlagToFirestore('hearings');
+    persistSeededFlagToFirestore('documents');
+    persistSeededFlagToFirestore('invoices');
+    persistSeededFlagToFirestore('tasks');
+    persistSeededFlagToFirestore('notes');
+    persistSeededFlagToFirestore('notifications');
 
     const res = await deleteFromFirestoreDoc('clients', clientId);
     if (!res.ok) return res;
 
+    // Discover linked cases from both in-memory cache and Firestore
+    const remoteCaseIds = await deleteDocsByFieldMatch('cases', 'clientId', [clientId]);
     const linkedCases = casesRef.current.filter((cs) => cs.clientId === clientId);
-    const linkedCaseIds = new Set(linkedCases.map((cs) => cs.id));
+    const linkedCaseIds = new Set<string>([...linkedCases.map((cs) => cs.id), ...remoteCaseIds]);
+    const linkedCaseIdList = Array.from(linkedCaseIds);
 
     const credIds = clientCredentialsRef.current.filter((c) => c.clientId === clientId).map((c) => c.id);
     const noticeIds = noticesRef.current
@@ -1998,17 +2145,54 @@ export function usePortalStore() {
       .filter((n) => n.clientId === clientId || (n.caseId ? linkedCaseIds.has(n.caseId) : false))
       .map((n) => n.id);
 
+    const [
+      remoteCredIds,
+      remoteNoticeIdsByClient,
+      remoteNoticeIdsByCase,
+      remoteHearingIds,
+      remoteDocIdsByClient,
+      remoteDocIdsByCase,
+      remoteInvIdsByClient,
+      remoteInvIdsByCase,
+      remoteTaskIds,
+      remoteNoteIds,
+      remoteNotifIdsByClient,
+      remoteNotifIdsByCase,
+    ] = await Promise.all([
+      deleteDocsByFieldMatch('clientCredentials', 'clientId', [clientId]),
+      deleteDocsByFieldMatch('notices', 'clientId', [clientId]),
+      deleteDocsByFieldMatch('notices', 'caseId', linkedCaseIdList),
+      deleteDocsByFieldMatch('hearings', 'caseId', linkedCaseIdList),
+      deleteDocsByFieldMatch('documents', 'clientId', [clientId]),
+      deleteDocsByFieldMatch('documents', 'caseId', linkedCaseIdList),
+      deleteDocsByFieldMatch('invoices', 'clientId', [clientId]),
+      deleteDocsByFieldMatch('invoices', 'caseId', linkedCaseIdList),
+      deleteDocsByFieldMatch('tasks', 'caseId', linkedCaseIdList),
+      deleteDocsByFieldMatch('notes', 'caseId', linkedCaseIdList),
+      deleteDocsByFieldMatch('notifications', 'clientId', [clientId]),
+      deleteDocsByFieldMatch('notifications', 'caseId', linkedCaseIdList),
+    ]);
+
+    const allCredIds = Array.from(new Set([...credIds, ...remoteCredIds]));
+    const allNoticeIds = Array.from(new Set([...noticeIds, ...remoteNoticeIdsByClient, ...remoteNoticeIdsByCase]));
+    const allHearingIds = Array.from(new Set([...hearingIds, ...remoteHearingIds]));
+    const allDocIds = Array.from(new Set([...docIds, ...remoteDocIdsByClient, ...remoteDocIdsByCase]));
+    const allInvoiceIds = Array.from(new Set([...invoiceIds, ...remoteInvIdsByClient, ...remoteInvIdsByCase]));
+    const allTaskIds = Array.from(new Set([...taskIds, ...remoteTaskIds]));
+    const allNoteIds = Array.from(new Set([...noteIds, ...remoteNoteIds]));
+    const allNotifIds = Array.from(new Set([...notifIds, ...remoteNotifIdsByClient, ...remoteNotifIdsByCase]));
+
     await Promise.allSettled([
       deleteFromFirestoreDoc('client_vault_secrets', clientId),
-      ...credIds.map((id) => deleteFromFirestoreDoc('clientCredentials', id)),
-      ...linkedCases.map((cs) => deleteFromFirestoreDoc('cases', cs.id)),
-      ...noticeIds.map((id) => deleteFromFirestoreDoc('notices', id)),
-      ...hearingIds.map((id) => deleteFromFirestoreDoc('hearings', id)),
-      ...docIds.map((id) => deleteFromFirestoreDoc('documents', id)),
-      ...invoiceIds.map((id) => deleteFromFirestoreDoc('invoices', id)),
-      ...taskIds.map((id) => deleteFromFirestoreDoc('tasks', id)),
-      ...noteIds.map((id) => deleteFromFirestoreDoc('notes', id)),
-      ...notifIds.map((id) => deleteFromFirestoreDoc('notifications', id)),
+      ...allCredIds.map((id) => deleteFromFirestoreDoc('clientCredentials', id)),
+      ...linkedCaseIdList.map((id) => deleteFromFirestoreDoc('cases', id)),
+      ...allNoticeIds.map((id) => deleteFromFirestoreDoc('notices', id)),
+      ...allHearingIds.map((id) => deleteFromFirestoreDoc('hearings', id)),
+      ...allDocIds.map((id) => deleteFromFirestoreDoc('documents', id)),
+      ...allInvoiceIds.map((id) => deleteFromFirestoreDoc('invoices', id)),
+      ...allTaskIds.map((id) => deleteFromFirestoreDoc('tasks', id)),
+      ...allNoteIds.map((id) => deleteFromFirestoreDoc('notes', id)),
+      ...allNotifIds.map((id) => deleteFromFirestoreDoc('notifications', id)),
     ]);
 
     setClients((prev) => {
@@ -2023,47 +2207,47 @@ export function usePortalStore() {
       return next;
     });
     setClientCredentials((prev) => {
-      const updated = prev.filter((c) => c.clientId !== clientId);
+      const updated = prev.filter((c) => c.clientId !== clientId && !allCredIds.includes(c.id));
       saveToStorage(STORAGE_KEYS.CLIENT_CREDENTIALS, updated);
       return updated;
     });
     setCases((prev) => {
-      const updated = prev.filter((cs) => cs.clientId !== clientId);
+      const updated = prev.filter((cs) => cs.clientId !== clientId && !linkedCaseIds.has(cs.id));
       saveToStorage(STORAGE_KEYS.CASES, updated);
       return updated;
     });
     setNotices((prev) => {
-      const updated = prev.filter((n) => !noticeIds.includes(n.id));
+      const updated = prev.filter((n) => !allNoticeIds.includes(n.id));
       saveToStorage(STORAGE_KEYS.NOTICES, updated);
       return updated;
     });
     setHearings((prev) => {
-      const updated = prev.filter((h) => !hearingIds.includes(h.id));
+      const updated = prev.filter((h) => !allHearingIds.includes(h.id));
       saveToStorage(STORAGE_KEYS.HEARINGS, updated);
       return updated;
     });
     setDocuments((prev) => {
-      const updated = prev.filter((d) => !docIds.includes(d.id));
+      const updated = prev.filter((d) => !allDocIds.includes(d.id));
       saveToStorage(STORAGE_KEYS.DOCUMENTS, updated);
       return updated;
     });
     setInvoices((prev) => {
-      const updated = prev.filter((i) => !invoiceIds.includes(i.id));
+      const updated = prev.filter((i) => !allInvoiceIds.includes(i.id));
       saveToStorage(STORAGE_KEYS.INVOICES, updated);
       return updated;
     });
     setTasks((prev) => {
-      const updated = prev.filter((t) => !taskIds.includes(t.id));
+      const updated = prev.filter((t) => !allTaskIds.includes(t.id));
       saveToStorage(STORAGE_KEYS.TASKS, updated);
       return updated;
     });
     setNotes((prev) => {
-      const updated = prev.filter((n) => !noteIds.includes(n.id));
+      const updated = prev.filter((n) => !allNoteIds.includes(n.id));
       saveToStorage(STORAGE_KEYS.NOTES, updated);
       return updated;
     });
     setNotifications((prev) => {
-      const updated = prev.filter((n) => !notifIds.includes(n.id));
+      const updated = prev.filter((n) => !allNotifIds.includes(n.id));
       saveToStorage(STORAGE_KEYS.NOTIFICATIONS, updated);
       return updated;
     });
@@ -2072,14 +2256,14 @@ export function usePortalStore() {
   };
 
   const deleteCase = async (caseId: string): Promise<{ ok: boolean; error?: string }> => {
-    markCollectionSeeded('cases');
-    markCollectionSeeded('notices');
-    markCollectionSeeded('hearings');
-    markCollectionSeeded('documents');
-    markCollectionSeeded('invoices');
-    markCollectionSeeded('tasks');
-    markCollectionSeeded('notes');
-    markCollectionSeeded('notifications');
+    persistSeededFlagToFirestore('cases');
+    persistSeededFlagToFirestore('notices');
+    persistSeededFlagToFirestore('hearings');
+    persistSeededFlagToFirestore('documents');
+    persistSeededFlagToFirestore('invoices');
+    persistSeededFlagToFirestore('tasks');
+    persistSeededFlagToFirestore('notes');
+    persistSeededFlagToFirestore('notifications');
 
     const targetCase = casesRef.current.find((c) => c.id === caseId);
     const res = await deleteFromFirestoreDoc('cases', caseId);
@@ -2093,14 +2277,40 @@ export function usePortalStore() {
     const noteIds = notesRef.current.filter((n) => n.caseId === caseId).map((n) => n.id);
     const notifIds = notificationsRef.current.filter((n) => n.caseId === caseId).map((n) => n.id);
 
+    const [
+      remoteNoticeIds,
+      remoteHearingIds,
+      remoteDocIds,
+      remoteInvoiceIds,
+      remoteTaskIds,
+      remoteNoteIds,
+      remoteNotifIds,
+    ] = await Promise.all([
+      deleteDocsByFieldMatch('notices', 'caseId', [caseId]),
+      deleteDocsByFieldMatch('hearings', 'caseId', [caseId]),
+      deleteDocsByFieldMatch('documents', 'caseId', [caseId]),
+      deleteDocsByFieldMatch('invoices', 'caseId', [caseId]),
+      deleteDocsByFieldMatch('tasks', 'caseId', [caseId]),
+      deleteDocsByFieldMatch('notes', 'caseId', [caseId]),
+      deleteDocsByFieldMatch('notifications', 'caseId', [caseId]),
+    ]);
+
+    const allNoticeIds = Array.from(new Set([...noticeIds, ...remoteNoticeIds]));
+    const allHearingIds = Array.from(new Set([...hearingIds, ...remoteHearingIds]));
+    const allDocIds = Array.from(new Set([...docIds, ...remoteDocIds]));
+    const allInvoiceIds = Array.from(new Set([...invoiceIds, ...remoteInvoiceIds]));
+    const allTaskIds = Array.from(new Set([...taskIds, ...remoteTaskIds]));
+    const allNoteIds = Array.from(new Set([...noteIds, ...remoteNoteIds]));
+    const allNotifIds = Array.from(new Set([...notifIds, ...remoteNotifIds]));
+
     await Promise.allSettled([
-      ...noticeIds.map((id) => deleteFromFirestoreDoc('notices', id)),
-      ...hearingIds.map((id) => deleteFromFirestoreDoc('hearings', id)),
-      ...docIds.map((id) => deleteFromFirestoreDoc('documents', id)),
-      ...invoiceIds.map((id) => deleteFromFirestoreDoc('invoices', id)),
-      ...taskIds.map((id) => deleteFromFirestoreDoc('tasks', id)),
-      ...noteIds.map((id) => deleteFromFirestoreDoc('notes', id)),
-      ...notifIds.map((id) => deleteFromFirestoreDoc('notifications', id)),
+      ...allNoticeIds.map((id) => deleteFromFirestoreDoc('notices', id)),
+      ...allHearingIds.map((id) => deleteFromFirestoreDoc('hearings', id)),
+      ...allDocIds.map((id) => deleteFromFirestoreDoc('documents', id)),
+      ...allInvoiceIds.map((id) => deleteFromFirestoreDoc('invoices', id)),
+      ...allTaskIds.map((id) => deleteFromFirestoreDoc('tasks', id)),
+      ...allNoteIds.map((id) => deleteFromFirestoreDoc('notes', id)),
+      ...allNotifIds.map((id) => deleteFromFirestoreDoc('notifications', id)),
     ]);
 
     const nextCases = casesRef.current.filter((c) => c.id !== caseId);
@@ -2124,37 +2334,37 @@ export function usePortalStore() {
     }
 
     setNotices((prev) => {
-      const updated = prev.filter((n) => !noticeIds.includes(n.id));
+      const updated = prev.filter((n) => !allNoticeIds.includes(n.id));
       saveToStorage(STORAGE_KEYS.NOTICES, updated);
       return updated;
     });
     setHearings((prev) => {
-      const updated = prev.filter((h) => !hearingIds.includes(h.id));
+      const updated = prev.filter((h) => !allHearingIds.includes(h.id));
       saveToStorage(STORAGE_KEYS.HEARINGS, updated);
       return updated;
     });
     setDocuments((prev) => {
-      const updated = prev.filter((d) => !docIds.includes(d.id));
+      const updated = prev.filter((d) => !allDocIds.includes(d.id));
       saveToStorage(STORAGE_KEYS.DOCUMENTS, updated);
       return updated;
     });
     setInvoices((prev) => {
-      const updated = prev.filter((i) => !invoiceIds.includes(i.id));
+      const updated = prev.filter((i) => !allInvoiceIds.includes(i.id));
       saveToStorage(STORAGE_KEYS.INVOICES, updated);
       return updated;
     });
     setTasks((prev) => {
-      const updated = prev.filter((t) => !taskIds.includes(t.id));
+      const updated = prev.filter((t) => !allTaskIds.includes(t.id));
       saveToStorage(STORAGE_KEYS.TASKS, updated);
       return updated;
     });
     setNotes((prev) => {
-      const updated = prev.filter((n) => !noteIds.includes(n.id));
+      const updated = prev.filter((n) => !allNoteIds.includes(n.id));
       saveToStorage(STORAGE_KEYS.NOTES, updated);
       return updated;
     });
     setNotifications((prev) => {
-      const updated = prev.filter((n) => !notifIds.includes(n.id));
+      const updated = prev.filter((n) => !allNotifIds.includes(n.id));
       saveToStorage(STORAGE_KEYS.NOTIFICATIONS, updated);
       return updated;
     });
@@ -2163,7 +2373,7 @@ export function usePortalStore() {
   };
 
   const deleteNotice = async (noticeId: string): Promise<{ ok: boolean; error?: string }> => {
-    markCollectionSeeded('notices');
+    persistSeededFlagToFirestore('notices');
     const res = await deleteFromFirestoreDoc('notices', noticeId);
     if (!res.ok) return res;
     setNotices((prev) => {
@@ -2175,19 +2385,27 @@ export function usePortalStore() {
   };
 
   const deleteHearing = async (hearingId: string): Promise<{ ok: boolean; error?: string }> => {
-    markCollectionSeeded('hearings');
+    persistSeededFlagToFirestore('hearings');
     const isVirtualCaseHearing = hearingId.startsWith('case-h-');
 
     if (isVirtualCaseHearing) {
       if (!auth.currentUser) {
-        return { ok: false, error: 'Active Firebase sign-in is required to update database.' };
+        return {
+          ok: false,
+          error: 'Active Firebase Google/Admin sign-in is required to update the Firestore database.',
+        };
       }
       const realCaseId = hearingId.replace(/^case-h-/, '');
       try {
-        await updateDoc(doc(db, 'cases', realCaseId), {
-          nextHearingDate: deleteField(),
-          nextHearingPurpose: deleteField(),
-        });
+        const trackedIds = Array.from(firestoreDocIdsRef.current['cases']?.get(realCaseId) || new Set([realCaseId]));
+        await Promise.all(
+          trackedIds.map((docId) =>
+            updateDoc(doc(db, 'cases', docId), {
+              nextHearingDate: deleteField(),
+              nextHearingPurpose: deleteField(),
+            })
+          )
+        );
       } catch (err) {
         const info = buildFirestoreErrorInfo(err, OperationType.UPDATE, `cases/${realCaseId}`);
         console.warn('Case hearing clear error:', JSON.stringify(info));
@@ -2262,7 +2480,7 @@ export function usePortalStore() {
   };
 
   const deleteDocument = async (docId: string): Promise<{ ok: boolean; error?: string }> => {
-    markCollectionSeeded('documents');
+    persistSeededFlagToFirestore('documents');
     const res = await deleteFromFirestoreDoc('documents', docId);
     if (!res.ok) return res;
     setDocuments((prev) => {
@@ -2274,7 +2492,7 @@ export function usePortalStore() {
   };
 
   const deleteTask = async (taskId: string): Promise<{ ok: boolean; error?: string }> => {
-    markCollectionSeeded('tasks');
+    persistSeededFlagToFirestore('tasks');
     const res = await deleteFromFirestoreDoc('tasks', taskId);
     if (!res.ok) return res;
     setTasks((prev) => {
@@ -2286,7 +2504,7 @@ export function usePortalStore() {
   };
 
   const deleteNote = async (noteId: string): Promise<{ ok: boolean; error?: string }> => {
-    markCollectionSeeded('notes');
+    persistSeededFlagToFirestore('notes');
     const res = await deleteFromFirestoreDoc('notes', noteId);
     if (!res.ok) return res;
     setNotes((prev) => {
@@ -2298,7 +2516,7 @@ export function usePortalStore() {
   };
 
   const deleteInvoice = async (invoiceId: string): Promise<{ ok: boolean; error?: string }> => {
-    markCollectionSeeded('invoices');
+    persistSeededFlagToFirestore('invoices');
     const res = await deleteFromFirestoreDoc('invoices', invoiceId);
     if (!res.ok) return res;
     setInvoices((prev) => {
@@ -2310,7 +2528,7 @@ export function usePortalStore() {
   };
 
   const deleteNotification = async (notifId: string): Promise<{ ok: boolean; error?: string }> => {
-    markCollectionSeeded('notifications');
+    persistSeededFlagToFirestore('notifications');
     const res = await deleteFromFirestoreDoc('notifications', notifId);
     if (!res.ok) return res;
     setNotifications((prev) => {
@@ -2322,7 +2540,7 @@ export function usePortalStore() {
   };
 
   const deletePracticeArea = async (id: string): Promise<{ ok: boolean; error?: string }> => {
-    markCollectionSeeded('practice_areas');
+    persistSeededFlagToFirestore('practice_areas');
     const res = await deleteFromFirestoreDoc('practice_areas', id);
     if (!res.ok) return res;
     setPracticeAreas((prev) => {
@@ -2375,7 +2593,7 @@ export function usePortalStore() {
   };
 
   const deleteTeamMember = async (id: string): Promise<{ ok: boolean; error?: string }> => {
-    markCollectionSeeded('team_members');
+    persistSeededFlagToFirestore('team_members');
     const res = await deleteFromFirestoreDoc('team_members', id);
     if (!res.ok) return res;
     setTeamMembers((prev) => {
@@ -2441,7 +2659,7 @@ export function usePortalStore() {
   };
 
   const deleteReview = async (id: string): Promise<{ ok: boolean; error?: string }> => {
-    markCollectionSeeded('client_reviews');
+    persistSeededFlagToFirestore('client_reviews');
     const res = await deleteFromFirestoreDoc('client_reviews', id);
     if (!res.ok) return res;
     setReviews((prev) => {
@@ -2496,7 +2714,7 @@ export function usePortalStore() {
   };
 
   const deleteInsight = async (id: string): Promise<{ ok: boolean; error?: string }> => {
-    markCollectionSeeded('legal_insights');
+    persistSeededFlagToFirestore('legal_insights');
     const res = await deleteFromFirestoreDoc('legal_insights', id);
     if (!res.ok) return res;
     setInsights((prev) => {
@@ -2548,7 +2766,7 @@ export function usePortalStore() {
   };
 
   const deletePartner = async (id: string): Promise<{ ok: boolean; error?: string }> => {
-    markCollectionSeeded('membership_partners');
+    persistSeededFlagToFirestore('membership_partners');
     const res = await deleteFromFirestoreDoc('membership_partners', id);
     if (!res.ok) return res;
     setPartners((prev) => {
@@ -2705,6 +2923,8 @@ export function usePortalStore() {
 
   return {
     isLoaded,
+    firebaseAuthUser,
+    hasFirebaseAuth: Boolean(firebaseAuthUser),
     clients,
     cases,
     notices,

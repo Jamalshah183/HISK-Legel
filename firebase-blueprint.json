@@ -67,6 +67,10 @@
     "staffAccounts": {
       "title": "Staff & Access Control",
       "description": "Authorized team members, role presets, granular RBAC permissions, and active/suspended status keyed by lowercase email"
+    },
+    "portalMeta": {
+      "title": "Portal Metadata",
+      "description": "Persistent database initialization and seeding state flags across browsers and sessions"
     }
   }
 }

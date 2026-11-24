@@ -163,43 +163,32 @@ const getStoredStaffAccounts = (): StaffAccount[] => {
   }
 };
 
-const getInitialAdminPortalSession = (): FirebaseUser | null => {
-  if (typeof window === 'undefined') return null;
+const persistAdminAuthStorage = (email: string, displayName: string, role: string) => {
+  if (typeof window === 'undefined') return;
   try {
-    const saved = localStorage.getItem('hisk_admin_auth_user');
-    if (saved) {
-      const parsed = JSON.parse(saved);
-      const email = parsed?.email?.toLowerCase();
-      if (email && isSuperAdminEmail(email)) {
-        return {
-          email,
-          displayName: parsed.displayName || 'Authorized Admin',
-          uid: 'admin-partner-' + email.replace(/[^a-zA-Z0-9]/g, '_'),
-        } as unknown as FirebaseUser;
-      }
-      if (email) {
-        const resolved = resolveStaffPermissions(email, getStoredStaffAccounts());
-        if (resolved.authorized) {
-          return {
-            email,
-            displayName: parsed.displayName || resolved.staffAccount?.name || 'Authorized Staff',
-            uid: 'staff-' + email.replace(/[^a-zA-Z0-9]/g, '_'),
-          } as unknown as FirebaseUser;
-        }
-      }
-    }
+    localStorage.setItem(
+      'hisk_admin_auth_user',
+      JSON.stringify({
+        email,
+        displayName,
+        role,
+        loggedInAt: Date.now(),
+      })
+    );
   } catch (e) {
-    console.warn('Session check note:', e);
+    console.warn('Session save note:', e);
   }
-  return null;
 };
 
 export const AdminPortal: React.FC = () => {
   // Admin authentication state
-  const [adminUser, setAdminUser] = useState<FirebaseUser | null>(getInitialAdminPortalSession);
-  const [adminAuthLoading, setAdminAuthLoading] = useState<boolean>(false);
+  const [adminUser, setAdminUser] = useState<FirebaseUser | null>(null);
+  const [adminAuthLoading, setAdminAuthLoading] = useState<boolean>(true);
   const [adminAuthError, setAdminAuthError] = useState<string | null>(null);
   const [adminAuthSuccessMessage, setAdminAuthSuccessMessage] = useState<string | null>(null);
+  const [isReverifyingGoogle, setIsReverifyingGoogle] = useState<boolean>(false);
+  const [cmsDeleteError, setCmsDeleteError] = useState<string | null>(null);
+  const localPartnerFallbackRef = React.useRef<boolean>(false);
 
   // Email & Password states
   const [adminEmailInput, setAdminEmailInput] = useState<string>('');
@@ -269,6 +258,7 @@ export const AdminPortal: React.FC = () => {
       if (user && email) {
         const authCheck = await verifyAuthorizedAccount(email);
         if (authCheck.authorized) {
+          localPartnerFallbackRef.current = false;
           setAdminUser(user);
           try {
             localStorage.setItem(
@@ -291,11 +281,11 @@ export const AdminPortal: React.FC = () => {
             setAdminAuthError(authCheck.reason);
           }
         }
-      } else {
-        const saved = typeof window !== 'undefined' ? localStorage.getItem('hisk_admin_auth_user') : null;
-        if (!saved) {
-          setAdminUser(null);
-        }
+      } else if (!localPartnerFallbackRef.current) {
+        try {
+          localStorage.removeItem('hisk_admin_auth_user');
+        } catch (e) {}
+        setAdminUser(null);
       }
       setAdminAuthLoading(false);
     });
@@ -375,11 +365,31 @@ export const AdminPortal: React.FC = () => {
     // Direct authorization check for pre-configured credentials (e.g. rahim.nawaz@i-con.pk / admin123)
     if (AUTHORIZED_ADMIN_CREDENTIALS[cleanEmail] && AUTHORIZED_ADMIN_CREDENTIALS[cleanEmail] === adminPasswordInput) {
       resetRateLimit('admin_login');
-      const sessionUser = {
-        email: cleanEmail,
-        displayName: 'Rahim Nawaz (Admin Partner)',
-        uid: 'admin-partner-' + cleanEmail.replace(/[^a-zA-Z0-9]/g, '_'),
-      } as unknown as FirebaseUser;
+
+      let signedInUser: FirebaseUser | null = null;
+      try {
+        const res = await signInWithEmailAndPassword(auth, cleanEmail, adminPasswordInput);
+        signedInUser = res.user;
+      } catch {
+        try {
+          const res = await createUserWithEmailAndPassword(auth, cleanEmail, adminPasswordInput);
+          signedInUser = res.user;
+        } catch {
+          signedInUser = null;
+        }
+      }
+
+      if (!signedInUser) {
+        localPartnerFallbackRef.current = true;
+      }
+
+      const sessionUser =
+        signedInUser ||
+        ({
+          email: cleanEmail,
+          displayName: 'Rahim Nawaz (Admin Partner)',
+          uid: 'admin-partner-' + cleanEmail.replace(/[^a-zA-Z0-9]/g, '_'),
+        } as unknown as FirebaseUser);
 
       try {
         localStorage.setItem(
@@ -398,11 +408,6 @@ export const AdminPortal: React.FC = () => {
       setAdminUser(sessionUser);
       setAdminAuthSuccessMessage('Authorized successfully as Rahim Nawaz (Admin). Access granted!');
       setAdminAuthLoading(false);
-
-      // Attempt background Firebase Auth sync/creation
-      signInWithEmailAndPassword(auth, cleanEmail, adminPasswordInput).catch(() => {
-        createUserWithEmailAndPassword(auth, cleanEmail, adminPasswordInput).catch(() => {});
-      });
       return;
     }
 
@@ -557,7 +562,40 @@ export const AdminPortal: React.FC = () => {
     120000
   );
 
+  const handleReverifyGoogleAuth = async () => {
+    setIsReverifyingGoogle(true);
+    setPortalDeleteError(null);
+    setCmsDeleteError(null);
+    try {
+      const result = await signInWithPopup(auth, googleProvider);
+      const email = result.user.email?.toLowerCase();
+      const authCheck = await verifyAuthorizedAccount(email);
+      if (email && authCheck.authorized) {
+        localPartnerFallbackRef.current = false;
+        persistAdminAuthStorage(
+          email,
+          authCheck.name || result.user.displayName || email.split('@')[0],
+          authCheck.role || 'Staff'
+        );
+        setAdminUser(result.user);
+        showPortalBanner('success', `Connected live Firestore database session as ${email}. You can now delete records.`);
+      } else {
+        await signOut(auth).catch(() => {});
+        const msg = authCheck.reason || `Access Denied: ${result.user.email || 'unknown'} is not authorized.`;
+        setPortalDeleteError(msg);
+        setCmsDeleteError(msg);
+      }
+    } catch (err: any) {
+      const msg = err?.message || 'Google sign-in popup was cancelled or blocked.';
+      setPortalDeleteError(msg);
+      setCmsDeleteError(msg);
+    } finally {
+      setIsReverifyingGoogle(false);
+    }
+  };
+
   const {
+    hasFirebaseAuth,
     clients,
     cases,
     notices,
@@ -1211,12 +1249,15 @@ export const AdminPortal: React.FC = () => {
 
   const handleDeleteStaffAccount = async (staff: StaffAccount) => {
     setStaffActionError(null);
+    setCmsDeleteError(null);
     const result = await deleteStaffAccount(staff.id);
-    setDeleteConfirmStaff(null);
     if (!result.ok) {
-      setStaffActionError(result.error || `Failed to remove portal access for ${staff.email}.`);
+      const errMsg = result.error || `Failed to remove portal access for ${staff.email}.`;
+      setCmsDeleteError(errMsg);
+      setStaffActionError(errMsg);
       return;
     }
+    setDeleteConfirmStaff(null);
     setStaffActionSuccess(`Removed portal access for ${staff.name} (${staff.email}).`);
     setTimeout(() => setStaffActionSuccess(null), 4000);
   };
@@ -1604,12 +1645,15 @@ export const AdminPortal: React.FC = () => {
   };
 
   const handleDeletePracticeArea = async (area: PracticeArea) => {
+    setCmsDeleteError(null);
     const res = await deletePracticeArea(area.id);
-    setDeleteConfirmArea(null);
     if (!res.ok) {
-      showPortalBanner('error', res.error || `Failed to remove practice area "${area.title}" from database.`);
+      const errMsg = res.error || `Failed to remove practice area "${area.title}" from database.`;
+      setCmsDeleteError(errMsg);
+      showPortalBanner('error', errMsg);
       return;
     }
+    setDeleteConfirmArea(null);
     setPaActionSuccess(`Removed practice area "${area.title}" from database.`);
     setTimeout(() => setPaActionSuccess(null), 4000);
   };
@@ -1770,12 +1814,15 @@ export const AdminPortal: React.FC = () => {
   };
 
   const handleDeleteTeamMember = async (member: TeamMember) => {
+    setCmsDeleteError(null);
     const res = await deleteTeamMember(member.id);
-    setDeleteConfirmMember(null);
     if (!res.ok) {
-      showPortalBanner('error', res.error || `Failed to remove team member "${member.name}" from database.`);
+      const errMsg = res.error || `Failed to remove team member "${member.name}" from database.`;
+      setCmsDeleteError(errMsg);
+      showPortalBanner('error', errMsg);
       return;
     }
+    setDeleteConfirmMember(null);
     setTeamActionSuccess(`Removed team member "${member.name}" from database.`);
     setTimeout(() => setTeamActionSuccess(null), 4000);
   };
@@ -1889,12 +1936,15 @@ export const AdminPortal: React.FC = () => {
   };
 
   const handleDeleteReview = async (review: ReviewItem) => {
+    setCmsDeleteError(null);
     const res = await deleteReview(review.id);
-    setDeleteConfirmReview(null);
     if (!res.ok) {
-      showPortalBanner('error', res.error || `Failed to remove review from "${review.clientInitials}" from database.`);
+      const errMsg = res.error || `Failed to remove review from "${review.clientInitials}" from database.`;
+      setCmsDeleteError(errMsg);
+      showPortalBanner('error', errMsg);
       return;
     }
+    setDeleteConfirmReview(null);
     setReviewActionSuccess(`Removed review from "${review.clientInitials}" from database.`);
     setTimeout(() => setReviewActionSuccess(null), 4000);
   };
@@ -2047,12 +2097,15 @@ export const AdminPortal: React.FC = () => {
   };
 
   const handleDeleteInsight = async (insight: LegalInsightItem) => {
+    setCmsDeleteError(null);
     const res = await deleteInsight(insight.id);
-    setDeleteConfirmInsight(null);
     if (!res.ok) {
-      showPortalBanner('error', res.error || `Failed to delete article "${insight.title}" from database.`);
+      const errMsg = res.error || `Failed to delete article "${insight.title}" from database.`;
+      setCmsDeleteError(errMsg);
+      showPortalBanner('error', errMsg);
       return;
     }
+    setDeleteConfirmInsight(null);
     setInsightActionSuccess(`Deleted article "${insight.title}" from database.`);
     setTimeout(() => setInsightActionSuccess(null), 4000);
   };
@@ -2179,12 +2232,15 @@ export const AdminPortal: React.FC = () => {
   };
 
   const handleDeletePartner = async (partner: PartnerItem) => {
+    setCmsDeleteError(null);
     const res = await deletePartner(partner.id);
-    setDeleteConfirmPartner(null);
     if (!res.ok) {
-      showPortalBanner('error', res.error || `Failed to remove partner "${partner.name}" from database.`);
+      const errMsg = res.error || `Failed to remove partner "${partner.name}" from database.`;
+      setCmsDeleteError(errMsg);
+      showPortalBanner('error', errMsg);
       return;
     }
+    setDeleteConfirmPartner(null);
     setPartnerActionSuccess(`Removed partner "${partner.name}" from database.`);
     setTimeout(() => setPartnerActionSuccess(null), 4000);
   };
@@ -3545,6 +3601,22 @@ export const AdminPortal: React.FC = () => {
                 {currentAccess.role}
               </span>
             </div>
+            {!hasFirebaseAuth ? (
+              <button
+                type="button"
+                disabled={isReverifyingGoogle}
+                onClick={() => void handleReverifyGoogleAuth()}
+                className="w-full bg-amber-400 hover:bg-amber-300 text-[#1A1A1A] font-extrabold py-1.5 px-2.5 rounded-xl text-[10px] flex items-center justify-center gap-1.5 transition-all cursor-pointer shadow-sm disabled:opacity-60"
+              >
+                <AlertTriangle className="w-3 h-3 shrink-0" />
+                <span>{isReverifyingGoogle ? 'Connecting Google...' : 'Connect Google DB Session'}</span>
+              </button>
+            ) : (
+              <div className="flex items-center gap-1.5 text-[10px] text-emerald-200 font-semibold px-1">
+                <span className="w-2 h-2 rounded-full bg-emerald-400 shrink-0"></span>
+                <span>Firestore Live Sync Active</span>
+              </div>
+            )}
             <button
               type="button"
               onClick={handleAdminSignOut}
@@ -11687,10 +11759,29 @@ export const AdminPortal: React.FC = () => {
               </p>
             </div>
 
+            {cmsDeleteError && (
+              <div className="bg-red-50 border border-red-300 text-red-700 text-xs p-2.5 rounded-xl font-semibold space-y-2">
+                <p>{cmsDeleteError}</p>
+                {!hasFirebaseAuth && (
+                  <button
+                    type="button"
+                    disabled={isReverifyingGoogle}
+                    onClick={() => void handleReverifyGoogleAuth()}
+                    className="w-full bg-[#0A4B35] hover:bg-[#0F6B4C] text-white font-bold py-2 px-3 rounded-lg text-xs cursor-pointer disabled:opacity-50"
+                  >
+                    {isReverifyingGoogle ? 'Signing in...' : 'Sign in with Authorized Google Account'}
+                  </button>
+                )}
+              </div>
+            )}
+
             <div className="flex items-center justify-end gap-2.5 pt-2">
               <button
                 type="button"
-                onClick={() => setDeleteConfirmArea(null)}
+                onClick={() => {
+                  setDeleteConfirmArea(null);
+                  setCmsDeleteError(null);
+                }}
                 className="bg-gray-100 hover:bg-gray-200 text-gray-700 font-bold px-4 py-2 rounded-xl text-xs transition-colors"
               >
                 Cancel
@@ -11968,10 +12059,29 @@ export const AdminPortal: React.FC = () => {
               </p>
             </div>
 
+            {cmsDeleteError && (
+              <div className="bg-red-50 border border-red-300 text-red-700 text-xs p-2.5 rounded-xl font-semibold space-y-2">
+                <p>{cmsDeleteError}</p>
+                {!hasFirebaseAuth && (
+                  <button
+                    type="button"
+                    disabled={isReverifyingGoogle}
+                    onClick={() => void handleReverifyGoogleAuth()}
+                    className="w-full bg-[#0A4B35] hover:bg-[#0F6B4C] text-white font-bold py-2 px-3 rounded-lg text-xs cursor-pointer disabled:opacity-50"
+                  >
+                    {isReverifyingGoogle ? 'Signing in...' : 'Sign in with Authorized Google Account'}
+                  </button>
+                )}
+              </div>
+            )}
+
             <div className="flex items-center justify-end gap-2.5 pt-2">
               <button
                 type="button"
-                onClick={() => setDeleteConfirmMember(null)}
+                onClick={() => {
+                  setDeleteConfirmMember(null);
+                  setCmsDeleteError(null);
+                }}
                 className="bg-gray-100 hover:bg-gray-200 text-gray-700 font-bold px-4 py-2 rounded-xl text-xs transition-colors"
               >
                 Cancel
@@ -12262,10 +12372,29 @@ export const AdminPortal: React.FC = () => {
               </p>
             </div>
 
+            {cmsDeleteError && (
+              <div className="bg-red-50 border border-red-300 text-red-700 text-xs p-2.5 rounded-xl font-semibold space-y-2">
+                <p>{cmsDeleteError}</p>
+                {!hasFirebaseAuth && (
+                  <button
+                    type="button"
+                    disabled={isReverifyingGoogle}
+                    onClick={() => void handleReverifyGoogleAuth()}
+                    className="w-full bg-[#0A4B35] hover:bg-[#0F6B4C] text-white font-bold py-2 px-3 rounded-lg text-xs cursor-pointer disabled:opacity-50"
+                  >
+                    {isReverifyingGoogle ? 'Signing in...' : 'Sign in with Authorized Google Account'}
+                  </button>
+                )}
+              </div>
+            )}
+
             <div className="flex items-center justify-end gap-2.5 pt-2">
               <button
                 type="button"
-                onClick={() => setDeleteConfirmReview(null)}
+                onClick={() => {
+                  setDeleteConfirmReview(null);
+                  setCmsDeleteError(null);
+                }}
                 className="bg-gray-100 hover:bg-gray-200 text-gray-700 font-bold px-4 py-2 rounded-xl text-xs transition-colors cursor-pointer"
               >
                 Cancel
@@ -12552,10 +12681,29 @@ export const AdminPortal: React.FC = () => {
               </p>
             </div>
 
+            {cmsDeleteError && (
+              <div className="bg-red-50 border border-red-300 text-red-700 text-xs p-2.5 rounded-xl font-semibold space-y-2">
+                <p>{cmsDeleteError}</p>
+                {!hasFirebaseAuth && (
+                  <button
+                    type="button"
+                    disabled={isReverifyingGoogle}
+                    onClick={() => void handleReverifyGoogleAuth()}
+                    className="w-full bg-[#0A4B35] hover:bg-[#0F6B4C] text-white font-bold py-2 px-3 rounded-lg text-xs cursor-pointer disabled:opacity-50"
+                  >
+                    {isReverifyingGoogle ? 'Signing in...' : 'Sign in with Authorized Google Account'}
+                  </button>
+                )}
+              </div>
+            )}
+
             <div className="flex items-center justify-end gap-2.5 pt-2">
               <button
                 type="button"
-                onClick={() => setDeleteConfirmInsight(null)}
+                onClick={() => {
+                  setDeleteConfirmInsight(null);
+                  setCmsDeleteError(null);
+                }}
                 className="bg-gray-100 hover:bg-gray-200 text-gray-700 font-bold px-4 py-2 rounded-xl text-xs transition-colors cursor-pointer"
               >
                 Cancel
@@ -12772,10 +12920,29 @@ export const AdminPortal: React.FC = () => {
               </p>
             </div>
 
+            {cmsDeleteError && (
+              <div className="bg-red-50 border border-red-300 text-red-700 text-xs p-2.5 rounded-xl font-semibold space-y-2">
+                <p>{cmsDeleteError}</p>
+                {!hasFirebaseAuth && (
+                  <button
+                    type="button"
+                    disabled={isReverifyingGoogle}
+                    onClick={() => void handleReverifyGoogleAuth()}
+                    className="w-full bg-[#0A4B35] hover:bg-[#0F6B4C] text-white font-bold py-2 px-3 rounded-lg text-xs cursor-pointer disabled:opacity-50"
+                  >
+                    {isReverifyingGoogle ? 'Signing in...' : 'Sign in with Authorized Google Account'}
+                  </button>
+                )}
+              </div>
+            )}
+
             <div className="flex items-center justify-end gap-2.5 pt-2">
               <button
                 type="button"
-                onClick={() => setDeleteConfirmPartner(null)}
+                onClick={() => {
+                  setDeleteConfirmPartner(null);
+                  setCmsDeleteError(null);
+                }}
                 className="bg-gray-100 hover:bg-gray-200 text-gray-700 font-bold px-4 py-2 rounded-xl text-xs transition-colors cursor-pointer"
               >
                 Cancel
@@ -13051,10 +13218,29 @@ export const AdminPortal: React.FC = () => {
               </p>
             </div>
 
+            {cmsDeleteError && (
+              <div className="bg-red-50 border border-red-300 text-red-700 text-xs p-2.5 rounded-xl font-semibold space-y-2">
+                <p>{cmsDeleteError}</p>
+                {!hasFirebaseAuth && (
+                  <button
+                    type="button"
+                    disabled={isReverifyingGoogle}
+                    onClick={() => void handleReverifyGoogleAuth()}
+                    className="w-full bg-[#0A4B35] hover:bg-[#0F6B4C] text-white font-bold py-2 px-3 rounded-lg text-xs cursor-pointer disabled:opacity-50"
+                  >
+                    {isReverifyingGoogle ? 'Signing in...' : 'Sign in with Authorized Google Account'}
+                  </button>
+                )}
+              </div>
+            )}
+
             <div className="flex items-center justify-end gap-2.5 pt-2">
               <button
                 type="button"
-                onClick={() => setDeleteConfirmStaff(null)}
+                onClick={() => {
+                  setDeleteConfirmStaff(null);
+                  setCmsDeleteError(null);
+                }}
                 className="bg-gray-100 hover:bg-gray-200 text-gray-700 font-bold px-4 py-2 rounded-xl text-xs cursor-pointer"
               >
                 Cancel
@@ -13102,6 +13288,23 @@ export const AdminPortal: React.FC = () => {
                 This permanently deletes the record from the Firestore database and cannot be undone.
               </p>
             </div>
+
+            {!hasFirebaseAuth && (
+              <div className="bg-amber-50 border border-amber-300 text-amber-950 text-xs p-3 rounded-xl space-y-2">
+                <p className="font-semibold">
+                  Your live Firebase database session is not connected. Sign in with your authorized Google account to delete records from Firestore.
+                </p>
+                <button
+                  type="button"
+                  disabled={isReverifyingGoogle}
+                  onClick={() => void handleReverifyGoogleAuth()}
+                  className="w-full bg-[#0A4B35] hover:bg-[#0F6B4C] text-white font-extrabold py-2 px-3 rounded-xl text-xs flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
+                >
+                  <ShieldCheck className="w-4 h-4 text-[#F5A623]" />
+                  <span>{isReverifyingGoogle ? 'Connecting Google Session...' : 'Sign in with Google to Delete'}</span>
+                </button>
+              </div>
+            )}
 
             {portalDeleteError && (
               <div className="bg-red-50 border border-red-300 text-red-700 text-xs p-2.5 rounded-xl font-semibold">
