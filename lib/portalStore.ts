@@ -44,7 +44,7 @@ import {
   INITIAL_PARTNERS
 } from '@/data/portalSeedData';
 import { db, auth } from './firebase';
-import { collection, onSnapshot, doc, setDoc, deleteDoc, getDoc, getDocFromServer } from 'firebase/firestore';
+import { collection, onSnapshot, doc, setDoc, updateDoc, deleteDoc, deleteField, getDoc, getDocFromServer } from 'firebase/firestore';
 import { onAuthStateChanged } from 'firebase/auth';
 import { isSuperAdminEmail, resolveStaffPermissions } from './staffPermissions';
 import {
@@ -144,6 +144,44 @@ const createFullTimestampId = (prefix: string) =>
   `${prefix}-${Date.now()}-${Math.floor(100 + Math.random() * 900)}`;
 const getTodayDateString = () => new Date().toISOString().split('T')[0];
 const getCurrentYearNumber = () => new Date().getFullYear();
+
+const INITIALIZED_COLS_KEY = 'hisk_portal_initialized_cols_v1';
+
+const readInitializedCols = (): Record<string, boolean> => {
+  if (typeof window === 'undefined') return {};
+  try {
+    const raw = localStorage.getItem(INITIALIZED_COLS_KEY);
+    return raw ? (JSON.parse(raw) as Record<string, boolean>) : {};
+  } catch {
+    return {};
+  }
+};
+
+const hasSeededCollection = (colKey: string): boolean => {
+  if (typeof window === 'undefined') return false;
+  const map = readInitializedCols();
+  if (map[colKey]) return true;
+  return localStorage.getItem('hisk_registers_seeded_v2') === 'done' && (
+    colKey === 'clients' ||
+    colKey === 'cases' ||
+    colKey === 'notices' ||
+    colKey === 'hearings' ||
+    colKey === 'clientCredentials'
+  );
+};
+
+const markCollectionSeeded = (colKey: string) => {
+  if (typeof window === 'undefined') return;
+  try {
+    const map = readInitializedCols();
+    if (!map[colKey]) {
+      map[colKey] = true;
+      localStorage.setItem(INITIALIZED_COLS_KEY, JSON.stringify(map));
+    }
+  } catch {
+    // ignore storage errors
+  }
+};
 
 function normalizeClientList(rawClients: Client[], currentCases: CaseFile[]): Client[] {
   const seedMap = new Map(INITIAL_CLIENTS.map((c) => [c.id, c]));
@@ -391,8 +429,12 @@ export function usePortalStore() {
   const clientsRef = useRef<Client[]>(clients);
   const casesRef = useRef<CaseFile[]>(cases);
   const noticesRef = useRef<FBRNotice[]>(notices);
+  const documentsRef = useRef<DocumentItem[]>(documents);
+  const tasksRef = useRef<InternalTask[]>(tasks);
+  const notesRef = useRef<InternalNote[]>(notes);
   const invoicesRef = useRef<Invoice[]>(invoices);
   const hearingsRef = useRef<HearingEvent[]>(hearings);
+  const notificationsRef = useRef<NotificationLog[]>(notifications);
   const clientCredentialsRef = useRef<ClientCredential[]>(clientCredentials);
   const hasAttemptedBackfillRef = useRef<boolean>(false);
 
@@ -400,10 +442,14 @@ export function usePortalStore() {
     clientsRef.current = clients;
     casesRef.current = cases;
     noticesRef.current = notices;
+    documentsRef.current = documents;
+    tasksRef.current = tasks;
+    notesRef.current = notes;
     invoicesRef.current = invoices;
     hearingsRef.current = hearings;
+    notificationsRef.current = notifications;
     clientCredentialsRef.current = clientCredentials;
-  }, [clients, cases, notices, invoices, hearings, clientCredentials]);
+  }, [clients, cases, notices, documents, tasks, notes, invoices, hearings, notifications, clientCredentials]);
 
   // Helper to sync to Firestore and local storage
   const saveToStorage = (key: string, data: any) => {
@@ -423,12 +469,25 @@ export function usePortalStore() {
     }
   };
 
-  const deleteFromFirestoreDoc = async (colName: string, id: string) => {
+
+
+  const deleteFromFirestoreDoc = async (colName: string, id: string): Promise<{ ok: boolean; error?: string }> => {
+    if (!auth.currentUser) {
+      return {
+        ok: false,
+        error: 'Active Firebase sign-in is required to delete records from the database.',
+      };
+    }
     try {
       await deleteDoc(doc(db, colName, id));
+      return { ok: true };
     } catch (err) {
       const info = buildFirestoreErrorInfo(err, OperationType.DELETE, `${colName}/${id}`);
       console.warn('Firestore delete error:', JSON.stringify(info));
+      return {
+        ok: false,
+        error: err instanceof Error ? err.message : `Failed to delete ${colName}/${id} from database.`,
+      };
     }
   };
 
@@ -494,7 +553,7 @@ export function usePortalStore() {
         !rawClients.some((c) => c.id === 'cli-107');
 
       const alreadySeededLocal = localStorage.getItem('hisk_registers_seeded_v2') === 'done';
-      if (!alreadySeededLocal || (needsSampleSeries && !rawClients.some((c) => Boolean(c.fileNumber)))) {
+      if (!alreadySeededLocal && (rawClients.length > 0 && needsSampleSeries && !rawClients.some((c) => Boolean(c.fileNumber)))) {
         hasAttemptedBackfillRef.current = true;
         localStorage.setItem('hisk_registers_seeded_v2', 'done');
 
@@ -571,8 +630,16 @@ export function usePortalStore() {
     // 1. Clients
     const unsubClients = onSnapshot(collection(db, 'clients'), (snap) => {
       if (snap.empty) {
-        INITIAL_CLIENTS.forEach((c) => saveToFirestoreDoc('clients', c.id, c));
+        if (!hasSeededCollection('clients')) {
+          markCollectionSeeded('clients');
+          INITIAL_CLIENTS.forEach((c) => saveToFirestoreDoc('clients', c.id, c));
+        } else {
+          rawFirestoreClientsRef.current = [];
+          setClients([]);
+          saveToStorage(STORAGE_KEYS.CLIENTS, []);
+        }
       } else {
+        markCollectionSeeded('clients');
         const items = snap.docs.map((d) => d.data() as Client);
         rawFirestoreClientsRef.current = items;
         const currentCases = rawFirestoreCasesRef.current || casesRef.current;
@@ -591,8 +658,16 @@ export function usePortalStore() {
     // 2. Cases
     const unsubCases = onSnapshot(collection(db, 'cases'), (snap) => {
       if (snap.empty) {
-        INITIAL_CASES.forEach((c) => saveToFirestoreDoc('cases', c.id, c));
+        if (!hasSeededCollection('cases')) {
+          markCollectionSeeded('cases');
+          INITIAL_CASES.forEach((c) => saveToFirestoreDoc('cases', c.id, c));
+        } else {
+          rawFirestoreCasesRef.current = [];
+          setCases([]);
+          saveToStorage(STORAGE_KEYS.CASES, []);
+        }
       } else {
+        markCollectionSeeded('cases');
         const items = snap.docs.map((d) => d.data() as CaseFile);
         rawFirestoreCasesRef.current = items;
         const currentClients = rawFirestoreClientsRef.current || clientsRef.current;
@@ -609,8 +684,16 @@ export function usePortalStore() {
     // 3. Notices
     const unsubNotices = onSnapshot(collection(db, 'notices'), (snap) => {
       if (snap.empty) {
-        INITIAL_NOTICES.forEach((n) => saveToFirestoreDoc('notices', n.id, n));
+        if (!hasSeededCollection('notices')) {
+          markCollectionSeeded('notices');
+          INITIAL_NOTICES.forEach((n) => saveToFirestoreDoc('notices', n.id, n));
+        } else {
+          rawFirestoreNoticesRef.current = [];
+          setNotices([]);
+          saveToStorage(STORAGE_KEYS.NOTICES, []);
+        }
       } else {
+        markCollectionSeeded('notices');
         const items = snap.docs.map((d) => d.data() as FBRNotice);
         rawFirestoreNoticesRef.current = items;
         setNotices(items);
@@ -621,8 +704,16 @@ export function usePortalStore() {
     // 4. Documents
     const unsubDocs = onSnapshot(collection(db, 'documents'), (snap) => {
       if (snap.empty) {
-        INITIAL_DOCUMENTS.forEach((d) => saveToFirestoreDoc('documents', d.id, d));
+        if (!hasSeededCollection('documents')) {
+          markCollectionSeeded('documents');
+          INITIAL_DOCUMENTS.forEach((d) => saveToFirestoreDoc('documents', d.id, d));
+        } else {
+          rawFirestoreDocsRef.current = [];
+          setDocuments([]);
+          saveToStorage(STORAGE_KEYS.DOCUMENTS, []);
+        }
       } else {
+        markCollectionSeeded('documents');
         const items = snap.docs.map((d) => d.data() as DocumentItem);
         rawFirestoreDocsRef.current = items;
         setDocuments(items);
@@ -633,8 +724,16 @@ export function usePortalStore() {
     // 5. Tasks
     const unsubTasks = onSnapshot(collection(db, 'tasks'), (snap) => {
       if (snap.empty) {
-        INITIAL_TASKS.forEach((t) => saveToFirestoreDoc('tasks', t.id, t));
+        if (!hasSeededCollection('tasks')) {
+          markCollectionSeeded('tasks');
+          INITIAL_TASKS.forEach((t) => saveToFirestoreDoc('tasks', t.id, t));
+        } else {
+          rawFirestoreTasksRef.current = [];
+          setTasks([]);
+          saveToStorage(STORAGE_KEYS.TASKS, []);
+        }
       } else {
+        markCollectionSeeded('tasks');
         const items = snap.docs.map((d) => d.data() as InternalTask);
         rawFirestoreTasksRef.current = items;
         setTasks(items);
@@ -645,8 +744,16 @@ export function usePortalStore() {
     // 6. Notes
     const unsubNotes = onSnapshot(collection(db, 'notes'), (snap) => {
       if (snap.empty) {
-        INITIAL_NOTES.forEach((n) => saveToFirestoreDoc('notes', n.id, n));
+        if (!hasSeededCollection('notes')) {
+          markCollectionSeeded('notes');
+          INITIAL_NOTES.forEach((n) => saveToFirestoreDoc('notes', n.id, n));
+        } else {
+          rawFirestoreNotesRef.current = [];
+          setNotes([]);
+          saveToStorage(STORAGE_KEYS.NOTES, []);
+        }
       } else {
+        markCollectionSeeded('notes');
         const items = snap.docs.map((d) => d.data() as InternalNote);
         rawFirestoreNotesRef.current = items;
         setNotes(items);
@@ -657,8 +764,16 @@ export function usePortalStore() {
     // 7. Invoices
     const unsubInvoices = onSnapshot(collection(db, 'invoices'), (snap) => {
       if (snap.empty) {
-        INITIAL_INVOICES.forEach((i) => saveToFirestoreDoc('invoices', i.id, i));
+        if (!hasSeededCollection('invoices')) {
+          markCollectionSeeded('invoices');
+          INITIAL_INVOICES.forEach((i) => saveToFirestoreDoc('invoices', i.id, i));
+        } else {
+          rawFirestoreInvoicesRef.current = [];
+          setInvoices([]);
+          saveToStorage(STORAGE_KEYS.INVOICES, []);
+        }
       } else {
+        markCollectionSeeded('invoices');
         const items = snap.docs.map((d) => d.data() as Invoice);
         rawFirestoreInvoicesRef.current = items;
         setInvoices(items);
@@ -669,8 +784,16 @@ export function usePortalStore() {
     // 8. Hearings
     const unsubHearings = onSnapshot(collection(db, 'hearings'), (snap) => {
       if (snap.empty) {
-        INITIAL_HEARINGS.forEach((h) => saveToFirestoreDoc('hearings', h.id, h));
+        if (!hasSeededCollection('hearings')) {
+          markCollectionSeeded('hearings');
+          INITIAL_HEARINGS.forEach((h) => saveToFirestoreDoc('hearings', h.id, h));
+        } else {
+          rawFirestoreHearingsRef.current = [];
+          setHearings([]);
+          saveToStorage(STORAGE_KEYS.HEARINGS, []);
+        }
       } else {
+        markCollectionSeeded('hearings');
         const items = snap.docs.map((d) => d.data() as HearingEvent);
         rawFirestoreHearingsRef.current = items;
         setHearings(items);
@@ -681,8 +804,16 @@ export function usePortalStore() {
     // 9. Notifications
     const unsubNotifs = onSnapshot(collection(db, 'notifications'), (snap) => {
       if (snap.empty) {
-        INITIAL_NOTIFICATIONS.forEach((n) => saveToFirestoreDoc('notifications', n.id, n));
+        if (!hasSeededCollection('notifications')) {
+          markCollectionSeeded('notifications');
+          INITIAL_NOTIFICATIONS.forEach((n) => saveToFirestoreDoc('notifications', n.id, n));
+        } else {
+          rawFirestoreNotifsRef.current = [];
+          setNotifications([]);
+          saveToStorage(STORAGE_KEYS.NOTIFICATIONS, []);
+        }
       } else {
+        markCollectionSeeded('notifications');
         const items = snap.docs.map((d) => d.data() as NotificationLog);
         rawFirestoreNotifsRef.current = items;
         setNotifications(items);
@@ -693,8 +824,16 @@ export function usePortalStore() {
     // 10. Client Credentials
     const unsubCreds = onSnapshot(collection(db, 'clientCredentials'), (snap) => {
       if (snap.empty) {
-        INITIAL_CLIENT_CREDENTIALS.forEach((c) => saveToFirestoreDoc('clientCredentials', c.id, c));
+        if (!hasSeededCollection('clientCredentials')) {
+          markCollectionSeeded('clientCredentials');
+          INITIAL_CLIENT_CREDENTIALS.forEach((c) => saveToFirestoreDoc('clientCredentials', c.id, c));
+        } else {
+          rawFirestoreCredsRef.current = [];
+          setClientCredentials([]);
+          saveToStorage(STORAGE_KEYS.CLIENT_CREDENTIALS, []);
+        }
       } else {
+        markCollectionSeeded('clientCredentials');
         const items = snap.docs.map((d) => d.data() as ClientCredential);
         rawFirestoreCredsRef.current = items;
         setClientCredentials(items);
@@ -705,8 +844,15 @@ export function usePortalStore() {
     // 11. Practice Areas
     const unsubPracticeAreas = onSnapshot(collection(db, 'practice_areas'), (snap) => {
       if (snap.empty) {
-        INITIAL_PRACTICE_AREAS.forEach((pa) => saveToFirestoreDoc('practice_areas', pa.id, pa));
+        if (!hasSeededCollection('practice_areas')) {
+          markCollectionSeeded('practice_areas');
+          INITIAL_PRACTICE_AREAS.forEach((pa) => saveToFirestoreDoc('practice_areas', pa.id, pa));
+        } else {
+          setPracticeAreas([]);
+          saveToStorage(STORAGE_KEYS.PRACTICE_AREAS, []);
+        }
       } else {
+        markCollectionSeeded('practice_areas');
         const items = snap.docs.map((d) => d.data() as PracticeArea);
         setPracticeAreas(items);
         saveToStorage(STORAGE_KEYS.PRACTICE_AREAS, items);
@@ -716,8 +862,15 @@ export function usePortalStore() {
     // 12. Team Members
     const unsubTeam = onSnapshot(collection(db, 'team_members'), (snap) => {
       if (snap.empty) {
-        INITIAL_TEAM_MEMBERS.forEach((m) => saveToFirestoreDoc('team_members', m.id, m));
+        if (!hasSeededCollection('team_members')) {
+          markCollectionSeeded('team_members');
+          INITIAL_TEAM_MEMBERS.forEach((m) => saveToFirestoreDoc('team_members', m.id, m));
+        } else {
+          setTeamMembers([]);
+          saveToStorage(STORAGE_KEYS.TEAM_MEMBERS, []);
+        }
       } else {
+        markCollectionSeeded('team_members');
         const items = snap.docs.map((d) => d.data() as TeamMember);
         // Sort by order or ceo first
         items.sort((a, b) => {
@@ -733,8 +886,15 @@ export function usePortalStore() {
     // 13. Client Reviews & Testimonials
     const unsubReviews = onSnapshot(collection(db, 'client_reviews'), (snap) => {
       if (snap.empty) {
-        INITIAL_REVIEWS.forEach((r) => saveToFirestoreDoc('client_reviews', r.id, r));
+        if (!hasSeededCollection('client_reviews')) {
+          markCollectionSeeded('client_reviews');
+          INITIAL_REVIEWS.forEach((r) => saveToFirestoreDoc('client_reviews', r.id, r));
+        } else {
+          setReviews([]);
+          saveToStorage(STORAGE_KEYS.REVIEWS, []);
+        }
       } else {
+        markCollectionSeeded('client_reviews');
         const items = snap.docs.map((d) => d.data() as ReviewItem);
         setReviews(items);
         saveToStorage(STORAGE_KEYS.REVIEWS, items);
@@ -744,8 +904,15 @@ export function usePortalStore() {
     // 14. Legal Insights & Blog Articles
     const unsubInsights = onSnapshot(collection(db, 'legal_insights'), (snap) => {
       if (snap.empty) {
-        INITIAL_INSIGHTS.forEach((ins) => saveToFirestoreDoc('legal_insights', ins.id, ins));
+        if (!hasSeededCollection('legal_insights')) {
+          markCollectionSeeded('legal_insights');
+          INITIAL_INSIGHTS.forEach((ins) => saveToFirestoreDoc('legal_insights', ins.id, ins));
+        } else {
+          setInsights([]);
+          saveToStorage(STORAGE_KEYS.INSIGHTS, []);
+        }
       } else {
+        markCollectionSeeded('legal_insights');
         const items = snap.docs.map((d) => d.data() as LegalInsightItem);
         setInsights(items);
         saveToStorage(STORAGE_KEYS.INSIGHTS, items);
@@ -755,8 +922,15 @@ export function usePortalStore() {
     // 15. Membership & Partners
     const unsubPartners = onSnapshot(collection(db, 'membership_partners'), (snap) => {
       if (snap.empty) {
-        INITIAL_PARTNERS.forEach((p) => saveToFirestoreDoc('membership_partners', p.id, p));
+        if (!hasSeededCollection('membership_partners')) {
+          markCollectionSeeded('membership_partners');
+          INITIAL_PARTNERS.forEach((p) => saveToFirestoreDoc('membership_partners', p.id, p));
+        } else {
+          setPartners([]);
+          saveToStorage(STORAGE_KEYS.PARTNERS, []);
+        }
       } else {
+        markCollectionSeeded('membership_partners');
         const items = snap.docs.map((d) => d.data() as PartnerItem);
         items.sort((a, b) => (a.order || 99) - (b.order || 99));
         setPartners(items);
@@ -1787,11 +1961,376 @@ export function usePortalStore() {
     }
   };
 
-  const deletePracticeArea = (id: string) => {
-    const updated = practiceAreas.filter((pa) => pa.id !== id);
-    setPracticeAreas(updated);
-    saveToStorage(STORAGE_KEYS.PRACTICE_AREAS, updated);
-    deleteFromFirestoreDoc('practice_areas', id);
+  const deleteClient = async (clientId: string): Promise<{ ok: boolean; error?: string }> => {
+    markCollectionSeeded('clients');
+    markCollectionSeeded('clientCredentials');
+    markCollectionSeeded('cases');
+    markCollectionSeeded('notices');
+    markCollectionSeeded('hearings');
+    markCollectionSeeded('documents');
+    markCollectionSeeded('invoices');
+    markCollectionSeeded('tasks');
+    markCollectionSeeded('notes');
+    markCollectionSeeded('notifications');
+
+    const res = await deleteFromFirestoreDoc('clients', clientId);
+    if (!res.ok) return res;
+
+    const linkedCases = casesRef.current.filter((cs) => cs.clientId === clientId);
+    const linkedCaseIds = new Set(linkedCases.map((cs) => cs.id));
+
+    const credIds = clientCredentialsRef.current.filter((c) => c.clientId === clientId).map((c) => c.id);
+    const noticeIds = noticesRef.current
+      .filter((n) => n.clientId === clientId || linkedCaseIds.has(n.caseId))
+      .map((n) => n.id);
+    const hearingIds = hearingsRef.current
+      .filter((h) => linkedCaseIds.has(h.caseId))
+      .map((h) => h.id);
+    const docIds = documentsRef.current
+      .filter((d) => d.clientId === clientId || linkedCaseIds.has(d.caseId))
+      .map((d) => d.id);
+    const invoiceIds = invoicesRef.current
+      .filter((i) => i.clientId === clientId || linkedCaseIds.has(i.caseId))
+      .map((i) => i.id);
+    const taskIds = tasksRef.current.filter((t) => linkedCaseIds.has(t.caseId)).map((t) => t.id);
+    const noteIds = notesRef.current.filter((n) => linkedCaseIds.has(n.caseId)).map((n) => n.id);
+    const notifIds = notificationsRef.current
+      .filter((n) => n.clientId === clientId || (n.caseId ? linkedCaseIds.has(n.caseId) : false))
+      .map((n) => n.id);
+
+    await Promise.allSettled([
+      deleteFromFirestoreDoc('client_vault_secrets', clientId),
+      ...credIds.map((id) => deleteFromFirestoreDoc('clientCredentials', id)),
+      ...linkedCases.map((cs) => deleteFromFirestoreDoc('cases', cs.id)),
+      ...noticeIds.map((id) => deleteFromFirestoreDoc('notices', id)),
+      ...hearingIds.map((id) => deleteFromFirestoreDoc('hearings', id)),
+      ...docIds.map((id) => deleteFromFirestoreDoc('documents', id)),
+      ...invoiceIds.map((id) => deleteFromFirestoreDoc('invoices', id)),
+      ...taskIds.map((id) => deleteFromFirestoreDoc('tasks', id)),
+      ...noteIds.map((id) => deleteFromFirestoreDoc('notes', id)),
+      ...notifIds.map((id) => deleteFromFirestoreDoc('notifications', id)),
+    ]);
+
+    setClients((prev) => {
+      const updated = prev.filter((c) => c.id !== clientId);
+      saveToStorage(STORAGE_KEYS.CLIENTS, updated);
+      return updated;
+    });
+    setClientVaultSecrets((prev) => {
+      const next = { ...prev };
+      delete next[clientId];
+      saveToStorage(STORAGE_KEYS.CLIENT_VAULT_SECRETS, next);
+      return next;
+    });
+    setClientCredentials((prev) => {
+      const updated = prev.filter((c) => c.clientId !== clientId);
+      saveToStorage(STORAGE_KEYS.CLIENT_CREDENTIALS, updated);
+      return updated;
+    });
+    setCases((prev) => {
+      const updated = prev.filter((cs) => cs.clientId !== clientId);
+      saveToStorage(STORAGE_KEYS.CASES, updated);
+      return updated;
+    });
+    setNotices((prev) => {
+      const updated = prev.filter((n) => !noticeIds.includes(n.id));
+      saveToStorage(STORAGE_KEYS.NOTICES, updated);
+      return updated;
+    });
+    setHearings((prev) => {
+      const updated = prev.filter((h) => !hearingIds.includes(h.id));
+      saveToStorage(STORAGE_KEYS.HEARINGS, updated);
+      return updated;
+    });
+    setDocuments((prev) => {
+      const updated = prev.filter((d) => !docIds.includes(d.id));
+      saveToStorage(STORAGE_KEYS.DOCUMENTS, updated);
+      return updated;
+    });
+    setInvoices((prev) => {
+      const updated = prev.filter((i) => !invoiceIds.includes(i.id));
+      saveToStorage(STORAGE_KEYS.INVOICES, updated);
+      return updated;
+    });
+    setTasks((prev) => {
+      const updated = prev.filter((t) => !taskIds.includes(t.id));
+      saveToStorage(STORAGE_KEYS.TASKS, updated);
+      return updated;
+    });
+    setNotes((prev) => {
+      const updated = prev.filter((n) => !noteIds.includes(n.id));
+      saveToStorage(STORAGE_KEYS.NOTES, updated);
+      return updated;
+    });
+    setNotifications((prev) => {
+      const updated = prev.filter((n) => !notifIds.includes(n.id));
+      saveToStorage(STORAGE_KEYS.NOTIFICATIONS, updated);
+      return updated;
+    });
+
+    return { ok: true };
+  };
+
+  const deleteCase = async (caseId: string): Promise<{ ok: boolean; error?: string }> => {
+    markCollectionSeeded('cases');
+    markCollectionSeeded('notices');
+    markCollectionSeeded('hearings');
+    markCollectionSeeded('documents');
+    markCollectionSeeded('invoices');
+    markCollectionSeeded('tasks');
+    markCollectionSeeded('notes');
+    markCollectionSeeded('notifications');
+
+    const targetCase = casesRef.current.find((c) => c.id === caseId);
+    const res = await deleteFromFirestoreDoc('cases', caseId);
+    if (!res.ok) return res;
+
+    const noticeIds = noticesRef.current.filter((n) => n.caseId === caseId).map((n) => n.id);
+    const hearingIds = hearingsRef.current.filter((h) => h.caseId === caseId).map((h) => h.id);
+    const docIds = documentsRef.current.filter((d) => d.caseId === caseId).map((d) => d.id);
+    const invoiceIds = invoicesRef.current.filter((i) => i.caseId === caseId).map((i) => i.id);
+    const taskIds = tasksRef.current.filter((t) => t.caseId === caseId).map((t) => t.id);
+    const noteIds = notesRef.current.filter((n) => n.caseId === caseId).map((n) => n.id);
+    const notifIds = notificationsRef.current.filter((n) => n.caseId === caseId).map((n) => n.id);
+
+    await Promise.allSettled([
+      ...noticeIds.map((id) => deleteFromFirestoreDoc('notices', id)),
+      ...hearingIds.map((id) => deleteFromFirestoreDoc('hearings', id)),
+      ...docIds.map((id) => deleteFromFirestoreDoc('documents', id)),
+      ...invoiceIds.map((id) => deleteFromFirestoreDoc('invoices', id)),
+      ...taskIds.map((id) => deleteFromFirestoreDoc('tasks', id)),
+      ...noteIds.map((id) => deleteFromFirestoreDoc('notes', id)),
+      ...notifIds.map((id) => deleteFromFirestoreDoc('notifications', id)),
+    ]);
+
+    const nextCases = casesRef.current.filter((c) => c.id !== caseId);
+    setCases(nextCases);
+    saveToStorage(STORAGE_KEYS.CASES, nextCases);
+
+    if (targetCase?.clientId) {
+      const remainingCount = nextCases.filter((c) => c.clientId === targetCase.clientId).length;
+      setClients((prev) => {
+        const updated = prev.map((cl) => {
+          if (cl.id === targetCase.clientId) {
+            const nextClient = { ...cl, activeCasesCount: remainingCount };
+            saveToFirestoreDoc('clients', nextClient.id, nextClient);
+            return nextClient;
+          }
+          return cl;
+        });
+        saveToStorage(STORAGE_KEYS.CLIENTS, updated);
+        return updated;
+      });
+    }
+
+    setNotices((prev) => {
+      const updated = prev.filter((n) => !noticeIds.includes(n.id));
+      saveToStorage(STORAGE_KEYS.NOTICES, updated);
+      return updated;
+    });
+    setHearings((prev) => {
+      const updated = prev.filter((h) => !hearingIds.includes(h.id));
+      saveToStorage(STORAGE_KEYS.HEARINGS, updated);
+      return updated;
+    });
+    setDocuments((prev) => {
+      const updated = prev.filter((d) => !docIds.includes(d.id));
+      saveToStorage(STORAGE_KEYS.DOCUMENTS, updated);
+      return updated;
+    });
+    setInvoices((prev) => {
+      const updated = prev.filter((i) => !invoiceIds.includes(i.id));
+      saveToStorage(STORAGE_KEYS.INVOICES, updated);
+      return updated;
+    });
+    setTasks((prev) => {
+      const updated = prev.filter((t) => !taskIds.includes(t.id));
+      saveToStorage(STORAGE_KEYS.TASKS, updated);
+      return updated;
+    });
+    setNotes((prev) => {
+      const updated = prev.filter((n) => !noteIds.includes(n.id));
+      saveToStorage(STORAGE_KEYS.NOTES, updated);
+      return updated;
+    });
+    setNotifications((prev) => {
+      const updated = prev.filter((n) => !notifIds.includes(n.id));
+      saveToStorage(STORAGE_KEYS.NOTIFICATIONS, updated);
+      return updated;
+    });
+
+    return { ok: true };
+  };
+
+  const deleteNotice = async (noticeId: string): Promise<{ ok: boolean; error?: string }> => {
+    markCollectionSeeded('notices');
+    const res = await deleteFromFirestoreDoc('notices', noticeId);
+    if (!res.ok) return res;
+    setNotices((prev) => {
+      const updated = prev.filter((n) => n.id !== noticeId);
+      saveToStorage(STORAGE_KEYS.NOTICES, updated);
+      return updated;
+    });
+    return { ok: true };
+  };
+
+  const deleteHearing = async (hearingId: string): Promise<{ ok: boolean; error?: string }> => {
+    markCollectionSeeded('hearings');
+    const isVirtualCaseHearing = hearingId.startsWith('case-h-');
+
+    if (isVirtualCaseHearing) {
+      if (!auth.currentUser) {
+        return { ok: false, error: 'Active Firebase sign-in is required to update database.' };
+      }
+      const realCaseId = hearingId.replace(/^case-h-/, '');
+      try {
+        await updateDoc(doc(db, 'cases', realCaseId), {
+          nextHearingDate: deleteField(),
+          nextHearingPurpose: deleteField(),
+        });
+      } catch (err) {
+        const info = buildFirestoreErrorInfo(err, OperationType.UPDATE, `cases/${realCaseId}`);
+        console.warn('Case hearing clear error:', JSON.stringify(info));
+        return { ok: false, error: err instanceof Error ? err.message : 'Failed to clear hearing date.' };
+      }
+      setCases((prev) => {
+        const updated = prev.map((c) => {
+          if (c.id === realCaseId) {
+            const copy = { ...c };
+            delete copy.nextHearingDate;
+            delete copy.nextHearingPurpose;
+            return copy;
+          }
+          return c;
+        });
+        saveToStorage(STORAGE_KEYS.CASES, updated);
+        return updated;
+      });
+      return { ok: true };
+    }
+
+    const targetHearing = hearingsRef.current.find((h) => h.id === hearingId);
+    const res = await deleteFromFirestoreDoc('hearings', hearingId);
+    if (!res.ok) return res;
+
+    setHearings((prev) => {
+      const updated = prev.filter((h) => h.id !== hearingId);
+      saveToStorage(STORAGE_KEYS.HEARINGS, updated);
+      return updated;
+    });
+
+    if (targetHearing) {
+      const linkedCase = casesRef.current.find((c) => c.id === targetHearing.caseId);
+      if (linkedCase && linkedCase.nextHearingDate === targetHearing.date) {
+        const otherHearings = hearingsRef.current
+          .filter((h) => h.id !== hearingId && h.caseId === linkedCase.id)
+          .sort((a, b) => b.date.localeCompare(a.date));
+        const nextRemaining = otherHearings[0];
+        try {
+          if (nextRemaining) {
+            await updateDoc(doc(db, 'cases', linkedCase.id), {
+              nextHearingDate: nextRemaining.date,
+              nextHearingPurpose: nextRemaining.purpose,
+            });
+          } else {
+            await updateDoc(doc(db, 'cases', linkedCase.id), {
+              nextHearingDate: deleteField(),
+              nextHearingPurpose: deleteField(),
+            });
+          }
+        } catch {
+          // ignore secondary case hearing sync failure
+        }
+        setCases((prev) => {
+          const updated = prev.map((c) => {
+            if (c.id !== linkedCase.id) return c;
+            if (nextRemaining) {
+              return { ...c, nextHearingDate: nextRemaining.date, nextHearingPurpose: nextRemaining.purpose };
+            }
+            const copy = { ...c };
+            delete copy.nextHearingDate;
+            delete copy.nextHearingPurpose;
+            return copy;
+          });
+          saveToStorage(STORAGE_KEYS.CASES, updated);
+          return updated;
+        });
+      }
+    }
+
+    return { ok: true };
+  };
+
+  const deleteDocument = async (docId: string): Promise<{ ok: boolean; error?: string }> => {
+    markCollectionSeeded('documents');
+    const res = await deleteFromFirestoreDoc('documents', docId);
+    if (!res.ok) return res;
+    setDocuments((prev) => {
+      const updated = prev.filter((d) => d.id !== docId);
+      saveToStorage(STORAGE_KEYS.DOCUMENTS, updated);
+      return updated;
+    });
+    return { ok: true };
+  };
+
+  const deleteTask = async (taskId: string): Promise<{ ok: boolean; error?: string }> => {
+    markCollectionSeeded('tasks');
+    const res = await deleteFromFirestoreDoc('tasks', taskId);
+    if (!res.ok) return res;
+    setTasks((prev) => {
+      const updated = prev.filter((t) => t.id !== taskId);
+      saveToStorage(STORAGE_KEYS.TASKS, updated);
+      return updated;
+    });
+    return { ok: true };
+  };
+
+  const deleteNote = async (noteId: string): Promise<{ ok: boolean; error?: string }> => {
+    markCollectionSeeded('notes');
+    const res = await deleteFromFirestoreDoc('notes', noteId);
+    if (!res.ok) return res;
+    setNotes((prev) => {
+      const updated = prev.filter((n) => n.id !== noteId);
+      saveToStorage(STORAGE_KEYS.NOTES, updated);
+      return updated;
+    });
+    return { ok: true };
+  };
+
+  const deleteInvoice = async (invoiceId: string): Promise<{ ok: boolean; error?: string }> => {
+    markCollectionSeeded('invoices');
+    const res = await deleteFromFirestoreDoc('invoices', invoiceId);
+    if (!res.ok) return res;
+    setInvoices((prev) => {
+      const updated = prev.filter((i) => i.id !== invoiceId);
+      saveToStorage(STORAGE_KEYS.INVOICES, updated);
+      return updated;
+    });
+    return { ok: true };
+  };
+
+  const deleteNotification = async (notifId: string): Promise<{ ok: boolean; error?: string }> => {
+    markCollectionSeeded('notifications');
+    const res = await deleteFromFirestoreDoc('notifications', notifId);
+    if (!res.ok) return res;
+    setNotifications((prev) => {
+      const updated = prev.filter((n) => n.id !== notifId);
+      saveToStorage(STORAGE_KEYS.NOTIFICATIONS, updated);
+      return updated;
+    });
+    return { ok: true };
+  };
+
+  const deletePracticeArea = async (id: string): Promise<{ ok: boolean; error?: string }> => {
+    markCollectionSeeded('practice_areas');
+    const res = await deleteFromFirestoreDoc('practice_areas', id);
+    if (!res.ok) return res;
+    setPracticeAreas((prev) => {
+      const updated = prev.filter((pa) => pa.id !== id);
+      saveToStorage(STORAGE_KEYS.PRACTICE_AREAS, updated);
+      return updated;
+    });
+    return { ok: true };
   };
 
   const resetPracticeAreas = () => {
@@ -1835,11 +2374,16 @@ export function usePortalStore() {
     }
   };
 
-  const deleteTeamMember = (id: string) => {
-    const updated = teamMembers.filter((m) => m.id !== id);
-    setTeamMembers(updated);
-    saveToStorage(STORAGE_KEYS.TEAM_MEMBERS, updated);
-    deleteFromFirestoreDoc('team_members', id);
+  const deleteTeamMember = async (id: string): Promise<{ ok: boolean; error?: string }> => {
+    markCollectionSeeded('team_members');
+    const res = await deleteFromFirestoreDoc('team_members', id);
+    if (!res.ok) return res;
+    setTeamMembers((prev) => {
+      const updated = prev.filter((m) => m.id !== id);
+      saveToStorage(STORAGE_KEYS.TEAM_MEMBERS, updated);
+      return updated;
+    });
+    return { ok: true };
   };
 
   const setStuckTeamMember = (id: string) => {
@@ -1896,11 +2440,16 @@ export function usePortalStore() {
     }
   };
 
-  const deleteReview = (id: string) => {
-    const updated = reviews.filter((r) => r.id !== id);
-    setReviews(updated);
-    saveToStorage(STORAGE_KEYS.REVIEWS, updated);
-    deleteFromFirestoreDoc('client_reviews', id);
+  const deleteReview = async (id: string): Promise<{ ok: boolean; error?: string }> => {
+    markCollectionSeeded('client_reviews');
+    const res = await deleteFromFirestoreDoc('client_reviews', id);
+    if (!res.ok) return res;
+    setReviews((prev) => {
+      const updated = prev.filter((r) => r.id !== id);
+      saveToStorage(STORAGE_KEYS.REVIEWS, updated);
+      return updated;
+    });
+    return { ok: true };
   };
 
   const resetReviews = () => {
@@ -1946,11 +2495,16 @@ export function usePortalStore() {
     }
   };
 
-  const deleteInsight = (id: string) => {
-    const updated = insights.filter((item) => item.id !== id);
-    setInsights(updated);
-    saveToStorage(STORAGE_KEYS.INSIGHTS, updated);
-    deleteFromFirestoreDoc('legal_insights', id);
+  const deleteInsight = async (id: string): Promise<{ ok: boolean; error?: string }> => {
+    markCollectionSeeded('legal_insights');
+    const res = await deleteFromFirestoreDoc('legal_insights', id);
+    if (!res.ok) return res;
+    setInsights((prev) => {
+      const updated = prev.filter((item) => item.id !== id);
+      saveToStorage(STORAGE_KEYS.INSIGHTS, updated);
+      return updated;
+    });
+    return { ok: true };
   };
 
   const resetInsights = () => {
@@ -1993,11 +2547,16 @@ export function usePortalStore() {
     }
   };
 
-  const deletePartner = (id: string) => {
-    const updated = partners.filter((p) => p.id !== id);
-    setPartners(updated);
-    saveToStorage(STORAGE_KEYS.PARTNERS, updated);
-    deleteFromFirestoreDoc('membership_partners', id);
+  const deletePartner = async (id: string): Promise<{ ok: boolean; error?: string }> => {
+    markCollectionSeeded('membership_partners');
+    const res = await deleteFromFirestoreDoc('membership_partners', id);
+    if (!res.ok) return res;
+    setPartners((prev) => {
+      const updated = prev.filter((p) => p.id !== id);
+      saveToStorage(STORAGE_KEYS.PARTNERS, updated);
+      return updated;
+    });
+    return { ok: true };
   };
 
   const resetPartners = () => {
@@ -2165,24 +2724,33 @@ export function usePortalStore() {
     clientVaultSecrets,
     addClient,
     updateClient,
+    deleteClient,
     saveClientVaultSecret,
     addClientCredential,
     addCase,
     updateCase,
+    deleteCase,
     updateCaseStatus,
     addTimelineEvent,
     addNotice,
     updateNoticeStatus,
+    deleteNotice,
     addDocument,
+    deleteDocument,
     addTask,
     toggleTask,
+    deleteTask,
     addNote,
+    deleteNote,
     addInvoice,
     markInvoicePaid,
+    deleteInvoice,
     addHearing,
     updateCaseHearing,
     updateHearing,
+    deleteHearing,
     sendNotification,
+    deleteNotification,
     addPracticeArea,
     updatePracticeArea,
     deletePracticeArea,

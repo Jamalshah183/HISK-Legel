@@ -566,27 +566,37 @@ export const AdminPortal: React.FC = () => {
     notes,
     invoices,
     hearings,
+    notifications,
     clientCredentials,
     clientVaultSecrets,
     addClientCredential,
     addClient,
     updateClient,
+    deleteClient,
     addCase,
     updateCase,
+    deleteCase,
     updateCaseStatus,
     addTimelineEvent,
     addNotice,
     updateNoticeStatus,
+    deleteNotice,
     addDocument,
+    deleteDocument,
     addTask,
     toggleTask,
+    deleteTask,
     addNote,
+    deleteNote,
     addInvoice,
     markInvoicePaid,
+    deleteInvoice,
     addHearing,
     updateCaseHearing,
     updateHearing,
+    deleteHearing,
     sendNotification,
+    deleteNotification,
     practiceAreas,
     addPracticeArea,
     updatePracticeArea,
@@ -855,17 +865,44 @@ export const AdminPortal: React.FC = () => {
   const [clientActionNotice, setClientActionNotice] = useState<string | null>(null);
   const [lastRegisteredClient, setLastRegisteredClient] = useState<Client | null>(null);
   const [clientModalError, setClientModalError] = useState<string | null>(null);
-  const [portalNotice, setPortalNotice] = useState<{ message: string; linkUrl?: string; linkLabel?: string } | null>(null);
+  const [portalNotice, setPortalNotice] = useState<{
+    message: string;
+    linkUrl?: string;
+    linkLabel?: string;
+    variant?: 'success' | 'error';
+  } | null>(null);
   const [drawerActionNotice, setDrawerActionNotice] = useState<string | null>(null);
   const [isExportingExcel, setIsExportingExcel] = useState<boolean>(false);
   const [isGeneratingCoverPdf, setIsGeneratingCoverPdf] = useState<boolean>(false);
   const downloadCoverOnSubmitRef = React.useRef<boolean>(false);
 
-  const showPortalNotice = (message: string, linkUrl?: string, linkLabel?: string) => {
-    setPortalNotice({ message, linkUrl, linkLabel });
+  const [pendingDeleteTarget, setPendingDeleteTarget] = useState<
+    | {
+        kind: 'client' | 'case' | 'notice' | 'hearing' | 'document' | 'task' | 'note' | 'invoice' | 'notification';
+        id: string;
+        title: string;
+        subtitle: string;
+        cascadeSummary?: string;
+      }
+    | null
+  >(null);
+  const [isDeletingPortalRecord, setIsDeletingPortalRecord] = useState<boolean>(false);
+  const [portalDeleteError, setPortalDeleteError] = useState<string | null>(null);
+
+  const showPortalNotice = (
+    message: string,
+    linkUrl?: string,
+    linkLabel?: string,
+    variant: 'success' | 'error' = 'success'
+  ) => {
+    setPortalNotice({ message, linkUrl, linkLabel, variant });
     setTimeout(() => {
       setPortalNotice((prev) => (prev?.message === message ? null : prev));
     }, 8000);
+  };
+
+  const showPortalBanner = (variant: 'success' | 'error', message: string) => {
+    showPortalNotice(message, undefined, undefined, variant);
   };
 
   const showDrawerNotice = (message: string) => {
@@ -873,6 +910,125 @@ export const AdminPortal: React.FC = () => {
     setTimeout(() => {
       setDrawerActionNotice((prev) => (prev === message ? null : prev));
     }, 6000);
+  };
+
+  const requestDeleteClient = (cl: Client) => {
+    const linkedCases = cases.filter((cs) => cs.clientId === cl.id);
+    const linkedCaseIds = new Set(linkedCases.map((cs) => cs.id));
+    const linkedNotices = notices.filter((n) => n.clientId === cl.id || linkedCaseIds.has(n.caseId)).length;
+    const linkedDocs = documents.filter((d) => d.clientId === cl.id || linkedCaseIds.has(d.caseId)).length;
+    const linkedInvoices = invoices.filter((i) => i.clientId === cl.id || linkedCaseIds.has(i.caseId)).length;
+    const linkedHearings = hearings.filter((h) => linkedCaseIds.has(h.caseId)).length;
+    const parts: string[] = ['Portal login & vault secrets'];
+    if (linkedCases.length) parts.push(`${linkedCases.length} Case(s)`);
+    if (linkedNotices) parts.push(`${linkedNotices} Notice(s)`);
+    if (linkedHearings) parts.push(`${linkedHearings} Hearing(s)`);
+    if (linkedDocs) parts.push(`${linkedDocs} Document(s)`);
+    if (linkedInvoices) parts.push(`${linkedInvoices} Invoice(s)`);
+
+    setPortalDeleteError(null);
+    setPendingDeleteTarget({
+      kind: 'client',
+      id: cl.id,
+      title: cl.name,
+      subtitle: `${cl.fileNumber || 'Client'} • ${cl.email || 'No email'}`,
+      cascadeSummary: `Will also permanently remove from database: ${parts.join(', ')}.`,
+    });
+  };
+
+  const requestDeleteCase = (c: CaseFile) => {
+    const linkedNotices = notices.filter((n) => n.caseId === c.id).length;
+    const linkedDocs = documents.filter((d) => d.caseId === c.id).length;
+    const linkedInvoices = invoices.filter((i) => i.caseId === c.id).length;
+    const linkedHearings = hearings.filter((h) => h.caseId === c.id).length;
+    const linkedTasks = tasks.filter((t) => t.caseId === c.id).length;
+    const linkedNotes = notes.filter((n) => n.caseId === c.id).length;
+    const parts: string[] = [];
+    if (linkedNotices) parts.push(`${linkedNotices} Notice(s)`);
+    if (linkedHearings) parts.push(`${linkedHearings} Hearing(s)`);
+    if (linkedDocs) parts.push(`${linkedDocs} Document(s)`);
+    if (linkedInvoices) parts.push(`${linkedInvoices} Invoice(s)`);
+    if (linkedTasks) parts.push(`${linkedTasks} Task(s)`);
+    if (linkedNotes) parts.push(`${linkedNotes} Note(s)`);
+
+    setPortalDeleteError(null);
+    setPendingDeleteTarget({
+      kind: 'case',
+      id: c.id,
+      title: c.caseTitle,
+      subtitle: `${c.caseRef} • ${c.clientName}`,
+      cascadeSummary: parts.length
+        ? `Will also permanently remove from database: ${parts.join(', ')}.`
+        : undefined,
+    });
+  };
+
+  const handleConfirmPortalDelete = async () => {
+    if (!pendingDeleteTarget || isDeletingPortalRecord) return;
+    setIsDeletingPortalRecord(true);
+    setPortalDeleteError(null);
+
+    const target = pendingDeleteTarget;
+    let res: { ok: boolean; error?: string } = { ok: false, error: 'Unsupported item type.' };
+
+    if (target.kind === 'client') {
+      res = await deleteClient(target.id);
+    } else if (target.kind === 'case') {
+      res = await deleteCase(target.id);
+    } else if (target.kind === 'notice') {
+      res = await deleteNotice(target.id);
+    } else if (target.kind === 'hearing') {
+      res = await deleteHearing(target.id);
+    } else if (target.kind === 'document') {
+      res = await deleteDocument(target.id);
+    } else if (target.kind === 'task') {
+      res = await deleteTask(target.id);
+    } else if (target.kind === 'note') {
+      res = await deleteNote(target.id);
+    } else if (target.kind === 'invoice') {
+      res = await deleteInvoice(target.id);
+    } else if (target.kind === 'notification') {
+      res = await deleteNotification(target.id);
+    }
+
+    setIsDeletingPortalRecord(false);
+
+    if (!res.ok) {
+      setPortalDeleteError(res.error || 'Failed to delete record from database.');
+      return;
+    }
+
+    if (target.kind === 'client') {
+      if (editingClient?.id === target.id) setEditingClient(null);
+      if (lastRegisteredClient?.id === target.id) setLastRegisteredClient(null);
+      if (selectedCase?.clientId === target.id) {
+        setSelectedCase(null);
+        setIsEditingCase(false);
+      }
+      setClientActionNotice(`Deleted client "${target.title}" and all linked records from database.`);
+    } else if (target.kind === 'case') {
+      if (selectedCase?.id === target.id) {
+        setSelectedCase(null);
+        setIsEditingCase(false);
+      }
+    } else if (target.kind === 'hearing' && selectedCase) {
+      const targetHearingObj = hearings.find((h) => h.id === target.id);
+      if (
+        target.id === `case-h-${selectedCase.id}` ||
+        (targetHearingObj && targetHearingObj.caseId === selectedCase.id && targetHearingObj.date === selectedCase.nextHearingDate)
+      ) {
+        const updatedCopy = { ...selectedCase };
+        delete updatedCopy.nextHearingDate;
+        delete updatedCopy.nextHearingPurpose;
+        setSelectedCase(updatedCopy);
+      }
+    }
+
+    showPortalNotice(`Permanently deleted "${target.title}" from the database.`);
+    if (selectedCase && target.kind !== 'client' && target.kind !== 'case') {
+      showDrawerNotice(`Permanently deleted "${target.title}" from the database.`);
+    }
+    setPendingDeleteTarget(null);
   };
 
   // Staff & Employee Access Control State
@@ -1447,10 +1603,14 @@ export const AdminPortal: React.FC = () => {
     setTimeout(() => setPaActionSuccess(null), 4000);
   };
 
-  const handleDeletePracticeArea = (area: PracticeArea) => {
-    deletePracticeArea(area.id);
+  const handleDeletePracticeArea = async (area: PracticeArea) => {
+    const res = await deletePracticeArea(area.id);
     setDeleteConfirmArea(null);
-    setPaActionSuccess(`Removed practice area "${area.title}".`);
+    if (!res.ok) {
+      showPortalBanner('error', res.error || `Failed to remove practice area "${area.title}" from database.`);
+      return;
+    }
+    setPaActionSuccess(`Removed practice area "${area.title}" from database.`);
     setTimeout(() => setPaActionSuccess(null), 4000);
   };
 
@@ -1609,10 +1769,14 @@ export const AdminPortal: React.FC = () => {
     setTimeout(() => setTeamActionSuccess(null), 4000);
   };
 
-  const handleDeleteTeamMember = (member: TeamMember) => {
-    deleteTeamMember(member.id);
+  const handleDeleteTeamMember = async (member: TeamMember) => {
+    const res = await deleteTeamMember(member.id);
     setDeleteConfirmMember(null);
-    setTeamActionSuccess(`Removed team member "${member.name}".`);
+    if (!res.ok) {
+      showPortalBanner('error', res.error || `Failed to remove team member "${member.name}" from database.`);
+      return;
+    }
+    setTeamActionSuccess(`Removed team member "${member.name}" from database.`);
     setTimeout(() => setTeamActionSuccess(null), 4000);
   };
 
@@ -1724,10 +1888,14 @@ export const AdminPortal: React.FC = () => {
     setTimeout(() => setReviewActionSuccess(null), 4000);
   };
 
-  const handleDeleteReview = (review: ReviewItem) => {
-    deleteReview(review.id);
+  const handleDeleteReview = async (review: ReviewItem) => {
+    const res = await deleteReview(review.id);
     setDeleteConfirmReview(null);
-    setReviewActionSuccess(`Removed review from "${review.clientInitials}".`);
+    if (!res.ok) {
+      showPortalBanner('error', res.error || `Failed to remove review from "${review.clientInitials}" from database.`);
+      return;
+    }
+    setReviewActionSuccess(`Removed review from "${review.clientInitials}" from database.`);
     setTimeout(() => setReviewActionSuccess(null), 4000);
   };
 
@@ -1878,10 +2046,14 @@ export const AdminPortal: React.FC = () => {
     setTimeout(() => setInsightActionSuccess(null), 4000);
   };
 
-  const handleDeleteInsight = (insight: LegalInsightItem) => {
-    deleteInsight(insight.id);
+  const handleDeleteInsight = async (insight: LegalInsightItem) => {
+    const res = await deleteInsight(insight.id);
     setDeleteConfirmInsight(null);
-    setInsightActionSuccess(`Deleted article "${insight.title}".`);
+    if (!res.ok) {
+      showPortalBanner('error', res.error || `Failed to delete article "${insight.title}" from database.`);
+      return;
+    }
+    setInsightActionSuccess(`Deleted article "${insight.title}" from database.`);
     setTimeout(() => setInsightActionSuccess(null), 4000);
   };
 
@@ -2006,10 +2178,14 @@ export const AdminPortal: React.FC = () => {
     setTimeout(() => setPartnerActionSuccess(null), 4000);
   };
 
-  const handleDeletePartner = (partner: PartnerItem) => {
-    deletePartner(partner.id);
+  const handleDeletePartner = async (partner: PartnerItem) => {
+    const res = await deletePartner(partner.id);
     setDeleteConfirmPartner(null);
-    setPartnerActionSuccess(`Removed partner "${partner.name}".`);
+    if (!res.ok) {
+      showPortalBanner('error', res.error || `Failed to remove partner "${partner.name}" from database.`);
+      return;
+    }
+    setPartnerActionSuccess(`Removed partner "${partner.name}" from database.`);
     setTimeout(() => setPartnerActionSuccess(null), 4000);
   };
 
@@ -3419,9 +3595,19 @@ export const AdminPortal: React.FC = () => {
       {/* Main Content Area */}
       <main className="flex-1 p-4 sm:p-6 lg:p-8 max-w-7xl mx-auto overflow-x-hidden">
         {portalNotice && (
-          <div className="mb-4 bg-emerald-50 border border-emerald-300 text-emerald-950 px-5 py-3 rounded-2xl flex flex-wrap items-center justify-between gap-3 text-xs font-semibold shadow-sm">
+          <div
+            className={`mb-4 px-5 py-3 rounded-2xl flex flex-wrap items-center justify-between gap-3 text-xs font-semibold shadow-sm border ${
+              portalNotice.variant === 'error'
+                ? 'bg-red-50 border-red-300 text-red-950'
+                : 'bg-emerald-50 border-emerald-300 text-emerald-950'
+            }`}
+          >
             <div className="flex items-center gap-2">
-              <CheckCircle2 className="w-4 h-4 text-[#0F6B4C] shrink-0" />
+              {portalNotice.variant === 'error' ? (
+                <AlertTriangle className="w-4 h-4 text-red-600 shrink-0" />
+              ) : (
+                <CheckCircle2 className="w-4 h-4 text-[#0F6B4C] shrink-0" />
+              )}
               <span>{portalNotice.message}</span>
             </div>
             <div className="flex items-center gap-3">
@@ -3439,7 +3625,9 @@ export const AdminPortal: React.FC = () => {
               <button
                 type="button"
                 onClick={() => setPortalNotice(null)}
-                className="text-emerald-800 hover:text-black font-bold cursor-pointer"
+                className={`${
+                  portalNotice.variant === 'error' ? 'text-red-800' : 'text-emerald-800'
+                } hover:text-black font-bold cursor-pointer`}
               >
                 ✕
               </button>
@@ -3718,13 +3906,26 @@ export const AdminPortal: React.FC = () => {
                           </div>
                         </div>
 
-                        <div className="text-right shrink-0">
+                        <div className="text-right shrink-0 flex flex-col items-end gap-1.5">
                           <span className="text-xs font-extrabold text-red-700 block">
                             Rs. {(c.demandAmountPkr / 100000).toFixed(1)} Lakh
                           </span>
-                          <span className="text-[10px] font-bold bg-[#F5A623]/20 text-[#1A1A1A] px-2.5 py-0.5 rounded-full inline-block mt-1">
+                          <span className="text-[10px] font-bold bg-[#F5A623]/20 text-[#1A1A1A] px-2.5 py-0.5 rounded-full inline-block">
                             {c.status}
                           </span>
+                          {hasPermission('data_entry') && (
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                requestDeleteCase(c);
+                              }}
+                              className="p-1.5 rounded-lg bg-red-50 hover:bg-red-100 text-red-600 transition-colors cursor-pointer"
+                              title="Delete Case from Database"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
+                          )}
                         </div>
                       </div>
                     );
@@ -3761,7 +3962,7 @@ export const AdminPortal: React.FC = () => {
                         </div>
                         <div className="font-extrabold text-sm text-[#1A1A1A]">{h.caseTitle}</div>
                         <div className="text-[#5A6275]">Bench: {h.bench}</div>
-                        <div className="flex justify-end pt-1">
+                        <div className="flex justify-between items-center pt-1 gap-2">
                           <button
                             type="button"
                             onClick={(e) => {
@@ -3779,6 +3980,25 @@ export const AdminPortal: React.FC = () => {
                           >
                             <CalendarIcon className="w-3 h-3 text-[#F5A623]" /> Add to Google Calendar
                           </button>
+                          {hasPermission('data_entry') && (
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setPortalDeleteError(null);
+                                setPendingDeleteTarget({
+                                  kind: 'hearing',
+                                  id: h.id,
+                                  title: `${h.caseTitle} (${h.date})`,
+                                  subtitle: `${h.forum} • ${h.purpose}`,
+                                });
+                              }}
+                              className="p-1.5 rounded-lg bg-red-50 hover:bg-red-100 text-red-600 transition-colors cursor-pointer"
+                              title="Delete Hearing"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
+                          )}
                         </div>
                       </div>
                     ))}
@@ -4374,6 +4594,18 @@ export const AdminPortal: React.FC = () => {
                                 <Plus className="w-3.5 h-3.5 text-[#F5A623]" />
                                 <span>Add Case</span>
                               </button>
+
+                              {hasPermission('data_entry') && (
+                                <button
+                                  type="button"
+                                  onClick={() => requestDeleteClient(cl)}
+                                  className="px-2.5 py-1.5 rounded-xl bg-red-50 hover:bg-red-100 border border-red-200 text-red-600 text-xs font-bold flex items-center gap-1 cursor-pointer"
+                                  title="Delete Client & Linked Records from Database"
+                                >
+                                  <Trash2 className="w-3.5 h-3.5" />
+                                  <span>Delete</span>
+                                </button>
+                              )}
                             </div>
                           </div>
                         </div>
@@ -4711,14 +4943,25 @@ export const AdminPortal: React.FC = () => {
                         )}
                       </div>
 
-                      <div className="shrink-0 flex md:flex-col items-center md:items-end justify-between border-t md:border-t-0 md:border-l border-gray-100 pt-3 md:pt-0 md:pl-6 gap-3">
+                      <div className="shrink-0 flex md:flex-col items-center md:items-end justify-between border-t md:border-t-0 md:border-l border-gray-100 pt-3 md:pt-0 md:pl-6 gap-2.5">
                         <button
                           onClick={() => setSelectedCase(c)}
-                          className="bg-[#0A4B35] hover:bg-[#0F6B4C] text-white text-xs font-bold px-5 py-2.5 rounded-xl transition-all flex items-center gap-1.5 shadow-sm"
+                          className="bg-[#0A4B35] hover:bg-[#0F6B4C] text-white text-xs font-bold px-5 py-2.5 rounded-xl transition-all flex items-center gap-1.5 shadow-sm cursor-pointer"
                         >
                           <span>Open Case File</span>
                           <ChevronRight className="w-4 h-4 text-[#F5A623]" />
                         </button>
+                        {hasPermission('data_entry') && (
+                          <button
+                            type="button"
+                            onClick={() => requestDeleteCase(c)}
+                            className="px-3.5 py-2 rounded-xl bg-red-50 hover:bg-red-100 border border-red-200 text-red-600 text-xs font-bold flex items-center gap-1.5 cursor-pointer"
+                            title="Delete Case from Database"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                            <span>Delete Case</span>
+                          </button>
+                        )}
                       </div>
                     </div>
                   );
@@ -4897,33 +5140,54 @@ export const AdminPortal: React.FC = () => {
                           Purpose: {h.purpose}
                         </div>
 
-                        <div className="flex items-center justify-between pt-2 border-t border-gray-100">
+                        <div className="flex flex-wrap items-center justify-between pt-2 border-t border-gray-100 gap-2">
                           <button
                             onClick={() => {
                               if (selCase) setSelectedCase(selCase);
                             }}
-                            className="bg-[#0A4B35] hover:bg-[#0F6B4C] text-white text-xs font-bold px-3 py-1.5 rounded-xl transition-colors flex items-center gap-1"
+                            className="bg-[#0A4B35] hover:bg-[#0F6B4C] text-white text-xs font-bold px-3 py-1.5 rounded-xl transition-colors flex items-center gap-1 cursor-pointer"
                           >
                             <span>Open Case Details</span>
                             <ChevronRight className="w-3.5 h-3.5 text-[#F5A623]" />
                           </button>
 
-                          <button
-                            onClick={() => {
-                              const url = buildGoogleCalendarUrl({
-                                title: `Tax Hearing: ${h.caseTitle}`,
-                                details: `Client: ${h.clientName}\nCounsel: ${h.counselAssigned}\nBench: ${h.bench}`,
-                                location: h.forum,
-                                startDate: h.date,
-                                startTime: '10:00'
-                              });
-                              window.open(url, '_blank');
-                            }}
-                            className="bg-amber-100 hover:bg-amber-200 text-[#1A1A1A] text-xs font-bold px-3 py-1.5 rounded-xl transition-colors flex items-center gap-1"
-                          >
-                            <CalendarIcon className="w-3.5 h-3.5 text-[#0F6B4C]" />
-                            <span>Add Google Calendar</span>
-                          </button>
+                          <div className="flex items-center gap-1.5">
+                            <button
+                              onClick={() => {
+                                const url = buildGoogleCalendarUrl({
+                                  title: `Tax Hearing: ${h.caseTitle}`,
+                                  details: `Client: ${h.clientName}\nCounsel: ${h.counselAssigned}\nBench: ${h.bench}`,
+                                  location: h.forum,
+                                  startDate: h.date,
+                                  startTime: '10:00'
+                                });
+                                window.open(url, '_blank');
+                              }}
+                              className="bg-amber-100 hover:bg-amber-200 text-[#1A1A1A] text-xs font-bold px-3 py-1.5 rounded-xl transition-colors flex items-center gap-1 cursor-pointer"
+                            >
+                              <CalendarIcon className="w-3.5 h-3.5 text-[#0F6B4C]" />
+                              <span>Add Google Calendar</span>
+                            </button>
+
+                            {hasPermission('data_entry') && (
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setPortalDeleteError(null);
+                                  setPendingDeleteTarget({
+                                    kind: 'hearing',
+                                    id: h.id,
+                                    title: `${h.caseTitle} (${h.date})`,
+                                    subtitle: `${h.forum} • ${h.purpose}`,
+                                  });
+                                }}
+                                className="p-2 rounded-xl bg-red-50 hover:bg-red-100 border border-red-200 text-red-600 transition-colors cursor-pointer"
+                                title="Delete Hearing from Database"
+                              >
+                                <Trash2 className="w-3.5 h-3.5" />
+                              </button>
+                            )}
+                          </div>
                         </div>
                       </div>
                     );
@@ -5091,14 +5355,34 @@ export const AdminPortal: React.FC = () => {
                         <div className="text-[11px] font-mono text-[#0F6B4C]">Size: {doc.fileSize}</div>
                       </div>
 
-                      <button
-                        type="button"
-                        onClick={() => showPortalNotice(`Document "${doc.title}" prepared for download from Case Vault.`)}
-                        className="bg-[#0A4B35] text-white p-3 rounded-2xl hover:bg-[#0F6B4C] transition-colors shrink-0 cursor-pointer"
-                        title="Download File"
-                      >
-                        <Download className="w-4 h-4 text-[#F5A623]" />
-                      </button>
+                      <div className="flex flex-col gap-2 shrink-0">
+                        <button
+                          type="button"
+                          onClick={() => showPortalNotice(`Document "${doc.title}" prepared for download from Case Vault.`)}
+                          className="bg-[#0A4B35] text-white p-3 rounded-2xl hover:bg-[#0F6B4C] transition-colors cursor-pointer"
+                          title="Download File"
+                        >
+                          <Download className="w-4 h-4 text-[#F5A623]" />
+                        </button>
+                        {hasPermission('document_management') && (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setPortalDeleteError(null);
+                              setPendingDeleteTarget({
+                                kind: 'document',
+                                id: doc.id,
+                                title: doc.title,
+                                subtitle: `${doc.category} • ${doc.fileSize}`,
+                              });
+                            }}
+                            className="bg-red-50 hover:bg-red-100 border border-red-200 text-red-600 p-2.5 rounded-2xl transition-colors cursor-pointer flex items-center justify-center"
+                            title="Delete Document from Database"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        )}
+                      </div>
                     </div>
                   );
                 })}
@@ -5189,11 +5473,32 @@ export const AdminPortal: React.FC = () => {
                           className="mt-1 h-4 w-4 rounded border-gray-300 text-[#0F6B4C]"
                         />
                         <div className="flex-1">
-                          <div className="flex items-center justify-between mb-1">
+                          <div className="flex items-center justify-between gap-2 mb-1">
                             <span className="font-bold text-xs text-[#1A1A1A]">{t.title}</span>
-                            <span className="text-[10px] font-extrabold text-red-700 bg-red-50 px-2 py-0.5 rounded-md">
-                              Due: {t.dueDate}
-                            </span>
+                            <div className="flex items-center gap-1.5 shrink-0">
+                              <span className="text-[10px] font-extrabold text-red-700 bg-red-50 px-2 py-0.5 rounded-md">
+                                Due: {t.dueDate}
+                              </span>
+                              {(hasPermission('tasks_notes') || hasPermission('data_entry')) && (
+                                <button
+                                  type="button"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    setPortalDeleteError(null);
+                                    setPendingDeleteTarget({
+                                      kind: 'task',
+                                      id: t.id,
+                                      title: t.title,
+                                      subtitle: `Assigned to ${t.assignedTo} • Due ${t.dueDate}`,
+                                    });
+                                  }}
+                                  className="p-1.5 rounded-lg bg-red-50 hover:bg-red-100 text-red-600 cursor-pointer"
+                                  title="Delete Task"
+                                >
+                                  <Trash2 className="w-3.5 h-3.5" />
+                                </button>
+                              )}
+                            </div>
                           </div>
                           <div className="text-[11px] text-[#5A6275]">
                             Assigned to: <span className="font-bold text-[#0F6B4C]">{t.assignedTo}</span>
@@ -5240,11 +5545,31 @@ export const AdminPortal: React.FC = () => {
                   <div className="space-y-3">
                     {filteredNotes.map((n) => (
                       <div key={n.id} className="p-4 rounded-2xl bg-[#0A4B35]/5 border border-[#0F6B4C]/20">
-                        <div className="flex items-center justify-between mb-2">
+                        <div className="flex items-center justify-between gap-2 mb-2">
                           <span className="text-[10px] font-extrabold bg-[#0A4B35] text-white px-2 py-0.5 rounded-md">
                             {n.author}
                           </span>
-                          <span className="text-xs text-[#5A6275]">{n.date}</span>
+                          <div className="flex items-center gap-2">
+                            <span className="text-xs text-[#5A6275]">{n.date}</span>
+                            {(hasPermission('tasks_notes') || hasPermission('data_entry')) && (
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setPortalDeleteError(null);
+                                  setPendingDeleteTarget({
+                                    kind: 'note',
+                                    id: n.id,
+                                    title: `Attorney Note by ${n.author}`,
+                                    subtitle: (n.text || n.content || '').slice(0, 80),
+                                  });
+                                }}
+                                className="p-1.5 rounded-lg bg-red-50 hover:bg-red-100 text-red-600 cursor-pointer"
+                                title="Delete Note"
+                              >
+                                <Trash2 className="w-3.5 h-3.5" />
+                              </button>
+                            )}
+                          </div>
                         </div>
                         <p className="text-xs text-[#1A1A1A] italic">{n.text}</p>
                       </div>
@@ -5432,9 +5757,29 @@ export const AdminPortal: React.FC = () => {
                         {inv.status !== 'Paid' && (
                           <button
                             onClick={() => markInvoicePaid(inv.id, 'Bank Transfer')}
-                            className="bg-[#FAFAF7] text-gray-700 text-[11px] font-bold px-3 py-1 rounded-xl hover:bg-gray-200 border border-gray-300"
+                            className="bg-[#FAFAF7] text-gray-700 text-[11px] font-bold px-3 py-1 rounded-xl hover:bg-gray-200 border border-gray-300 cursor-pointer"
                           >
                             Mark Paid
+                          </button>
+                        )}
+
+                        {hasPermission('billing') && (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setPortalDeleteError(null);
+                              setPendingDeleteTarget({
+                                kind: 'invoice',
+                                id: inv.id,
+                                title: `${inv.invoiceNumber} — ${inv.serviceDescription}`,
+                                subtitle: `${inv.clientName} • Rs. ${inv.totalAmountPkr.toLocaleString()}`,
+                              });
+                            }}
+                            className="bg-red-50 hover:bg-red-100 border border-red-200 text-red-600 text-[11px] font-bold px-3 py-1 rounded-xl flex items-center justify-center gap-1 cursor-pointer"
+                            title="Delete Invoice from Database"
+                          >
+                            <Trash2 className="w-3 h-3" />
+                            <span>Delete</span>
                           </button>
                         )}
                       </div>
@@ -8738,20 +9083,32 @@ export const AdminPortal: React.FC = () => {
               </div>
 
               <div className="flex flex-wrap justify-between items-center gap-2 pt-3 border-t">
-                <button
-                  type="button"
-                  disabled={isGeneratingCoverPdf}
-                  onClick={() =>
-                    void handleDownloadCoverPage({
-                      ...editingClient,
-                      ...editClientForm,
-                    })
-                  }
-                  className="px-4 py-2 rounded-xl bg-amber-50 hover:bg-amber-100 border border-amber-300 text-[#1A1A1A] font-extrabold flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
-                >
-                  <Download className="w-3.5 h-3.5 text-[#0A4B35]" />
-                  <span>{isGeneratingCoverPdf ? 'Generating...' : 'Download A4 Cover PDF'}</span>
-                </button>
+                <div className="flex flex-wrap items-center gap-2">
+                  <button
+                    type="button"
+                    disabled={isGeneratingCoverPdf}
+                    onClick={() =>
+                      void handleDownloadCoverPage({
+                        ...editingClient,
+                        ...editClientForm,
+                      })
+                    }
+                    className="px-4 py-2 rounded-xl bg-amber-50 hover:bg-amber-100 border border-amber-300 text-[#1A1A1A] font-extrabold flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
+                  >
+                    <Download className="w-3.5 h-3.5 text-[#0A4B35]" />
+                    <span>{isGeneratingCoverPdf ? 'Generating...' : 'Download A4 Cover PDF'}</span>
+                  </button>
+                  {hasPermission('data_entry') && (
+                    <button
+                      type="button"
+                      onClick={() => requestDeleteClient(editingClient)}
+                      className="px-3.5 py-2 rounded-xl bg-red-50 hover:bg-red-100 border border-red-200 text-red-600 font-bold flex items-center gap-1.5 cursor-pointer"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                      <span>Delete Client</span>
+                    </button>
+                  )}
+                </div>
                 <div className="flex items-center gap-2">
                   <button
                     type="button"
@@ -8959,25 +9316,46 @@ export const AdminPortal: React.FC = () => {
                             <span className="text-xs text-gray-400 italic">No direct case file linked</span>
                           )}
 
-                          <button
-                            onClick={() => {
-                              if (linkedCase) {
-                                setShowNoticesModal(false);
-                                setSelectedCase(linkedCase);
-                                setCaseDetailTab('whatsapp');
-                                setWaTemplateType('notice');
-                              } else {
-                                setShowNoticesModal(false);
-                                showPortalNotice(
-                                  `Notice Ref: ${notice.cnoNumber} • Client: ${notice.clientName} • Reply Due: ${notice.dueDate}`
-                                );
-                              }
-                            }}
-                            className="bg-[#25D366] hover:bg-emerald-600 text-white font-extrabold px-3 py-1.5 rounded-xl text-xs flex items-center gap-1 shadow-sm cursor-pointer"
-                          >
-                            <Send className="w-3.5 h-3.5" />
-                            <span>WhatsApp Client Alert</span>
-                          </button>
+                          <div className="flex items-center gap-2">
+                            <button
+                              onClick={() => {
+                                if (linkedCase) {
+                                  setShowNoticesModal(false);
+                                  setSelectedCase(linkedCase);
+                                  setCaseDetailTab('whatsapp');
+                                  setWaTemplateType('notice');
+                                } else {
+                                  setShowNoticesModal(false);
+                                  showPortalNotice(
+                                    `Notice Ref: ${notice.cnoNumber} • Client: ${notice.clientName} • Reply Due: ${notice.dueDate}`
+                                  );
+                                }
+                              }}
+                              className="bg-[#25D366] hover:bg-emerald-600 text-white font-extrabold px-3 py-1.5 rounded-xl text-xs flex items-center gap-1 shadow-sm cursor-pointer"
+                            >
+                              <Send className="w-3.5 h-3.5" />
+                              <span>WhatsApp Client Alert</span>
+                            </button>
+
+                            {hasPermission('data_entry') && (
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setPortalDeleteError(null);
+                                  setPendingDeleteTarget({
+                                    kind: 'notice',
+                                    id: notice.id,
+                                    title: `${notice.cnoNumber} — ${notice.noticeTitle}`,
+                                    subtitle: `${notice.clientName} • u/s ${notice.sectionCode}`,
+                                  });
+                                }}
+                                className="p-1.5 rounded-xl bg-red-50 hover:bg-red-100 border border-red-200 text-red-600 cursor-pointer"
+                                title="Delete Notice from Database"
+                              >
+                                <Trash2 className="w-3.5 h-3.5" />
+                              </button>
+                            )}
+                          </div>
                         </div>
                       </div>
                     );
@@ -9576,14 +9954,26 @@ export const AdminPortal: React.FC = () => {
 
                 <div className="flex items-center gap-2">
                   {hasPermission('data_entry') && (
-                    <button
-                      onClick={handleStartEditCase}
-                      className="bg-[#0A4B35] hover:bg-[#0F6B4C] text-white font-extrabold px-3 py-1.5 rounded-xl text-xs flex items-center gap-1.5 shadow-sm"
-                      title="Edit Case File Details"
-                    >
-                      <Edit3 className="w-3.5 h-3.5 text-[#F5A623]" />
-                      <span>{isEditingCase ? 'Cancel Edit' : 'Edit Case'}</span>
-                    </button>
+                    <>
+                      <button
+                        onClick={handleStartEditCase}
+                        className="bg-[#0A4B35] hover:bg-[#0F6B4C] text-white font-extrabold px-3 py-1.5 rounded-xl text-xs flex items-center gap-1.5 shadow-sm cursor-pointer"
+                        title="Edit Case File Details"
+                      >
+                        <Edit3 className="w-3.5 h-3.5 text-[#F5A623]" />
+                        <span>{isEditingCase ? 'Cancel Edit' : 'Edit Case'}</span>
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => requestDeleteCase(selectedCase)}
+                        className="bg-red-50 hover:bg-red-100 border border-red-200 text-red-600 font-extrabold px-3 py-1.5 rounded-xl text-xs flex items-center gap-1.5 cursor-pointer"
+                        title="Delete Case File from Database"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                        <span>Delete</span>
+                      </button>
+                    </>
                   )}
 
                   <button
@@ -9592,7 +9982,7 @@ export const AdminPortal: React.FC = () => {
                       setIsEditingCase(false);
                       setDrawerActionNotice(null);
                     }}
-                    className="text-gray-400 hover:text-black font-extrabold p-1 text-base ml-2"
+                    className="text-gray-400 hover:text-black font-extrabold p-1 text-base ml-2 cursor-pointer"
                   >
                     ✕
                   </button>
@@ -10197,6 +10587,24 @@ export const AdminPortal: React.FC = () => {
                                   >
                                     {task.priority}
                                   </span>
+                                  {(hasPermission('tasks_notes') || hasPermission('data_entry')) && (
+                                    <button
+                                      type="button"
+                                      onClick={() => {
+                                        setPortalDeleteError(null);
+                                        setPendingDeleteTarget({
+                                          kind: 'task',
+                                          id: task.id,
+                                          title: task.title,
+                                          subtitle: `Assigned to ${task.assignedTo}`,
+                                        });
+                                      }}
+                                      className="p-1 rounded-lg bg-red-50 hover:bg-red-100 text-red-600 cursor-pointer"
+                                      title="Delete Task"
+                                    >
+                                      <Trash2 className="w-3 h-3" />
+                                    </button>
+                                  )}
                                 </div>
                               </div>
                             ))}
@@ -10236,7 +10644,27 @@ export const AdminPortal: React.FC = () => {
                               <div key={note.id} className="p-3 rounded-xl bg-[#FAFAF7] border border-gray-200 space-y-1">
                                 <div className="flex items-center justify-between text-[11px] font-bold text-gray-600">
                                   <span className="text-[#0F6B4C] font-extrabold">{note.author}</span>
-                                  <span>{note.date}</span>
+                                  <div className="flex items-center gap-2">
+                                    <span>{note.date}</span>
+                                    {(hasPermission('tasks_notes') || hasPermission('data_entry')) && (
+                                      <button
+                                        type="button"
+                                        onClick={() => {
+                                          setPortalDeleteError(null);
+                                          setPendingDeleteTarget({
+                                            kind: 'note',
+                                            id: note.id,
+                                            title: `Attorney Note by ${note.author}`,
+                                            subtitle: (note.text || note.content || '').slice(0, 80),
+                                          });
+                                        }}
+                                        className="p-1 rounded-lg bg-red-50 hover:bg-red-100 text-red-600 cursor-pointer"
+                                        title="Delete Note"
+                                      >
+                                        <Trash2 className="w-3 h-3" />
+                                      </button>
+                                    )}
+                                  </div>
                                 </div>
                                 <p className="text-[#1A1A1A] text-xs whitespace-pre-line">{note.text || note.content}</p>
                               </div>
@@ -10281,13 +10709,33 @@ export const AdminPortal: React.FC = () => {
                                     {docItem.category} • {docItem.fileSize}
                                   </span>
                                 </div>
-                                <a
-                                  href={docItem.downloadUrl || '#'}
-                                  download
-                                  className="bg-emerald-100 hover:bg-emerald-200 text-[#0F6B4C] px-2.5 py-1 rounded-lg font-bold text-[10px] shrink-0"
-                                >
-                                  Download
-                                </a>
+                                <div className="flex items-center gap-1 shrink-0">
+                                  <a
+                                    href={docItem.downloadUrl || '#'}
+                                    download
+                                    className="bg-emerald-100 hover:bg-emerald-200 text-[#0F6B4C] px-2.5 py-1 rounded-lg font-bold text-[10px]"
+                                  >
+                                    Download
+                                  </a>
+                                  {hasPermission('document_management') && (
+                                    <button
+                                      type="button"
+                                      onClick={() => {
+                                        setPortalDeleteError(null);
+                                        setPendingDeleteTarget({
+                                          kind: 'document',
+                                          id: docItem.id,
+                                          title: docItem.title,
+                                          subtitle: `${docItem.category} • ${docItem.fileSize}`,
+                                        });
+                                      }}
+                                      className="p-1.5 rounded-lg bg-red-50 hover:bg-red-100 text-red-600 cursor-pointer"
+                                      title="Delete Document"
+                                    >
+                                      <Trash2 className="w-3 h-3" />
+                                    </button>
+                                  )}
+                                </div>
                               </div>
                             ))}
                           </div>
@@ -10328,15 +10776,35 @@ export const AdminPortal: React.FC = () => {
                                   <div className="font-mono font-bold text-[#0A4B35] text-xs">{inv.invoiceNumber}</div>
                                   <div className="text-[11px] text-gray-600">{inv.serviceDescription}</div>
                                 </div>
-                                <div className="text-right">
-                                  <div className="font-extrabold text-[#1A1A1A] text-xs">Rs. {inv.totalAmountPkr.toLocaleString()}</div>
-                                  <span
-                                    className={`text-[9px] font-extrabold px-2 py-0.5 rounded ${
-                                      inv.status === 'Paid' ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-100 text-amber-800'
-                                    }`}
-                                  >
-                                    {inv.status}
-                                  </span>
+                                <div className="flex items-center gap-2">
+                                  <div className="text-right">
+                                    <div className="font-extrabold text-[#1A1A1A] text-xs">Rs. {inv.totalAmountPkr.toLocaleString()}</div>
+                                    <span
+                                      className={`text-[9px] font-extrabold px-2 py-0.5 rounded ${
+                                        inv.status === 'Paid' ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-100 text-amber-800'
+                                      }`}
+                                    >
+                                      {inv.status}
+                                    </span>
+                                  </div>
+                                  {hasPermission('billing') && (
+                                    <button
+                                      type="button"
+                                      onClick={() => {
+                                        setPortalDeleteError(null);
+                                        setPendingDeleteTarget({
+                                          kind: 'invoice',
+                                          id: inv.id,
+                                          title: `${inv.invoiceNumber} — ${inv.serviceDescription}`,
+                                          subtitle: `${inv.clientName} • Rs. ${inv.totalAmountPkr.toLocaleString()}`,
+                                        });
+                                      }}
+                                      className="p-1.5 rounded-lg bg-red-50 hover:bg-red-100 text-red-600 cursor-pointer"
+                                      title="Delete Invoice"
+                                    >
+                                      <Trash2 className="w-3.5 h-3.5" />
+                                    </button>
+                                  )}
                                 </div>
                               </div>
                             ))}
@@ -10398,21 +10866,41 @@ export const AdminPortal: React.FC = () => {
                                 </span>
                               </div>
 
-                              <select
-                                value={notice.status}
-                                onChange={(e) => updateNoticeStatus(notice.id, e.target.value as any)}
-                                className={`text-xs font-extrabold px-2.5 py-1 rounded-xl border cursor-pointer ${
-                                  isPending
-                                    ? 'bg-red-600 text-white border-red-700'
-                                    : notice.status === 'Challenged in Appeal'
-                                    ? 'bg-amber-500 text-black border-amber-600'
-                                    : 'bg-emerald-700 text-white border-emerald-800'
-                                }`}
-                              >
-                                <option value="Pending Reply">⚠️ Pending Reply</option>
-                                <option value="Challenged in Appeal">⚖️ Challenged in Appeal</option>
-                                <option value="Order Passed">✅ Order Passed / Replied</option>
-                              </select>
+                              <div className="flex items-center gap-2">
+                                <select
+                                  value={notice.status}
+                                  onChange={(e) => updateNoticeStatus(notice.id, e.target.value as any)}
+                                  className={`text-xs font-extrabold px-2.5 py-1 rounded-xl border cursor-pointer ${
+                                    isPending
+                                      ? 'bg-red-600 text-white border-red-700'
+                                      : notice.status === 'Challenged in Appeal'
+                                      ? 'bg-amber-500 text-black border-amber-600'
+                                      : 'bg-emerald-700 text-white border-emerald-800'
+                                  }`}
+                                >
+                                  <option value="Pending Reply">⚠️ Pending Reply</option>
+                                  <option value="Challenged in Appeal">⚖️ Challenged in Appeal</option>
+                                  <option value="Order Passed">✅ Order Passed / Replied</option>
+                                </select>
+                                {hasPermission('data_entry') && (
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      setPortalDeleteError(null);
+                                      setPendingDeleteTarget({
+                                        kind: 'notice',
+                                        id: notice.id,
+                                        title: `${notice.cnoNumber} — ${notice.noticeTitle}`,
+                                        subtitle: `${notice.clientName} • u/s ${notice.sectionCode}`,
+                                      });
+                                    }}
+                                    className="p-1.5 rounded-xl bg-red-50 hover:bg-red-100 border border-red-200 text-red-600 cursor-pointer"
+                                    title="Delete Notice"
+                                  >
+                                    <Trash2 className="w-3.5 h-3.5" />
+                                  </button>
+                                )}
+                              </div>
                             </div>
 
                             <h5 className="font-heading font-extrabold text-sm text-[#1A1A1A] mt-2">{notice.noticeTitle}</h5>
@@ -10545,12 +11033,60 @@ export const AdminPortal: React.FC = () => {
                     <button
                       type="button"
                       onClick={handleLogWhatsAppNotification}
-                      className="bg-[#0A4B35] hover:bg-[#0F6B4C] text-white font-bold px-4 py-2.5 rounded-2xl text-xs flex items-center gap-1.5 shadow-sm"
+                      className="bg-[#0A4B35] hover:bg-[#0F6B4C] text-white font-bold px-4 py-2.5 rounded-2xl text-xs flex items-center gap-1.5 shadow-sm cursor-pointer"
                     >
                       <FileText className="w-3.5 h-3.5 text-[#F5A623]" />
                       <span>Log to Dispatch History</span>
                     </button>
                   </div>
+
+                  {/* Logged Notification Dispatch History for Case */}
+                  {(() => {
+                    const caseNotifs = notifications.filter(
+                      (n) => n.caseId === selectedCase.id || n.clientId === selectedCase.clientId
+                    );
+                    if (caseNotifs.length === 0) return null;
+                    return (
+                      <div className="pt-3 border-t border-gray-200 space-y-2">
+                        <div className="text-[11px] font-extrabold text-[#1A1A1A] uppercase tracking-wider">
+                          Logged Dispatch History ({caseNotifs.length})
+                        </div>
+                        <div className="space-y-2">
+                          {caseNotifs.map((n) => (
+                            <div
+                              key={n.id}
+                              className="p-3 rounded-xl bg-[#FAFAF7] border border-gray-200 flex items-start justify-between gap-2"
+                            >
+                              <div className="min-w-0">
+                                <div className="font-bold text-[#0F6B4C] text-xs">{n.title}</div>
+                                <div className="text-[10px] text-gray-500">
+                                  {n.type} to {n.recipientPhoneOrEmail} • {n.sentAt}
+                                </div>
+                              </div>
+                              {(hasPermission('notifications') || hasPermission('data_entry')) && (
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setPortalDeleteError(null);
+                                    setPendingDeleteTarget({
+                                      kind: 'notification',
+                                      id: n.id,
+                                      title: n.title,
+                                      subtitle: `${n.type} • ${n.sentAt}`,
+                                    });
+                                  }}
+                                  className="p-1.5 rounded-lg bg-red-50 hover:bg-red-100 text-red-600 shrink-0 cursor-pointer"
+                                  title="Delete Notification Log"
+                                >
+                                  <Trash2 className="w-3.5 h-3.5" />
+                                </button>
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    );
+                  })()}
                 </div>
               )}
 
@@ -10622,9 +11158,30 @@ export const AdminPortal: React.FC = () => {
                               className="mt-1 h-4 w-4 text-[#0F6B4C] rounded border-gray-300"
                             />
                             <div className="flex-1 text-xs">
-                              <div className="flex justify-between font-bold text-[#1A1A1A]">
+                              <div className="flex justify-between items-center gap-2 font-bold text-[#1A1A1A]">
                                 <span>{t.title}</span>
-                                <span className="text-red-700 bg-red-50 px-2 py-0.5 rounded text-[10px]">Due: {t.dueDate}</span>
+                                <div className="flex items-center gap-1.5 shrink-0">
+                                  <span className="text-red-700 bg-red-50 px-2 py-0.5 rounded text-[10px]">Due: {t.dueDate}</span>
+                                  {(hasPermission('tasks_notes') || hasPermission('data_entry')) && (
+                                    <button
+                                      type="button"
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        setPortalDeleteError(null);
+                                        setPendingDeleteTarget({
+                                          kind: 'task',
+                                          id: t.id,
+                                          title: t.title,
+                                          subtitle: `Assigned to ${t.assignedTo}`,
+                                        });
+                                      }}
+                                      className="p-1 rounded-lg bg-red-50 hover:bg-red-100 text-red-600 cursor-pointer"
+                                      title="Delete Task"
+                                    >
+                                      <Trash2 className="w-3.5 h-3.5" />
+                                    </button>
+                                  )}
+                                </div>
                               </div>
                               <div className="text-[#5A6275] text-[11px] mt-1">
                                 Assigned: <span className="font-bold text-[#0F6B4C]">{t.assignedTo}</span>
@@ -10672,9 +11229,29 @@ export const AdminPortal: React.FC = () => {
                         .filter((n) => n.caseId === selectedCase.id)
                         .map((n) => (
                           <div key={n.id} className="p-4 rounded-2xl bg-[#0A4B35]/5 border border-[#0F6B4C]/20 text-xs space-y-1">
-                            <div className="flex justify-between font-bold text-[#0F6B4C]">
+                            <div className="flex justify-between items-center font-bold text-[#0F6B4C]">
                               <span>{n.author}</span>
-                              <span className="text-[10px] text-gray-500">{n.date}</span>
+                              <div className="flex items-center gap-2">
+                                <span className="text-[10px] text-gray-500">{n.date}</span>
+                                {(hasPermission('tasks_notes') || hasPermission('data_entry')) && (
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      setPortalDeleteError(null);
+                                      setPendingDeleteTarget({
+                                        kind: 'note',
+                                        id: n.id,
+                                        title: `Attorney Note by ${n.author}`,
+                                        subtitle: (n.text || n.content || '').slice(0, 80),
+                                      });
+                                    }}
+                                    className="p-1 rounded-lg bg-red-50 hover:bg-red-100 text-red-600 cursor-pointer"
+                                    title="Delete Note"
+                                  >
+                                    <Trash2 className="w-3.5 h-3.5" />
+                                  </button>
+                                )}
+                              </div>
                             </div>
                             <p className="text-gray-800 italic">{n.text}</p>
                           </div>
@@ -10735,7 +11312,7 @@ export const AdminPortal: React.FC = () => {
                         .map((d) => (
                           <div
                             key={d.id}
-                            className="p-3.5 rounded-2xl bg-white border border-gray-200 flex items-center justify-between text-xs"
+                            className="p-3.5 rounded-2xl bg-white border border-gray-200 flex items-center justify-between gap-2 text-xs"
                           >
                             <div>
                               <span className="text-[10px] font-extrabold bg-[#0F6B4C]/10 text-[#0F6B4C] px-2 py-0.5 rounded">
@@ -10747,14 +11324,34 @@ export const AdminPortal: React.FC = () => {
                               </div>
                             </div>
 
-                            <button
-                              type="button"
-                              onClick={() => showDrawerNotice(`Document "${d.title}" prepared for download.`)}
-                              className="bg-[#0A4B35] text-white p-2.5 rounded-xl hover:bg-[#0F6B4C] cursor-pointer"
-                              title="Download Document"
-                            >
-                              <Download className="w-4 h-4 text-[#F5A623]" />
-                            </button>
+                            <div className="flex items-center gap-1.5 shrink-0">
+                              <button
+                                type="button"
+                                onClick={() => showDrawerNotice(`Document "${d.title}" prepared for download.`)}
+                                className="bg-[#0A4B35] text-white p-2.5 rounded-xl hover:bg-[#0F6B4C] cursor-pointer"
+                                title="Download Document"
+                              >
+                                <Download className="w-4 h-4 text-[#F5A623]" />
+                              </button>
+                              {hasPermission('document_management') && (
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setPortalDeleteError(null);
+                                    setPendingDeleteTarget({
+                                      kind: 'document',
+                                      id: d.id,
+                                      title: d.title,
+                                      subtitle: `${d.category} • ${d.fileSize}`,
+                                    });
+                                  }}
+                                  className="p-2.5 rounded-xl bg-red-50 hover:bg-red-100 border border-red-200 text-red-600 cursor-pointer"
+                                  title="Delete Document"
+                                >
+                                  <Trash2 className="w-4 h-4" />
+                                </button>
+                              )}
+                            </div>
                           </div>
                         ))
                     )}
@@ -10861,7 +11458,7 @@ export const AdminPortal: React.FC = () => {
                                 <button
                                   type="button"
                                   onClick={() => setSelectedInvoiceForPdf(i)}
-                                  className="bg-[#0A4B35] hover:bg-[#0F6B4C] text-white px-3 py-1.5 rounded-xl font-bold text-[11px] flex items-center gap-1 shadow-sm"
+                                  className="bg-[#0A4B35] hover:bg-[#0F6B4C] text-white px-3 py-1.5 rounded-xl font-bold text-[11px] flex items-center gap-1 shadow-sm cursor-pointer"
                                 >
                                   <Printer className="w-3.5 h-3.5 text-[#F5A623]" />
                                   <span>View / Print PDF</span>
@@ -10870,11 +11467,30 @@ export const AdminPortal: React.FC = () => {
                                 <button
                                   type="button"
                                   onClick={() => setSelectedInvoiceForPdf(i)}
-                                  className="bg-[#25D366] hover:bg-emerald-600 text-white px-3 py-1.5 rounded-xl font-bold text-[11px] flex items-center gap-1 shadow-sm"
+                                  className="bg-[#25D366] hover:bg-emerald-600 text-white px-3 py-1.5 rounded-xl font-bold text-[11px] flex items-center gap-1 shadow-sm cursor-pointer"
                                 >
                                   <Send className="w-3.5 h-3.5" />
                                   <span>WhatsApp</span>
                                 </button>
+
+                                {hasPermission('billing') && (
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      setPortalDeleteError(null);
+                                      setPendingDeleteTarget({
+                                        kind: 'invoice',
+                                        id: i.id,
+                                        title: `${i.invoiceNumber} — ${i.serviceDescription}`,
+                                        subtitle: `${i.clientName} • Rs. ${i.totalAmountPkr.toLocaleString()}`,
+                                      });
+                                    }}
+                                    className="p-1.5 rounded-xl bg-red-50 hover:bg-red-100 border border-red-200 text-red-600 cursor-pointer"
+                                    title="Delete Invoice"
+                                  >
+                                    <Trash2 className="w-3.5 h-3.5" />
+                                  </button>
+                                )}
                               </div>
                             </div>
                           </div>
@@ -12450,6 +13066,69 @@ export const AdminPortal: React.FC = () => {
               >
                 <Trash2 className="w-3.5 h-3.5" />
                 <span>Revoke Access</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* --- MODAL: UNIFIED PERMANENT DATABASE DELETE CONFIRMATION --- */}
+      {pendingDeleteTarget && (
+        <div className="fixed inset-0 z-[60] bg-black/65 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-white rounded-3xl max-w-md w-full p-6 border border-red-200 shadow-2xl space-y-4">
+            <div className="w-12 h-12 rounded-2xl bg-red-50 text-red-600 flex items-center justify-center mx-auto">
+              <Trash2 className="w-6 h-6" />
+            </div>
+
+            <div className="text-center space-y-2">
+              <span className="text-[10px] font-extrabold uppercase tracking-wider bg-red-100 text-red-700 px-2.5 py-0.5 rounded-full inline-block">
+                Permanent Database Removal
+              </span>
+              <h3 className="font-heading font-extrabold text-base text-[#1A1A1A]">
+                Delete {pendingDeleteTarget.kind.toUpperCase()}?
+              </h3>
+              <p className="text-xs text-gray-700 font-bold break-words">
+                &quot;{pendingDeleteTarget.title}&quot;
+              </p>
+              <p className="text-[11px] text-gray-500 break-words">
+                {pendingDeleteTarget.subtitle}
+              </p>
+              {pendingDeleteTarget.cascadeSummary && (
+                <p className="text-[11px] text-amber-900 font-semibold bg-amber-50 border border-amber-200 p-2.5 rounded-xl text-left">
+                  {pendingDeleteTarget.cascadeSummary}
+                </p>
+              )}
+              <p className="text-[11px] text-red-700 font-medium bg-red-50 p-2 rounded-xl">
+                This permanently deletes the record from the Firestore database and cannot be undone.
+              </p>
+            </div>
+
+            {portalDeleteError && (
+              <div className="bg-red-50 border border-red-300 text-red-700 text-xs p-2.5 rounded-xl font-semibold">
+                {portalDeleteError}
+              </div>
+            )}
+
+            <div className="flex items-center justify-end gap-2.5 pt-2 border-t border-gray-100">
+              <button
+                type="button"
+                disabled={isDeletingPortalRecord}
+                onClick={() => {
+                  setPendingDeleteTarget(null);
+                  setPortalDeleteError(null);
+                }}
+                className="bg-gray-100 hover:bg-gray-200 text-gray-700 font-bold px-4 py-2 rounded-xl text-xs cursor-pointer disabled:opacity-50"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                disabled={isDeletingPortalRecord}
+                onClick={() => void handleConfirmPortalDelete()}
+                className="bg-red-600 hover:bg-red-700 text-white font-extrabold px-4 py-2 rounded-xl text-xs flex items-center gap-1.5 shadow-sm cursor-pointer disabled:opacity-50"
+              >
+                <Trash2 className="w-3.5 h-3.5" />
+                <span>{isDeletingPortalRecord ? 'Deleting...' : 'Delete Permanently'}</span>
               </button>
             </div>
           </div>
