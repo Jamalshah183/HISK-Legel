@@ -892,15 +892,40 @@ export function usePortalStore() {
   }, []);
 
   // --- CLIENT ACTIONS ---
-  const saveClientVaultSecret = (clientId: string, secpPassword?: string, secpPin?: string) => {
-    const cleanPass = secpPassword?.trim() || '';
-    const cleanPin = secpPin?.trim() || '';
-    const secretDoc: ClientVaultSecret = {
+  const saveClientVaultSecret = (
+    clientId: string,
+    secretsOrSecpPassword?:
+      | string
+      | {
+          irisPassword?: string;
+          fbrPstPassword?: string;
+          secpPassword?: string;
+          secpPin?: string;
+        },
+    secpPin?: string
+  ) => {
+    const existing = clientVaultSecrets[clientId];
+    const incoming =
+      typeof secretsOrSecpPassword === 'object' && secretsOrSecpPassword !== null
+        ? secretsOrSecpPassword
+        : {
+            secpPassword: secretsOrSecpPassword,
+            secpPin,
+          };
+
+    const secretDoc: ClientVaultSecret = stripUndefined({
       clientId,
-      secpPassword: cleanPass,
-      secpPin: cleanPin,
+      irisPassword:
+        incoming.irisPassword !== undefined ? incoming.irisPassword.trim() : existing?.irisPassword || '',
+      fbrPstPassword:
+        incoming.fbrPstPassword !== undefined
+          ? incoming.fbrPstPassword.trim()
+          : existing?.fbrPstPassword || '',
+      secpPassword:
+        incoming.secpPassword !== undefined ? incoming.secpPassword.trim() : existing?.secpPassword || '',
+      secpPin: incoming.secpPin !== undefined ? incoming.secpPin.trim() : existing?.secpPin || '',
       updatedAt: getTodayDateString(),
-    };
+    });
     setClientVaultSecrets((prev) => {
       const nextMap = { ...prev, [clientId]: secretDoc };
       saveToStorage(STORAGE_KEYS.CLIENT_VAULT_SECRETS, nextMap);
@@ -911,6 +936,8 @@ export function usePortalStore() {
 
   const addClient = (
     client: Omit<Client, 'id' | 'createdAt' | 'activeCasesCount' | 'totalTaxSaved'> & {
+      irisPassword?: string;
+      fbrPstPassword?: string;
       secpPassword?: string;
       secpPin?: string;
     },
@@ -918,7 +945,7 @@ export function usePortalStore() {
     loginPassword?: string
   ) => {
     const newId = createUniqueId('cli');
-    const { secpPassword, secpPin, ...publicClientFields } = client;
+    const { irisPassword, fbrPstPassword, secpPassword, secpPin, ...publicClientFields } = client;
     const newClient: Client = stripUndefined({
       ...publicClientFields,
       id: newId,
@@ -933,8 +960,13 @@ export function usePortalStore() {
     });
     saveToFirestoreDoc('clients', newClient.id, newClient);
 
-    if (secpPassword || secpPin) {
-      saveClientVaultSecret(newClient.id, secpPassword, secpPin);
+    if (irisPassword || fbrPstPassword || secpPassword || secpPin) {
+      saveClientVaultSecret(newClient.id, {
+        irisPassword,
+        fbrPstPassword,
+        secpPassword,
+        secpPin,
+      });
     }
 
     // Save client login credential if provided
@@ -952,9 +984,14 @@ export function usePortalStore() {
 
   const updateClient = (
     clientId: string,
-    updatedData: Partial<Client> & { secpPassword?: string; secpPin?: string }
+    updatedData: Partial<Client> & {
+      irisPassword?: string;
+      fbrPstPassword?: string;
+      secpPassword?: string;
+      secpPin?: string;
+    }
   ) => {
-    const { secpPassword, secpPin, ...publicUpdates } = updatedData;
+    const { irisPassword, fbrPstPassword, secpPassword, secpPin, ...publicUpdates } = updatedData;
     const existingClient = clientsRef.current.find((c) => c.id === clientId);
     const mergedClient = existingClient
       ? stripUndefined({ ...existingClient, ...publicUpdates })
@@ -1067,13 +1104,18 @@ export function usePortalStore() {
       });
     }
 
-    if (secpPassword !== undefined || secpPin !== undefined) {
-      const existingSecret = clientVaultSecrets[clientId];
-      saveClientVaultSecret(
-        clientId,
-        secpPassword !== undefined ? secpPassword : existingSecret?.secpPassword,
-        secpPin !== undefined ? secpPin : existingSecret?.secpPin
-      );
+    if (
+      irisPassword !== undefined ||
+      fbrPstPassword !== undefined ||
+      secpPassword !== undefined ||
+      secpPin !== undefined
+    ) {
+      saveClientVaultSecret(clientId, {
+        irisPassword,
+        fbrPstPassword,
+        secpPassword,
+        secpPin,
+      });
     }
   };
 

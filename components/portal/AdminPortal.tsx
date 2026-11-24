@@ -93,7 +93,9 @@ import {
   FILE_CATEGORY_CONFIG,
   exportCourtCasesSheetExcel,
   exportIncSheetExcel,
+  exportIncomeTaxSheetExcel,
   exportMasterExcelWorkbook,
+  exportSalesTaxSheetExcel,
   getClientTypeFromFileCode,
   getDefaultClientCategoryForFileCode,
   getNextFileNumber,
@@ -101,6 +103,7 @@ import {
   parseFileCodeFromFileNumber,
   sortByFileNumber,
 } from '@/lib/excelExport';
+import { downloadClientCoverPagePdf } from '@/lib/coverPagePdf';
 import {
   CaseFile,
   Client,
@@ -842,13 +845,21 @@ export const AdminPortal: React.FC = () => {
   const [clientStatusFilter, setClientStatusFilter] = useState<string>('All');
   const [editingClient, setEditingClient] = useState<Client | null>(null);
   const [editClientForm, setEditClientForm] = useState<
-    Partial<Client> & { secpPassword?: string; secpPin?: string }
+    Partial<Client> & {
+      irisPassword?: string;
+      fbrPstPassword?: string;
+      secpPassword?: string;
+      secpPin?: string;
+    }
   >({});
   const [clientActionNotice, setClientActionNotice] = useState<string | null>(null);
+  const [lastRegisteredClient, setLastRegisteredClient] = useState<Client | null>(null);
   const [clientModalError, setClientModalError] = useState<string | null>(null);
   const [portalNotice, setPortalNotice] = useState<{ message: string; linkUrl?: string; linkLabel?: string } | null>(null);
   const [drawerActionNotice, setDrawerActionNotice] = useState<string | null>(null);
   const [isExportingExcel, setIsExportingExcel] = useState<boolean>(false);
+  const [isGeneratingCoverPdf, setIsGeneratingCoverPdf] = useState<boolean>(false);
+  const downloadCoverOnSubmitRef = React.useRef<boolean>(false);
 
   const showPortalNotice = (message: string, linkUrl?: string, linkLabel?: string) => {
     setPortalNotice({ message, linkUrl, linkLabel });
@@ -2290,15 +2301,27 @@ export const AdminPortal: React.FC = () => {
     businessName: string;
     activeClosed: 'Active' | 'Closed';
     entityStatus: string;
+    authority: string;
     cnic: string;
     regIncorpNo: string;
     ntn: string;
+    irisPassword: string;
+    fbrPstPassword: string;
     secpPassword: string;
     secpPin: string;
     rtoCto: string;
     contactPerson: string;
     referralContact: string;
     pendingBeforeCourt: string;
+    natureOfCase: string;
+    volumeNo: string;
+    coverSubjectYear: string;
+    whatsapp: string;
+    landline: string;
+    contactPerson2: string;
+    whatsapp2: string;
+    email2: string;
+    chargeType: 'CHARGE' | 'COMPLEMENTARY';
     clientType: ClientType;
     category: ClientCategory;
     phone: string;
@@ -2314,16 +2337,28 @@ export const AdminPortal: React.FC = () => {
     name: '',
     businessName: '',
     activeClosed: 'Active',
-    entityStatus: 'COMPANY',
+    entityStatus: 'FREELANCER',
+    authority: 'FBR',
     cnic: '',
     regIncorpNo: '',
     ntn: '',
+    irisPassword: '',
+    fbrPstPassword: '',
     secpPassword: '',
     secpPin: '',
     rtoCto: 'ISLAMABAD',
     contactPerson: '',
     referralContact: 'HISK LEGAL',
     pendingBeforeCourt: 'Islamabad High Court',
+    natureOfCase: 'WRIT PETITION',
+    volumeNo: 'VOL-I',
+    coverSubjectYear: '',
+    whatsapp: '',
+    landline: '',
+    contactPerson2: '',
+    whatsapp2: '',
+    email2: '',
+    chargeType: 'CHARGE',
     clientType: 'Tax Client',
     category: 'Income Tax (IT)',
     phone: '',
@@ -2415,23 +2450,44 @@ export const AdminPortal: React.FC = () => {
 
   const handleOpenAddClient = (defaultCode: FileCategoryCode = 'IT') => {
     setClientModalError(null);
+    downloadCoverOnSubmitRef.current = false;
     const nextFileNo = getNextFileNumber(defaultCode, clients, cases);
+    const defaultEntityStatus =
+      defaultCode === 'IT'
+        ? 'FREELANCER'
+        : defaultCode === 'ST'
+        ? 'BUS IND'
+        : defaultCode === 'INC'
+        ? 'COMPANY'
+        : 'Active';
     setNewClientData({
       fileCategoryCode: defaultCode,
       fileNumber: nextFileNo,
       name: '',
       businessName: '',
       activeClosed: 'Active',
-      entityStatus: defaultCode === 'CF' ? 'Active' : 'COMPANY',
+      entityStatus: defaultEntityStatus,
+      authority: 'FBR',
       cnic: '',
       regIncorpNo: '',
       ntn: '',
+      irisPassword: '',
+      fbrPstPassword: '',
       secpPassword: '',
       secpPin: '',
       rtoCto: 'ISLAMABAD',
       contactPerson: '',
-      referralContact: defaultCode === 'CF' ? '' : 'HISK LEGAL',
+      referralContact: 'HISK LEGAL',
       pendingBeforeCourt: defaultCode === 'CF' ? 'Islamabad High Court' : '',
+      natureOfCase: defaultCode === 'CF' ? 'WRIT PETITION' : '',
+      volumeNo: 'VOL-I',
+      coverSubjectYear: '',
+      whatsapp: '',
+      landline: '',
+      contactPerson2: '',
+      whatsapp2: '',
+      email2: '',
+      chargeType: 'CHARGE',
       clientType: getClientTypeFromFileCode(defaultCode),
       category: getDefaultClientCategoryForFileCode(defaultCode),
       phone: '',
@@ -2588,6 +2644,15 @@ export const AdminPortal: React.FC = () => {
     });
   };
 
+  const handleDownloadCoverPage = async (clientObj: Client) => {
+    setIsGeneratingCoverPdf(true);
+    try {
+      await downloadClientCoverPagePdf(clientObj);
+    } finally {
+      setIsGeneratingCoverPdf(false);
+    }
+  };
+
   const handleCreateClient = (e: React.FormEvent) => {
     e.preventDefault();
     setClientModalError(null);
@@ -2622,6 +2687,7 @@ export const AdminPortal: React.FC = () => {
       newClientData.activeClosed === 'Closed' ? 'Archived' : newClientData.status || 'Active';
 
     const cleanName = newClientData.name.trim() || newClientData.businessName.trim();
+    const cleanPhone = newClientData.phone.trim();
 
     const createdClient = addClient(
       {
@@ -2634,19 +2700,31 @@ export const AdminPortal: React.FC = () => {
           resolvedCode === 'CF'
             ? newClientData.activeClosed
             : newClientData.entityStatus || 'COMPANY',
+        authority: resolvedCode === 'ST' ? newClientData.authority.trim().toUpperCase() || 'FBR' : '',
         cnic: newClientData.cnic.trim(),
-        regIncorpNo: newClientData.regIncorpNo.trim(),
+        regIncorpNo: resolvedCode === 'INC' ? newClientData.regIncorpNo.trim() : '',
         ntn: newClientData.ntn.trim(),
-        secpPassword: newClientData.secpPassword,
-        secpPin: newClientData.secpPin,
-        rtoCto: newClientData.rtoCto.trim().toUpperCase(),
+        irisPassword: resolvedCode === 'IT' ? newClientData.irisPassword : '',
+        fbrPstPassword: resolvedCode === 'ST' ? newClientData.fbrPstPassword : '',
+        secpPassword: resolvedCode === 'INC' ? newClientData.secpPassword : '',
+        secpPin: resolvedCode === 'INC' ? newClientData.secpPin : '',
+        rtoCto: (newClientData.rtoCto.trim() || 'ISLAMABAD').toUpperCase(),
         contactPerson: newClientData.contactPerson.trim(),
         referralContact: newClientData.referralContact.trim(),
         pendingBeforeCourt:
           resolvedCode === 'CF' ? newClientData.pendingBeforeCourt.trim() : '',
+        natureOfCase: resolvedCode === 'CF' ? newClientData.natureOfCase.trim().toUpperCase() : '',
+        volumeNo: (newClientData.volumeNo.trim() || 'VOL-I').toUpperCase(),
+        coverSubjectYear: newClientData.coverSubjectYear.trim(),
+        whatsapp: newClientData.whatsapp.trim() || cleanPhone,
+        landline: newClientData.landline.trim(),
+        contactPerson2: newClientData.contactPerson2.trim(),
+        whatsapp2: newClientData.whatsapp2.trim(),
+        email2: newClientData.email2.trim(),
+        chargeType: newClientData.chargeType || 'CHARGE',
         clientType: resolvedClientType,
         category: newClientData.category || getDefaultClientCategoryForFileCode(resolvedCode),
-        phone: newClientData.phone.trim(),
+        phone: cleanPhone,
         email: cleanEmail,
         city: newClientData.rtoCto.trim() || newClientData.city || 'Islamabad',
         registeredAddress: newClientData.registeredAddress.trim(),
@@ -2656,12 +2734,27 @@ export const AdminPortal: React.FC = () => {
       cleanPassword
     );
 
+    const shouldDownloadCover = downloadCoverOnSubmitRef.current;
+    downloadCoverOnSubmitRef.current = false;
     setShowAddClientModal(false);
     setRepositorySubTab('clients');
+    setLastRegisteredClient(createdClient);
+
+    const sheetLabel =
+      resolvedCode === 'IT'
+        ? 'INCOME TAX CLIETS'
+        : resolvedCode === 'ST'
+        ? 'SALES TAX CLIENTS'
+        : resolvedCode === 'INC'
+        ? 'AOP/NPO/COMPANY CLIENT FILES'
+        : 'COURT CASES FILES';
+
     setClientActionNotice(
-      `Client "${createdClient.name}" registered under ${resolvedFileNo} (${FILE_CATEGORY_CONFIG[resolvedCode].label}) and added to backend ${resolvedCode === 'CF' ? 'COURT CASES FILES' : 'AOP/NPO/COMPANY CLIENT FILES'} Excel register.`
+      `Client "${createdClient.name}" registered under ${resolvedFileNo} and synced to ${sheetLabel} sheet.`
     );
-    setTimeout(() => setClientActionNotice(null), 7000);
+    if (shouldDownloadCover) {
+      void handleDownloadCoverPage(createdClient);
+    }
   };
 
   const handleStartEditClient = (client: Client) => {
@@ -2675,16 +2768,36 @@ export const AdminPortal: React.FC = () => {
       name: client.name,
       businessName: client.businessName || client.name,
       activeClosed: client.activeClosed || (client.status === 'Archived' ? 'Closed' : 'Active'),
-      entityStatus: client.entityStatus || (inferredCode === 'CF' ? 'Active' : 'COMPANY'),
+      entityStatus:
+        client.entityStatus ||
+        (inferredCode === 'IT'
+          ? 'FREELANCER'
+          : inferredCode === 'ST'
+          ? 'BUS IND'
+          : inferredCode === 'CF'
+          ? 'Active'
+          : 'COMPANY'),
+      authority: client.authority || (inferredCode === 'ST' ? 'FBR' : ''),
       ntn: client.ntn,
       cnic: client.cnic,
       regIncorpNo: client.regIncorpNo || '',
+      irisPassword: existingSecret?.irisPassword || '',
+      fbrPstPassword: existingSecret?.fbrPstPassword || '',
       secpPassword: existingSecret?.secpPassword || '',
       secpPin: existingSecret?.secpPin || '',
-      rtoCto: client.rtoCto || client.city || '',
+      rtoCto: client.rtoCto || client.city || 'ISLAMABAD',
       contactPerson: client.contactPerson || '',
       referralContact: client.referralContact || '',
       pendingBeforeCourt: client.pendingBeforeCourt || '',
+      natureOfCase: client.natureOfCase || '',
+      volumeNo: client.volumeNo || 'VOL-I',
+      coverSubjectYear: client.coverSubjectYear || '',
+      whatsapp: client.whatsapp || client.phone || '',
+      landline: client.landline || '',
+      contactPerson2: client.contactPerson2 || '',
+      whatsapp2: client.whatsapp2 || '',
+      email2: client.email2 || '',
+      chargeType: client.chargeType || 'CHARGE',
       clientType: getClientTypeFromFileCode(inferredCode),
       category: client.category,
       phone: client.phone,
@@ -2722,32 +2835,44 @@ export const AdminPortal: React.FC = () => {
       clientType: getClientTypeFromFileCode(code),
       status: editClientForm.activeClosed === 'Closed' ? 'Archived' : editClientForm.status || 'Active',
     });
+    const updatedPreviewClient: Client = {
+      ...editingClient,
+      ...editClientForm,
+      fileNumber: resolvedFileNo,
+      fileCategoryCode: code,
+      clientType: getClientTypeFromFileCode(code),
+    };
     setEditingClient(null);
+    setLastRegisteredClient(updatedPreviewClient);
     setClientActionNotice(
-      `Updated ${resolvedFileNo} (${editClientForm.name || editingClient.name}) and synced linked cases & backend Excel register.`
+      `Updated ${resolvedFileNo} (${editClientForm.name || editingClient.name}) and synced linked cases & Excel register.`
     );
-    setTimeout(() => setClientActionNotice(null), 5000);
   };
 
   const handleExportExcel = async (
-    mode: 'MASTER' | 'ALL_INC' | 'IT' | 'ST' | 'INC' | 'CF'
+    mode: 'MASTER' | 'IT' | 'ST' | 'INC' | 'CF'
   ) => {
     setIsExportingExcel(true);
     try {
       if (mode === 'MASTER') {
         await exportMasterExcelWorkbook(clients, cases, clientVaultSecrets);
         setClientActionNotice(
-          'Exported Master Excel Workbook (.xlsx) with AOP/NPO/COMPANY CLIENT FILES (IT/ST/INC) & COURT CASES FILES (CF) sheets.'
+          'Exported Master 4-Tab Excel Workbook (.xlsx): INCOME TAX (IT), SALES TAX (ST), AOP/NPO/COMPANY (INC), and COURT CASES FILES (CF).'
         );
+      } else if (mode === 'IT') {
+        await exportIncomeTaxSheetExcel(clients, clientVaultSecrets);
+        setClientActionNotice('Exported INCOME TAX CLIETS (AI-IT) Excel sheet (.xlsx).');
+      } else if (mode === 'ST') {
+        await exportSalesTaxSheetExcel(clients, clientVaultSecrets);
+        setClientActionNotice('Exported SALES TAX CLIENTS (AI-ST) Excel sheet (.xlsx).');
       } else if (mode === 'CF') {
         await exportCourtCasesSheetExcel(clients, cases);
         setClientActionNotice('Exported COURT CASES FILES (AI-CF) Excel sheet (.xlsx).');
       } else {
-        await exportIncSheetExcel(clients, clientVaultSecrets, mode);
-        setClientActionNotice(
-          `Exported AOP/NPO/COMPANY CLIENT FILES Excel sheet (${mode === 'ALL_INC' ? 'IT + ST + INC' : `AI-${mode}`}).`
-        );
+        await exportIncSheetExcel(clients, clientVaultSecrets, 'INC');
+        setClientActionNotice('Exported AOP/NPO/COMPANY CLIENT FILES (AI-INC) Excel sheet (.xlsx).');
       }
+      setLastRegisteredClient(null);
       setTimeout(() => setClientActionNotice(null), 6000);
     } finally {
       setIsExportingExcel(false);
@@ -3746,18 +3871,38 @@ export const AdminPortal: React.FC = () => {
             </div>
 
             {clientActionNotice && (
-              <div className="bg-emerald-50 border border-emerald-300 text-emerald-900 px-5 py-3 rounded-2xl flex items-center justify-between text-xs font-semibold shadow-sm">
+              <div className="bg-emerald-50 border border-emerald-300 text-emerald-900 px-5 py-3 rounded-2xl flex flex-wrap items-center justify-between gap-3 text-xs font-semibold shadow-sm">
                 <div className="flex items-center gap-2">
                   <CheckCircle2 className="w-4 h-4 text-[#0F6B4C] shrink-0" />
                   <span>{clientActionNotice}</span>
                 </div>
-                <button
-                  type="button"
-                  onClick={() => setClientActionNotice(null)}
-                  className="text-emerald-700 hover:text-emerald-900 font-bold"
-                >
-                  ✕
-                </button>
+                <div className="flex items-center gap-2">
+                  {lastRegisteredClient && (
+                    <button
+                      type="button"
+                      disabled={isGeneratingCoverPdf}
+                      onClick={() => void handleDownloadCoverPage(lastRegisteredClient)}
+                      className="px-3.5 py-1.5 rounded-xl bg-[#0A4B35] hover:bg-[#0F6B4C] text-[#F5A623] font-extrabold text-[11px] flex items-center gap-1.5 shadow-sm cursor-pointer disabled:opacity-50"
+                    >
+                      <Download className="w-3.5 h-3.5" />
+                      <span>
+                        {isGeneratingCoverPdf
+                          ? 'Generating A4 PDF...'
+                          : `Download A4 Cover Page (${lastRegisteredClient.fileNumber || 'PDF'})`}
+                      </span>
+                    </button>
+                  )}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setClientActionNotice(null);
+                      setLastRegisteredClient(null);
+                    }}
+                    className="text-emerald-700 hover:text-emerald-900 font-bold px-1.5 cursor-pointer"
+                  >
+                    ✕
+                  </button>
+                </div>
               </div>
             )}
 
@@ -3912,17 +4057,37 @@ export const AdminPortal: React.FC = () => {
                     })}
                   </div>
 
-                  {/* Screenshot-Matched Excel Export Bar */}
+                  {/* Screenshot-Matched 4-Sheet Excel Export Bar */}
                   <div className="flex flex-wrap items-center gap-2">
                     <button
                       type="button"
-                      onClick={() => handleExportExcel('ALL_INC')}
+                      onClick={() => handleExportExcel('IT')}
                       disabled={isExportingExcel}
                       className="px-3 py-1.5 rounded-xl bg-emerald-50 hover:bg-emerald-100 text-[#0A4B35] border border-emerald-300 text-[11px] font-extrabold flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
-                      title="Export AOP/NPO/COMPANY CLIENT FILES sheet (includes IT, ST & INC)"
+                      title="Export INCOME TAX CLIETS sheet (AI-IT)"
                     >
                       <Download className="w-3.5 h-3.5" />
-                      <span>INC Sheet (IT/ST/INC)</span>
+                      <span>IT Sheet</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleExportExcel('ST')}
+                      disabled={isExportingExcel}
+                      className="px-3 py-1.5 rounded-xl bg-emerald-50 hover:bg-emerald-100 text-[#0A4B35] border border-emerald-300 text-[11px] font-extrabold flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
+                      title="Export SALES TAX CLIENTS sheet (AI-ST)"
+                    >
+                      <Download className="w-3.5 h-3.5" />
+                      <span>ST Sheet</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleExportExcel('INC')}
+                      disabled={isExportingExcel}
+                      className="px-3 py-1.5 rounded-xl bg-amber-50 hover:bg-amber-100 text-[#1A1A1A] border border-amber-300 text-[11px] font-extrabold flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
+                      title="Export AOP/NPO/COMPANY CLIENT FILES sheet (AI-INC)"
+                    >
+                      <Download className="w-3.5 h-3.5" />
+                      <span>INC Sheet</span>
                     </button>
                     <button
                       type="button"
@@ -4085,13 +4250,18 @@ export const AdminPortal: React.FC = () => {
                                   <span className="font-bold text-[#1A1A1A]">Pending Before Court of Law:</span>{' '}
                                   <span className="text-[#0F6B4C] font-bold">{cl.pendingBeforeCourt || 'N/A'}</span>
                                 </div>
+                                {cl.natureOfCase && (
+                                  <div className="col-span-2">
+                                    <span className="font-bold text-[#1A1A1A]">Nature of Case:</span> {cl.natureOfCase}
+                                  </div>
+                                )}
                                 <div>
                                   <span className="font-bold text-[#1A1A1A]">Contact Person:</span> {cl.contactPerson || 'N/A'}
                                 </div>
                                 <div>
                                   <span className="font-bold text-[#1A1A1A]">Mobile No.:</span> {cl.phone || 'N/A'}
                                 </div>
-                                <div className="col-span-2">
+                                <div className="col-span-2 truncate">
                                   <span className="font-bold text-[#1A1A1A]">REFERRAL CONTACT:</span> {cl.referralContact || 'N/A'}
                                 </div>
                               </div>
@@ -4101,11 +4271,23 @@ export const AdminPortal: React.FC = () => {
                                   <span className="font-bold text-[#1A1A1A]">NTN:</span> <span className="font-mono">{cl.ntn || 'N/A'}</span>
                                 </div>
                                 <div>
-                                  <span className="font-bold text-[#1A1A1A]">CNIC / Login ID:</span> <span className="font-mono">{cl.cnic || 'N/A'}</span>
+                                  <span className="font-bold text-[#1A1A1A]">
+                                    {fileCode === 'IT' ? 'CNIC:' : 'CNIC / Login ID:'}
+                                  </span>{' '}
+                                  <span className="font-mono">{cl.cnic || 'N/A'}</span>
                                 </div>
-                                <div>
-                                  <span className="font-bold text-[#1A1A1A]">Reg./Incorp. No.:</span> <span className="font-mono">{cl.regIncorpNo || 'N/A'}</span>
-                                </div>
+                                {fileCode === 'ST' && (
+                                  <div>
+                                    <span className="font-bold text-[#1A1A1A]">Authority:</span>{' '}
+                                    <span className="font-mono font-bold text-[#0F6B4C]">{cl.authority || 'FBR'}</span>
+                                  </div>
+                                )}
+                                {fileCode === 'INC' && (
+                                  <div>
+                                    <span className="font-bold text-[#1A1A1A]">Reg./Incorp. No.:</span>{' '}
+                                    <span className="font-mono">{cl.regIncorpNo || 'N/A'}</span>
+                                  </div>
+                                )}
                                 <div>
                                   <span className="font-bold text-[#1A1A1A]">RTO/CTO:</span> {cl.rtoCto || cl.city || 'N/A'}
                                 </div>
@@ -4121,7 +4303,17 @@ export const AdminPortal: React.FC = () => {
                                 <div className="truncate">
                                   <span className="font-bold text-[#1A1A1A]">REFERRAL CONTACT:</span> {cl.referralContact || 'N/A'}
                                 </div>
-                                {(secret?.secpPassword || secret?.secpPin) && (
+                                {fileCode === 'IT' && secret?.irisPassword && (
+                                  <div className="col-span-2 text-[10px] text-[#0F6B4C] font-mono bg-emerald-50/70 px-2.5 py-1 rounded-xl border border-emerald-200/60">
+                                    <span><strong>IRIS PW:</strong> {secret.irisPassword}</span>
+                                  </div>
+                                )}
+                                {fileCode === 'ST' && secret?.fbrPstPassword && (
+                                  <div className="col-span-2 text-[10px] text-[#0F6B4C] font-mono bg-emerald-50/70 px-2.5 py-1 rounded-xl border border-emerald-200/60">
+                                    <span><strong>FBR/PST PW:</strong> {secret.fbrPstPassword}</span>
+                                  </div>
+                                )}
+                                {fileCode === 'INC' && (secret?.secpPassword || secret?.secpPin) && (
                                   <div className="col-span-2 text-[10px] text-[#0F6B4C] font-mono bg-emerald-50/70 px-2.5 py-1 rounded-xl border border-emerald-200/60 flex flex-wrap gap-3">
                                     <span><strong>SECP Pass:</strong> {secret.secpPassword || '—'}</span>
                                     <span><strong>SECP PIN:</strong> {secret.secpPin || '—'}</span>
@@ -4153,7 +4345,18 @@ export const AdminPortal: React.FC = () => {
                               <span>{linkedCases.length} Linked Cases →</span>
                             </button>
 
-                            <div className="flex items-center gap-2">
+                            <div className="flex flex-wrap items-center gap-1.5">
+                              <button
+                                type="button"
+                                disabled={isGeneratingCoverPdf}
+                                onClick={() => void handleDownloadCoverPage(cl)}
+                                className="px-3 py-1.5 rounded-xl bg-amber-50 hover:bg-amber-100 border border-amber-300 text-[#1A1A1A] text-xs font-extrabold flex items-center gap-1 cursor-pointer disabled:opacity-50"
+                                title="Download A4 Printable File Cover Page PDF"
+                              >
+                                <Download className="w-3.5 h-3.5 text-[#0A4B35]" />
+                                <span>Cover PDF</span>
+                              </button>
+
                               <button
                                 type="button"
                                 onClick={() => handleStartEditClient(cl)}
@@ -7220,16 +7423,20 @@ export const AdminPortal: React.FC = () => {
         </div>
       )}
 
-      {/* MODAL 2: NEW CLIENT (SHEET-MATCHED REGISTER) */}
+      {/* MODAL 2: NEW CLIENT (4 SEPARATE SHEET-MATCHED FORMS + A4 COVER PAGE) */}
       {showAddClientModal && (
         <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
           <div className="bg-white rounded-3xl max-w-2xl w-full p-6 border border-[#0F6B4C]/20 shadow-2xl max-h-[92vh] overflow-y-auto">
             <div className="flex justify-between items-center mb-4 border-b pb-3">
               <div>
                 <span className="text-[10px] font-extrabold text-[#F5A623] uppercase tracking-wider block">
-                  {newClientData.fileCategoryCode === 'CF'
-                    ? 'COURT CASES FILES Sheet Register'
-                    : 'AOP/NPO/COMPANY CLIENT FILES Sheet Register'}
+                  {newClientData.fileCategoryCode === 'IT'
+                    ? 'INCOME TAX CLIETS Sheet Register'
+                    : newClientData.fileCategoryCode === 'ST'
+                    ? 'SALES TAX CLIENTS Sheet Register'
+                    : newClientData.fileCategoryCode === 'INC'
+                    ? 'AOP/NPO/COMPANY CLIENT FILES Sheet Register'
+                    : 'COURT CASES FILES Sheet Register'}
                 </span>
                 <h3 className="text-lg font-heading font-extrabold text-[#1A1A1A]">
                   Register Client Profile ({newClientData.fileNumber})
@@ -7255,7 +7462,7 @@ export const AdminPortal: React.FC = () => {
               {/* File Category Selector (IT, ST, INC, CF) */}
               <div>
                 <label className="font-bold text-gray-800 block mb-1.5">
-                  File Category / Excel Register <span className="text-red-500">*</span>
+                  File Category / Excel Sheet <span className="text-red-500">*</span>
                 </label>
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
                   {ALL_FILE_CATEGORY_CODES.map((code) => {
@@ -7267,13 +7474,25 @@ export const AdminPortal: React.FC = () => {
                         type="button"
                         onClick={() => {
                           const nextNum = getNextFileNumber(code, clients, cases);
+                          const defaultStatus =
+                            code === 'IT'
+                              ? 'FREELANCER'
+                              : code === 'ST'
+                              ? 'BUS IND'
+                              : code === 'INC'
+                              ? 'COMPANY'
+                              : 'Active';
                           setNewClientData((prev) => ({
                             ...prev,
                             fileCategoryCode: code,
                             fileNumber: nextNum,
                             clientType: getClientTypeFromFileCode(code),
                             category: getDefaultClientCategoryForFileCode(code),
-                            entityStatus: code === 'CF' ? prev.activeClosed : prev.entityStatus || 'COMPANY',
+                            entityStatus: defaultStatus,
+                            authority: code === 'ST' ? prev.authority || 'FBR' : prev.authority,
+                            pendingBeforeCourt:
+                              code === 'CF' ? prev.pendingBeforeCourt || 'Islamabad High Court' : prev.pendingBeforeCourt,
+                            natureOfCase: code === 'CF' ? prev.natureOfCase || 'WRIT PETITION' : prev.natureOfCase,
                           }));
                         }}
                         className={`p-2.5 rounded-xl border text-left transition-all cursor-pointer ${
@@ -7325,10 +7544,16 @@ export const AdminPortal: React.FC = () => {
                 </div>
 
                 <div>
-                  <label className="font-bold text-gray-700 block mb-1">Separation Group</label>
-                  <div className="w-full bg-gray-100 p-2.5 rounded-xl border border-gray-200 font-extrabold text-[#0A4B35]">
-                    {getClientTypeFromFileCode(newClientData.fileCategoryCode)}
-                  </div>
+                  <label className="font-bold text-gray-700 block mb-1">Volume No. (Cover)</label>
+                  <input
+                    type="text"
+                    placeholder="VOL-I"
+                    value={newClientData.volumeNo}
+                    onChange={(e) =>
+                      setNewClientData({ ...newClientData, volumeNo: e.target.value.toUpperCase() })
+                    }
+                    className="w-full bg-[#FAFAF7] p-2.5 rounded-xl border border-gray-200 font-mono font-bold"
+                  />
                 </div>
 
                 <div>
@@ -7352,41 +7577,97 @@ export const AdminPortal: React.FC = () => {
                 </div>
               </div>
 
-              {newClientData.fileCategoryCode === 'CF' ? (
+              {/* --- FORM 1: INCOME TAX (IT) --- */}
+              {newClientData.fileCategoryCode === 'IT' && (
                 <>
-                  {/* COURT CASES FILES FIELDS */}
-                  <div>
-                    <label className="font-bold text-gray-700 block mb-1">
-                      Name of Client <span className="text-red-500">*</span>
-                    </label>
-                    <input
-                      type="text"
-                      required
-                      placeholder="e.g. Mehmood Qaiser versus Muhammad Irfan (Appeal)"
-                      value={newClientData.name}
-                      onChange={(e) =>
-                        setNewClientData({
-                          ...newClientData,
-                          name: e.target.value,
-                          businessName: e.target.value,
-                        })
-                      }
-                      className="w-full bg-[#FAFAF7] p-2.5 rounded-xl border border-gray-200 font-bold"
-                    />
-                  </div>
-
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                    <div>
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                    <div className="sm:col-span-2">
                       <label className="font-bold text-gray-700 block mb-1">
-                        Pending Before Court of Law <span className="text-red-500">*</span>
+                        Name of Business/Individual <span className="text-red-500">*</span>
                       </label>
                       <input
                         type="text"
                         required
-                        placeholder="e.g. Islamabad High Court"
-                        value={newClientData.pendingBeforeCourt}
+                        placeholder="e.g. RAJA KALEEM ULLAH"
+                        value={newClientData.name}
                         onChange={(e) =>
-                          setNewClientData({ ...newClientData, pendingBeforeCourt: e.target.value })
+                          setNewClientData({
+                            ...newClientData,
+                            name: e.target.value,
+                            businessName: e.target.value,
+                          })
+                        }
+                        className="w-full bg-[#FAFAF7] p-2.5 rounded-xl border border-gray-200 font-bold"
+                      />
+                    </div>
+                    <div>
+                      <label className="font-bold text-gray-700 block mb-1">Status</label>
+                      <select
+                        value={newClientData.entityStatus}
+                        onChange={(e) =>
+                          setNewClientData({ ...newClientData, entityStatus: e.target.value })
+                        }
+                        className="w-full bg-[#FAFAF7] p-2.5 rounded-xl border border-gray-200 font-bold"
+                      >
+                        <option value="FREELANCER">FREELANCER</option>
+                        <option value="BUS IND">BUS IND</option>
+                        <option value="INDIVIDUAL">INDIVIDUAL</option>
+                        <option value="SALARIED">SALARIED</option>
+                        <option value="AOP">AOP</option>
+                        <option value="COMPANY">COMPANY</option>
+                        <option value="NPO">NPO</option>
+                      </select>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                    <div>
+                      <label className="font-bold text-gray-700 block mb-1">CNIC</label>
+                      <input
+                        type="text"
+                        placeholder="37405-8403705-1"
+                        value={newClientData.cnic}
+                        onChange={(e) => setNewClientData({ ...newClientData, cnic: e.target.value })}
+                        className="w-full bg-[#FAFAF7] p-2.5 rounded-xl border border-gray-200 font-mono"
+                      />
+                    </div>
+                    <div>
+                      <label className="font-bold text-gray-700 block mb-1">NTN</label>
+                      <input
+                        type="text"
+                        placeholder="8731496-3"
+                        value={newClientData.ntn}
+                        onChange={(e) => setNewClientData({ ...newClientData, ntn: e.target.value })}
+                        className="w-full bg-[#FAFAF7] p-2.5 rounded-xl border border-gray-200 font-mono"
+                      />
+                    </div>
+                    <div>
+                      <label className="font-bold text-gray-700 block mb-1">IRIS PW</label>
+                      <input
+                        type="text"
+                        placeholder="Stored in staff-only vault"
+                        value={newClientData.irisPassword}
+                        onChange={(e) =>
+                          setNewClientData({ ...newClientData, irisPassword: e.target.value })
+                        }
+                        className="w-full bg-[#FAFAF7] p-2.5 rounded-xl border border-gray-200 font-mono"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                    <div>
+                      <label className="font-bold text-gray-700 block mb-1">RTO/CTO</label>
+                      <input
+                        type="text"
+                        placeholder="RAWALPINDI / RTO ISLAMABAD"
+                        value={newClientData.rtoCto}
+                        onChange={(e) =>
+                          setNewClientData({
+                            ...newClientData,
+                            rtoCto: e.target.value,
+                            city: e.target.value,
+                          })
                         }
                         className="w-full bg-[#FAFAF7] p-2.5 rounded-xl border border-gray-200"
                       />
@@ -7395,7 +7676,148 @@ export const AdminPortal: React.FC = () => {
                       <label className="font-bold text-gray-700 block mb-1">Contact Person</label>
                       <input
                         type="text"
-                        placeholder="e.g. Masood Qaiser"
+                        placeholder="e.g. RAJA KALEEM ULLAH"
+                        value={newClientData.contactPerson}
+                        onChange={(e) =>
+                          setNewClientData({ ...newClientData, contactPerson: e.target.value })
+                        }
+                        className="w-full bg-[#FAFAF7] p-2.5 rounded-xl border border-gray-200"
+                      />
+                    </div>
+                    <div>
+                      <label className="font-bold text-gray-700 block mb-1">REFERRAL CONTACT</label>
+                      <input
+                        type="text"
+                        placeholder="HISK CHAMBERS (H322638)"
+                        value={newClientData.referralContact}
+                        onChange={(e) =>
+                          setNewClientData({ ...newClientData, referralContact: e.target.value })
+                        }
+                        className="w-full bg-[#FAFAF7] p-2.5 rounded-xl border border-gray-200"
+                      />
+                    </div>
+                  </div>
+                </>
+              )}
+
+              {/* --- FORM 2: SALES TAX (ST) --- */}
+              {newClientData.fileCategoryCode === 'ST' && (
+                <>
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                    <div className="sm:col-span-2">
+                      <label className="font-bold text-gray-700 block mb-1">
+                        Name of Business/Individual <span className="text-red-500">*</span>
+                      </label>
+                      <input
+                        type="text"
+                        required
+                        placeholder="e.g. AAMIR HUSSAIN QURESHI"
+                        value={newClientData.name}
+                        onChange={(e) =>
+                          setNewClientData({
+                            ...newClientData,
+                            name: e.target.value,
+                            businessName: e.target.value,
+                          })
+                        }
+                        className="w-full bg-[#FAFAF7] p-2.5 rounded-xl border border-gray-200 font-bold"
+                      />
+                    </div>
+                    <div>
+                      <label className="font-bold text-gray-700 block mb-1">Status</label>
+                      <select
+                        value={newClientData.entityStatus}
+                        onChange={(e) =>
+                          setNewClientData({ ...newClientData, entityStatus: e.target.value })
+                        }
+                        className="w-full bg-[#FAFAF7] p-2.5 rounded-xl border border-gray-200 font-bold"
+                      >
+                        <option value="BUS IND">BUS IND</option>
+                        <option value="BUSINESS INDIVIDUAL">BUSINESS INDIVIDUAL</option>
+                        <option value="COMPANY">COMPANY</option>
+                        <option value="AOP">AOP</option>
+                        <option value="INDIVIDUAL">INDIVIDUAL</option>
+                        <option value="SME">SME</option>
+                        <option value="FREELANCER">FREELANCER</option>
+                      </select>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                    <div>
+                      <label className="font-bold text-gray-700 block mb-1">
+                        Authority (FBR/PRA/KPRA/SRB/BRA)
+                      </label>
+                      <select
+                        value={newClientData.authority}
+                        onChange={(e) =>
+                          setNewClientData({ ...newClientData, authority: e.target.value })
+                        }
+                        className="w-full bg-[#FAFAF7] p-2.5 rounded-xl border border-gray-200 font-bold text-[#0F6B4C]"
+                      >
+                        <option value="FBR">FBR</option>
+                        <option value="PRA">PRA</option>
+                        <option value="KPRA">KPRA</option>
+                        <option value="SRB">SRB</option>
+                        <option value="BRA">BRA</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label className="font-bold text-gray-700 block mb-1">CNIC / Login ID</label>
+                      <input
+                        type="text"
+                        placeholder="37405-0434410-1"
+                        value={newClientData.cnic}
+                        onChange={(e) => setNewClientData({ ...newClientData, cnic: e.target.value })}
+                        className="w-full bg-[#FAFAF7] p-2.5 rounded-xl border border-gray-200 font-mono"
+                      />
+                    </div>
+                    <div>
+                      <label className="font-bold text-gray-700 block mb-1">NTN</label>
+                      <input
+                        type="text"
+                        placeholder="7841020-4"
+                        value={newClientData.ntn}
+                        onChange={(e) => setNewClientData({ ...newClientData, ntn: e.target.value })}
+                        className="w-full bg-[#FAFAF7] p-2.5 rounded-xl border border-gray-200 font-mono"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                    <div>
+                      <label className="font-bold text-gray-700 block mb-1">FBR/PST PW</label>
+                      <input
+                        type="text"
+                        placeholder="Stored in staff-only vault"
+                        value={newClientData.fbrPstPassword}
+                        onChange={(e) =>
+                          setNewClientData({ ...newClientData, fbrPstPassword: e.target.value })
+                        }
+                        className="w-full bg-[#FAFAF7] p-2.5 rounded-xl border border-gray-200 font-mono"
+                      />
+                    </div>
+                    <div>
+                      <label className="font-bold text-gray-700 block mb-1">RTO/CTO</label>
+                      <input
+                        type="text"
+                        placeholder="ISLAMABAD"
+                        value={newClientData.rtoCto}
+                        onChange={(e) =>
+                          setNewClientData({
+                            ...newClientData,
+                            rtoCto: e.target.value,
+                            city: e.target.value,
+                          })
+                        }
+                        className="w-full bg-[#FAFAF7] p-2.5 rounded-xl border border-gray-200"
+                      />
+                    </div>
+                    <div>
+                      <label className="font-bold text-gray-700 block mb-1">Contact Person</label>
+                      <input
+                        type="text"
+                        placeholder="e.g. AAMIR HUSSAIN QURESHI"
                         value={newClientData.contactPerson}
                         onChange={(e) =>
                           setNewClientData({ ...newClientData, contactPerson: e.target.value })
@@ -7405,72 +7827,24 @@ export const AdminPortal: React.FC = () => {
                     </div>
                   </div>
 
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                    <div>
-                      <label className="font-bold text-gray-700 block mb-1">
-                        Mobile No. (Contacts) <span className="text-red-500">*</span>
-                      </label>
-                      <input
-                        type="text"
-                        required
-                        placeholder="0300 5248310"
-                        value={newClientData.phone}
-                        onChange={(e) => setNewClientData({ ...newClientData, phone: e.target.value })}
-                        className="w-full bg-[#FAFAF7] p-2.5 rounded-xl border border-gray-200"
-                      />
-                    </div>
-                    <div>
-                      <label className="font-bold text-gray-700 block mb-1">REFERRAL CONTACT</label>
-                      <input
-                        type="text"
-                        placeholder="e.g. Zia Ur Rehman - Stano G-11"
-                        value={newClientData.referralContact}
-                        onChange={(e) =>
-                          setNewClientData({ ...newClientData, referralContact: e.target.value })
-                        }
-                        className="w-full bg-[#FAFAF7] p-2.5 rounded-xl border border-gray-200"
-                      />
-                    </div>
+                  <div>
+                    <label className="font-bold text-gray-700 block mb-1">REFERRAL CONTACT</label>
+                    <input
+                      type="text"
+                      placeholder="HAFIZ IRFAN SHABBER / HISK CHAMBERS"
+                      value={newClientData.referralContact}
+                      onChange={(e) =>
+                        setNewClientData({ ...newClientData, referralContact: e.target.value })
+                      }
+                      className="w-full bg-[#FAFAF7] p-2.5 rounded-xl border border-gray-200"
+                    />
                   </div>
-
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                    <div>
-                      <label className="font-bold text-gray-700 block mb-1">
-                        E-mail address (Contacts) <span className="text-red-500">*</span>
-                      </label>
-                      <input
-                        type="email"
-                        required
-                        placeholder="client@example.com"
-                        value={newClientData.email}
-                        onChange={(e) => setNewClientData({ ...newClientData, email: e.target.value })}
-                        className="w-full bg-[#FAFAF7] p-2.5 rounded-xl border border-gray-200"
-                      />
-                    </div>
-                    <div>
-                      <label className="font-bold text-gray-700 block mb-1">
-                        Set Client Portal Password <span className="text-red-500">*</span>
-                      </label>
-                      <input
-                        type="text"
-                        required
-                        minLength={6}
-                        placeholder="Enter portal password (min 6 chars)"
-                        value={newClientData.clientLoginPassword}
-                        onChange={(e) =>
-                          setNewClientData({ ...newClientData, clientLoginPassword: e.target.value })
-                        }
-                        className="w-full bg-[#FAFAF7] p-2.5 rounded-xl border border-gray-200 font-mono"
-                      />
-                    </div>
-                  </div>
-                  <span className="text-[10px] text-gray-500 block">
-                    Client uses their E-mail address &amp; this password to sign in; any future cases attached to this client inherit this login automatically.
-                  </span>
                 </>
-              ) : (
+              )}
+
+              {/* --- FORM 3: INCORPORATION (INC) --- */}
+              {newClientData.fileCategoryCode === 'INC' && (
                 <>
-                  {/* INC / IT / ST SHEET FIELDS */}
                   <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                     <div className="sm:col-span-2">
                       <label className="font-bold text-gray-700 block mb-1">
@@ -7614,59 +7988,271 @@ export const AdminPortal: React.FC = () => {
                       />
                     </div>
                   </div>
+                </>
+              )}
+
+              {/* --- FORM 4: COURT FILES (CF) --- */}
+              {newClientData.fileCategoryCode === 'CF' && (
+                <>
+                  <div>
+                    <label className="font-bold text-gray-700 block mb-1">
+                      Name of Client <span className="text-red-500">*</span>
+                    </label>
+                    <input
+                      type="text"
+                      required
+                      placeholder="e.g. RIZWAN AHMED VS FOP ETC"
+                      value={newClientData.name}
+                      onChange={(e) =>
+                        setNewClientData({
+                          ...newClientData,
+                          name: e.target.value,
+                          businessName: e.target.value,
+                        })
+                      }
+                      className="w-full bg-[#FAFAF7] p-2.5 rounded-xl border border-gray-200 font-bold"
+                    />
+                  </div>
 
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     <div>
                       <label className="font-bold text-gray-700 block mb-1">
-                        E-mail address (Contacts) <span className="text-red-500">*</span>
+                        Pending Before Court of Law <span className="text-red-500">*</span>
                       </label>
                       <input
-                        type="email"
+                        type="text"
                         required
-                        placeholder="muzzafarkhan73@gmail.com"
-                        value={newClientData.email}
-                        onChange={(e) => setNewClientData({ ...newClientData, email: e.target.value })}
+                        placeholder="e.g. ISLAMABAD HIGH COURT"
+                        value={newClientData.pendingBeforeCourt}
+                        onChange={(e) =>
+                          setNewClientData({ ...newClientData, pendingBeforeCourt: e.target.value })
+                        }
                         className="w-full bg-[#FAFAF7] p-2.5 rounded-xl border border-gray-200"
                       />
                     </div>
                     <div>
                       <label className="font-bold text-gray-700 block mb-1">
-                        Mobile No. (Contacts) <span className="text-red-500">*</span>
+                        Nature of Case (Cover Page)
                       </label>
                       <input
                         type="text"
-                        required
-                        placeholder="0341-5181334"
-                        value={newClientData.phone}
-                        onChange={(e) => setNewClientData({ ...newClientData, phone: e.target.value })}
+                        placeholder="e.g. WRIT PETITION / APPEAL"
+                        value={newClientData.natureOfCase}
+                        onChange={(e) =>
+                          setNewClientData({ ...newClientData, natureOfCase: e.target.value })
+                        }
                         className="w-full bg-[#FAFAF7] p-2.5 rounded-xl border border-gray-200"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                    <div>
+                      <label className="font-bold text-gray-700 block mb-1">Contact Person</label>
+                      <input
+                        type="text"
+                        placeholder="e.g. M IRFAN MAJEED"
+                        value={newClientData.contactPerson}
+                        onChange={(e) =>
+                          setNewClientData({ ...newClientData, contactPerson: e.target.value })
+                        }
+                        className="w-full bg-[#FAFAF7] p-2.5 rounded-xl border border-gray-200"
+                      />
+                    </div>
+                    <div>
+                      <label className="font-bold text-gray-700 block mb-1">Station (Cover)</label>
+                      <input
+                        type="text"
+                        placeholder="ISLAMABAD"
+                        value={newClientData.rtoCto}
+                        onChange={(e) =>
+                          setNewClientData({ ...newClientData, rtoCto: e.target.value, city: e.target.value })
+                        }
+                        className="w-full bg-[#FAFAF7] p-2.5 rounded-xl border border-gray-200"
+                      />
+                    </div>
+                    <div>
+                      <label className="font-bold text-gray-700 block mb-1">NTN (Optional)</label>
+                      <input
+                        type="text"
+                        placeholder="-"
+                        value={newClientData.ntn}
+                        onChange={(e) => setNewClientData({ ...newClientData, ntn: e.target.value })}
+                        className="w-full bg-[#FAFAF7] p-2.5 rounded-xl border border-gray-200 font-mono"
                       />
                     </div>
                   </div>
 
                   <div>
-                    <label className="font-bold text-gray-700 block mb-1">
-                      Set Client Portal Password <span className="text-red-500">*</span>
-                    </label>
+                    <label className="font-bold text-gray-700 block mb-1">REFERRAL CONTACT</label>
                     <input
                       type="text"
-                      required
-                      minLength={6}
-                      placeholder="Enter portal password (min 6 chars)"
-                      value={newClientData.clientLoginPassword}
+                      placeholder="e.g. Zia Ur Rehman - Stano G-11"
+                      value={newClientData.referralContact}
                       onChange={(e) =>
-                        setNewClientData({ ...newClientData, clientLoginPassword: e.target.value })
+                        setNewClientData({ ...newClientData, referralContact: e.target.value })
                       }
-                      className="w-full bg-[#FAFAF7] p-2.5 rounded-xl border border-gray-200 font-mono"
+                      className="w-full bg-[#FAFAF7] p-2.5 rounded-xl border border-gray-200"
                     />
-                    <span className="text-[10px] text-gray-500 mt-1 block">
-                      Client uses their E-mail address &amp; this password to sign in (automatically linked to all future cases); SECP credentials stay staff-only and sync to the Excel register.
-                    </span>
                   </div>
                 </>
               )}
 
-              <div className="flex justify-end gap-2 pt-3 border-t">
+              {/* --- MANDATORY CONTACTS & PORTAL LOGIN (SHARED ACROSS ALL 4 FORMS) --- */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="font-bold text-gray-700 block mb-1">
+                    E-mail address (Contacts) <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    type="email"
+                    required
+                    placeholder="client@example.com"
+                    value={newClientData.email}
+                    onChange={(e) => setNewClientData({ ...newClientData, email: e.target.value })}
+                    className="w-full bg-[#FAFAF7] p-2.5 rounded-xl border border-gray-200"
+                  />
+                </div>
+                <div>
+                  <label className="font-bold text-gray-700 block mb-1">
+                    Mobile No. (Contacts) <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    placeholder="0300-5267830"
+                    value={newClientData.phone}
+                    onChange={(e) => setNewClientData({ ...newClientData, phone: e.target.value })}
+                    className="w-full bg-[#FAFAF7] p-2.5 rounded-xl border border-gray-200"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="font-bold text-gray-700 block mb-1">
+                  Set Client Portal Password <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="text"
+                  required
+                  minLength={6}
+                  placeholder="Enter portal password (min 6 chars)"
+                  value={newClientData.clientLoginPassword}
+                  onChange={(e) =>
+                    setNewClientData({ ...newClientData, clientLoginPassword: e.target.value })
+                  }
+                  className="w-full bg-[#FAFAF7] p-2.5 rounded-xl border border-gray-200 font-mono"
+                />
+                <span className="text-[10px] text-gray-500 mt-1 block">
+                  Mandatory: Client uses E-mail &amp; this password to sign in; future cases inherit this login automatically. Portal passwords (IRIS / FBR-PST / SECP) stay staff-only.
+                </span>
+              </div>
+
+              {/* --- A4 COVER PAGE SPECIFIC DETAILS --- */}
+              <div className="bg-[#0A4B35]/5 p-3.5 rounded-2xl border border-[#0F6B4C]/20 space-y-2.5">
+                <div className="flex items-center justify-between">
+                  <span className="font-extrabold text-[#0A4B35] text-xs">
+                    📄 A4 File Cover Page Options
+                  </span>
+                  <span className="text-[10px] text-gray-600 font-semibold">
+                    Auto-fills 100% of the A4 Cover Page PDF
+                  </span>
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
+                  <div>
+                    <label className="font-bold text-gray-700 block mb-1">
+                      To be charged or Complementary
+                    </label>
+                    <select
+                      value={newClientData.chargeType}
+                      onChange={(e) =>
+                        setNewClientData({
+                          ...newClientData,
+                          chargeType: e.target.value as 'CHARGE' | 'COMPLEMENTARY',
+                        })
+                      }
+                      className="w-full bg-white p-2 rounded-xl border border-gray-200 font-bold"
+                    >
+                      <option value="CHARGE">CHARGE</option>
+                      <option value="COMPLEMENTARY">COMPLEMENTARY</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="font-bold text-gray-700 block mb-1">WhatsApp (if different)</label>
+                    <input
+                      type="text"
+                      placeholder="Defaults to Mobile No."
+                      value={newClientData.whatsapp}
+                      onChange={(e) => setNewClientData({ ...newClientData, whatsapp: e.target.value })}
+                      className="w-full bg-white p-2 rounded-xl border border-gray-200"
+                    />
+                  </div>
+                  <div>
+                    <label className="font-bold text-gray-700 block mb-1">
+                      {newClientData.fileCategoryCode === 'IT' ? 'Tax Year (if required)' : 'Land Line No.'}
+                    </label>
+                    {newClientData.fileCategoryCode === 'IT' ? (
+                      <input
+                        type="text"
+                        placeholder="Optional e.g. TY 2026"
+                        value={newClientData.coverSubjectYear}
+                        onChange={(e) =>
+                          setNewClientData({ ...newClientData, coverSubjectYear: e.target.value })
+                        }
+                        className="w-full bg-white p-2 rounded-xl border border-gray-200"
+                      />
+                    ) : (
+                      <input
+                        type="text"
+                        placeholder="Optional landline"
+                        value={newClientData.landline}
+                        onChange={(e) => setNewClientData({ ...newClientData, landline: e.target.value })}
+                        className="w-full bg-white p-2 rounded-xl border border-gray-200"
+                      />
+                    )}
+                  </div>
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
+                  <div>
+                    <label className="font-bold text-gray-700 block mb-1">Contact Person (2)</label>
+                    <input
+                      type="text"
+                      placeholder="Optional"
+                      value={newClientData.contactPerson2}
+                      onChange={(e) =>
+                        setNewClientData({ ...newClientData, contactPerson2: e.target.value })
+                      }
+                      className="w-full bg-white p-2 rounded-xl border border-gray-200"
+                    />
+                  </div>
+                  <div>
+                    <label className="font-bold text-gray-700 block mb-1">WhatsApp (2)</label>
+                    <input
+                      type="text"
+                      placeholder="Optional"
+                      value={newClientData.whatsapp2}
+                      onChange={(e) =>
+                        setNewClientData({ ...newClientData, whatsapp2: e.target.value })
+                      }
+                      className="w-full bg-white p-2 rounded-xl border border-gray-200"
+                    />
+                  </div>
+                  <div>
+                    <label className="font-bold text-gray-700 block mb-1">Email (2)</label>
+                    <input
+                      type="text"
+                      placeholder="Optional"
+                      value={newClientData.email2}
+                      onChange={(e) =>
+                        setNewClientData({ ...newClientData, email2: e.target.value })
+                      }
+                      className="w-full bg-white p-2 rounded-xl border border-gray-200"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              <div className="flex flex-wrap justify-end gap-2 pt-3 border-t">
                 <button
                   type="button"
                   onClick={() => setShowAddClientModal(false)}
@@ -7676,9 +8262,22 @@ export const AdminPortal: React.FC = () => {
                 </button>
                 <button
                   type="submit"
-                  className="px-5 py-2.5 rounded-xl bg-[#0A4B35] hover:bg-[#0F6B4C] text-white font-extrabold shadow-sm cursor-pointer"
+                  onClick={() => {
+                    downloadCoverOnSubmitRef.current = false;
+                  }}
+                  className="px-4 py-2.5 rounded-xl bg-[#0A4B35] hover:bg-[#0F6B4C] text-white font-extrabold shadow-sm cursor-pointer"
                 >
-                  Save Client &amp; Add to Excel Register
+                  Save Client
+                </button>
+                <button
+                  type="submit"
+                  onClick={() => {
+                    downloadCoverOnSubmitRef.current = true;
+                  }}
+                  className="px-5 py-2.5 rounded-xl bg-[#F5A623] hover:bg-[#E09415] text-[#1A1A1A] font-extrabold shadow-sm flex items-center gap-1.5 cursor-pointer"
+                >
+                  <Download className="w-4 h-4" />
+                  <span>Save &amp; Download A4 Cover PDF</span>
                 </button>
               </div>
             </form>
@@ -7716,8 +8315,8 @@ export const AdminPortal: React.FC = () => {
               </div>
             )}
             <form onSubmit={handleSaveClientEdit} className="space-y-3 text-xs">
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                <div>
+              <div className="grid grid-cols-1 sm:grid-cols-4 gap-3">
+                <div className="sm:col-span-2">
                   <label className="font-bold text-gray-700 block mb-1">File Category</label>
                   <select
                     value={editClientForm.fileCategoryCode || 'IT'}
@@ -7787,260 +8386,387 @@ export const AdminPortal: React.FC = () => {
                 </div>
               </div>
 
-              {(editClientForm.fileCategoryCode || inferClientFileCode(editingClient)) === 'CF' ? (
-                <>
-                  <div>
-                    <label className="font-bold text-gray-700 block mb-1">Name of Client</label>
-                    <input
-                      type="text"
-                      required
-                      value={editClientForm.name || ''}
-                      onChange={(e) =>
-                        setEditClientForm({
-                          ...editClientForm,
-                          name: e.target.value,
-                          businessName: e.target.value,
-                        })
-                      }
-                      className="w-full bg-[#FAFAF7] p-2.5 rounded-xl border border-gray-200 font-bold"
-                    />
-                  </div>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                    <div>
-                      <label className="font-bold text-gray-700 block mb-1">Pending Before Court of Law</label>
-                      <input
-                        type="text"
-                        value={editClientForm.pendingBeforeCourt || ''}
-                        onChange={(e) =>
-                          setEditClientForm({ ...editClientForm, pendingBeforeCourt: e.target.value })
-                        }
-                        className="w-full bg-[#FAFAF7] p-2.5 rounded-xl border border-gray-200"
-                      />
-                    </div>
-                    <div>
-                      <label className="font-bold text-gray-700 block mb-1">Contact Person</label>
-                      <input
-                        type="text"
-                        value={editClientForm.contactPerson || ''}
-                        onChange={(e) =>
-                          setEditClientForm({ ...editClientForm, contactPerson: e.target.value })
-                        }
-                        className="w-full bg-[#FAFAF7] p-2.5 rounded-xl border border-gray-200"
-                      />
-                    </div>
-                  </div>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                    <div>
-                      <label className="font-bold text-gray-700 block mb-1">
-                        E-mail address <span className="text-red-500">*</span>
-                      </label>
-                      <input
-                        type="email"
-                        required
-                        value={editClientForm.email || ''}
-                        onChange={(e) => setEditClientForm({ ...editClientForm, email: e.target.value })}
-                        className="w-full bg-[#FAFAF7] p-2.5 rounded-xl border border-gray-200"
-                      />
-                    </div>
-                    <div>
-                      <label className="font-bold text-gray-700 block mb-1">Mobile No.</label>
-                      <input
-                        type="text"
-                        required
-                        value={editClientForm.phone || ''}
-                        onChange={(e) => setEditClientForm({ ...editClientForm, phone: e.target.value })}
-                        className="w-full bg-[#FAFAF7] p-2.5 rounded-xl border border-gray-200"
-                      />
-                    </div>
-                  </div>
-                  <div>
-                    <label className="font-bold text-gray-700 block mb-1">REFERRAL CONTACT</label>
-                    <input
-                      type="text"
-                      value={editClientForm.referralContact || ''}
-                      onChange={(e) =>
-                        setEditClientForm({ ...editClientForm, referralContact: e.target.value })
-                      }
-                      className="w-full bg-[#FAFAF7] p-2.5 rounded-xl border border-gray-200"
-                    />
-                  </div>
-                </>
-              ) : (
-                <>
-                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                    <div className="sm:col-span-2">
-                      <label className="font-bold text-gray-700 block mb-1">Name of Business</label>
-                      <input
-                        type="text"
-                        required
-                        value={editClientForm.name || ''}
-                        onChange={(e) =>
-                          setEditClientForm({
-                            ...editClientForm,
-                            name: e.target.value,
-                            businessName: e.target.value,
-                          })
-                        }
-                        className="w-full bg-[#FAFAF7] p-2.5 rounded-xl border border-gray-200 font-bold"
-                      />
-                    </div>
-                    <div>
-                      <label className="font-bold text-gray-700 block mb-1">Status</label>
-                      <select
-                        value={editClientForm.entityStatus || 'COMPANY'}
-                        onChange={(e) =>
-                          setEditClientForm({ ...editClientForm, entityStatus: e.target.value })
-                        }
-                        className="w-full bg-[#FAFAF7] p-2.5 rounded-xl border border-gray-200 font-bold"
-                      >
-                        <option value="COMPANY">COMPANY</option>
-                        <option value="AOP">AOP</option>
-                        <option value="NPO">NPO</option>
-                        <option value="INDIVIDUAL">INDIVIDUAL</option>
-                        <option value="SMC-PVT">SMC-PVT</option>
-                        <option value="PARTNERSHIP">PARTNERSHIP</option>
-                      </select>
-                    </div>
-                  </div>
+              {(() => {
+                const editCode = (editClientForm.fileCategoryCode || inferClientFileCode(editingClient)) as FileCategoryCode;
+                if (editCode === 'CF') {
+                  return (
+                    <>
+                      <div>
+                        <label className="font-bold text-gray-700 block mb-1">Name of Client</label>
+                        <input
+                          type="text"
+                          required
+                          value={editClientForm.name || ''}
+                          onChange={(e) =>
+                            setEditClientForm({
+                              ...editClientForm,
+                              name: e.target.value,
+                              businessName: e.target.value,
+                            })
+                          }
+                          className="w-full bg-[#FAFAF7] p-2.5 rounded-xl border border-gray-200 font-bold"
+                        />
+                      </div>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        <div>
+                          <label className="font-bold text-gray-700 block mb-1">Pending Before Court of Law</label>
+                          <input
+                            type="text"
+                            value={editClientForm.pendingBeforeCourt || ''}
+                            onChange={(e) =>
+                              setEditClientForm({ ...editClientForm, pendingBeforeCourt: e.target.value })
+                            }
+                            className="w-full bg-[#FAFAF7] p-2.5 rounded-xl border border-gray-200"
+                          />
+                        </div>
+                        <div>
+                          <label className="font-bold text-gray-700 block mb-1">Nature of Case (Cover Page)</label>
+                          <input
+                            type="text"
+                            value={editClientForm.natureOfCase || ''}
+                            onChange={(e) =>
+                              setEditClientForm({ ...editClientForm, natureOfCase: e.target.value })
+                            }
+                            className="w-full bg-[#FAFAF7] p-2.5 rounded-xl border border-gray-200"
+                          />
+                        </div>
+                      </div>
+                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                        <div>
+                          <label className="font-bold text-gray-700 block mb-1">Contact Person</label>
+                          <input
+                            type="text"
+                            value={editClientForm.contactPerson || ''}
+                            onChange={(e) =>
+                              setEditClientForm({ ...editClientForm, contactPerson: e.target.value })
+                            }
+                            className="w-full bg-[#FAFAF7] p-2.5 rounded-xl border border-gray-200"
+                          />
+                        </div>
+                        <div>
+                          <label className="font-bold text-gray-700 block mb-1">Station</label>
+                          <input
+                            type="text"
+                            value={editClientForm.rtoCto || ''}
+                            onChange={(e) =>
+                              setEditClientForm({ ...editClientForm, rtoCto: e.target.value, city: e.target.value })
+                            }
+                            className="w-full bg-[#FAFAF7] p-2.5 rounded-xl border border-gray-200"
+                          />
+                        </div>
+                        <div>
+                          <label className="font-bold text-gray-700 block mb-1">NTN</label>
+                          <input
+                            type="text"
+                            value={editClientForm.ntn || ''}
+                            onChange={(e) => setEditClientForm({ ...editClientForm, ntn: e.target.value })}
+                            className="w-full bg-[#FAFAF7] p-2.5 rounded-xl border border-gray-200 font-mono"
+                          />
+                        </div>
+                      </div>
+                    </>
+                  );
+                }
 
-                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                    <div>
-                      <label className="font-bold text-gray-700 block mb-1">CNIC / Login ID</label>
-                      <input
-                        type="text"
-                        value={editClientForm.cnic || ''}
-                        onChange={(e) => setEditClientForm({ ...editClientForm, cnic: e.target.value })}
-                        className="w-full bg-[#FAFAF7] p-2.5 rounded-xl border border-gray-200 font-mono"
-                      />
+                return (
+                  <>
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                      <div className="sm:col-span-2">
+                        <label className="font-bold text-gray-700 block mb-1">
+                          {editCode === 'INC' ? 'Name of Business' : 'Name of Business/Individual'}
+                        </label>
+                        <input
+                          type="text"
+                          required
+                          value={editClientForm.name || ''}
+                          onChange={(e) =>
+                            setEditClientForm({
+                              ...editClientForm,
+                              name: e.target.value,
+                              businessName: e.target.value,
+                            })
+                          }
+                          className="w-full bg-[#FAFAF7] p-2.5 rounded-xl border border-gray-200 font-bold"
+                        />
+                      </div>
+                      <div>
+                        <label className="font-bold text-gray-700 block mb-1">Status</label>
+                        <select
+                          value={editClientForm.entityStatus || 'COMPANY'}
+                          onChange={(e) =>
+                            setEditClientForm({ ...editClientForm, entityStatus: e.target.value })
+                          }
+                          className="w-full bg-[#FAFAF7] p-2.5 rounded-xl border border-gray-200 font-bold"
+                        >
+                          <option value="FREELANCER">FREELANCER</option>
+                          <option value="BUS IND">BUS IND</option>
+                          <option value="BUSINESS INDIVIDUAL">BUSINESS INDIVIDUAL</option>
+                          <option value="COMPANY">COMPANY</option>
+                          <option value="AOP">AOP</option>
+                          <option value="NPO">NPO</option>
+                          <option value="INDIVIDUAL">INDIVIDUAL</option>
+                          <option value="SALARIED">SALARIED</option>
+                          <option value="SMC-PVT">SMC-PVT</option>
+                          <option value="PARTNERSHIP">PARTNERSHIP</option>
+                        </select>
+                      </div>
                     </div>
-                    <div>
-                      <label className="font-bold text-gray-700 block mb-1">Reg./Incorp. No.</label>
-                      <input
-                        type="text"
-                        value={editClientForm.regIncorpNo || ''}
-                        onChange={(e) =>
-                          setEditClientForm({ ...editClientForm, regIncorpNo: e.target.value })
-                        }
-                        className="w-full bg-[#FAFAF7] p-2.5 rounded-xl border border-gray-200 font-mono"
-                      />
-                    </div>
-                    <div>
-                      <label className="font-bold text-gray-700 block mb-1">NTN</label>
-                      <input
-                        type="text"
-                        value={editClientForm.ntn || ''}
-                        onChange={(e) => setEditClientForm({ ...editClientForm, ntn: e.target.value })}
-                        className="w-full bg-[#FAFAF7] p-2.5 rounded-xl border border-gray-200 font-mono"
-                      />
-                    </div>
-                  </div>
 
-                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                    <div>
-                      <label className="font-bold text-gray-700 block mb-1">SECP Password</label>
-                      <input
-                        type="text"
-                        value={editClientForm.secpPassword || ''}
-                        onChange={(e) =>
-                          setEditClientForm({ ...editClientForm, secpPassword: e.target.value })
-                        }
-                        className="w-full bg-[#FAFAF7] p-2.5 rounded-xl border border-gray-200 font-mono"
-                      />
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                      {editCode === 'ST' && (
+                        <div>
+                          <label className="font-bold text-gray-700 block mb-1">Authority (FBR/PRA/KPRA/SRB/BRA)</label>
+                          <select
+                            value={editClientForm.authority || 'FBR'}
+                            onChange={(e) =>
+                              setEditClientForm({ ...editClientForm, authority: e.target.value })
+                            }
+                            className="w-full bg-[#FAFAF7] p-2.5 rounded-xl border border-gray-200 font-bold text-[#0F6B4C]"
+                          >
+                            <option value="FBR">FBR</option>
+                            <option value="PRA">PRA</option>
+                            <option value="KPRA">KPRA</option>
+                            <option value="SRB">SRB</option>
+                            <option value="BRA">BRA</option>
+                          </select>
+                        </div>
+                      )}
+                      <div>
+                        <label className="font-bold text-gray-700 block mb-1">
+                          {editCode === 'IT' ? 'CNIC' : 'CNIC / Login ID'}
+                        </label>
+                        <input
+                          type="text"
+                          value={editClientForm.cnic || ''}
+                          onChange={(e) => setEditClientForm({ ...editClientForm, cnic: e.target.value })}
+                          className="w-full bg-[#FAFAF7] p-2.5 rounded-xl border border-gray-200 font-mono"
+                        />
+                      </div>
+                      {editCode === 'INC' && (
+                        <div>
+                          <label className="font-bold text-gray-700 block mb-1">Reg./Incorp. No.</label>
+                          <input
+                            type="text"
+                            value={editClientForm.regIncorpNo || ''}
+                            onChange={(e) =>
+                              setEditClientForm({ ...editClientForm, regIncorpNo: e.target.value })
+                            }
+                            className="w-full bg-[#FAFAF7] p-2.5 rounded-xl border border-gray-200 font-mono"
+                          />
+                        </div>
+                      )}
+                      <div>
+                        <label className="font-bold text-gray-700 block mb-1">NTN</label>
+                        <input
+                          type="text"
+                          value={editClientForm.ntn || ''}
+                          onChange={(e) => setEditClientForm({ ...editClientForm, ntn: e.target.value })}
+                          className="w-full bg-[#FAFAF7] p-2.5 rounded-xl border border-gray-200 font-mono"
+                        />
+                      </div>
+                      {editCode === 'IT' && (
+                        <div>
+                          <label className="font-bold text-gray-700 block mb-1">IRIS PW</label>
+                          <input
+                            type="text"
+                            value={editClientForm.irisPassword || ''}
+                            onChange={(e) =>
+                              setEditClientForm({ ...editClientForm, irisPassword: e.target.value })
+                            }
+                            className="w-full bg-[#FAFAF7] p-2.5 rounded-xl border border-gray-200 font-mono"
+                          />
+                        </div>
+                      )}
                     </div>
-                    <div>
-                      <label className="font-bold text-gray-700 block mb-1">SECP PIN</label>
-                      <input
-                        type="text"
-                        value={editClientForm.secpPin || ''}
-                        onChange={(e) =>
-                          setEditClientForm({ ...editClientForm, secpPin: e.target.value })
-                        }
-                        className="w-full bg-[#FAFAF7] p-2.5 rounded-xl border border-gray-200 font-mono"
-                      />
-                    </div>
-                    <div>
-                      <label className="font-bold text-gray-700 block mb-1">RTO/CTO</label>
-                      <input
-                        type="text"
-                        value={editClientForm.rtoCto || ''}
-                        onChange={(e) =>
-                          setEditClientForm({
-                            ...editClientForm,
-                            rtoCto: e.target.value,
-                            city: e.target.value,
-                          })
-                        }
-                        className="w-full bg-[#FAFAF7] p-2.5 rounded-xl border border-gray-200"
-                      />
-                    </div>
-                  </div>
 
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                    <div>
-                      <label className="font-bold text-gray-700 block mb-1">Contact Person</label>
-                      <input
-                        type="text"
-                        value={editClientForm.contactPerson || ''}
-                        onChange={(e) =>
-                          setEditClientForm({ ...editClientForm, contactPerson: e.target.value })
-                        }
-                        className="w-full bg-[#FAFAF7] p-2.5 rounded-xl border border-gray-200"
-                      />
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                      {editCode === 'ST' && (
+                        <div>
+                          <label className="font-bold text-gray-700 block mb-1">FBR/PST PW</label>
+                          <input
+                            type="text"
+                            value={editClientForm.fbrPstPassword || ''}
+                            onChange={(e) =>
+                              setEditClientForm({ ...editClientForm, fbrPstPassword: e.target.value })
+                            }
+                            className="w-full bg-[#FAFAF7] p-2.5 rounded-xl border border-gray-200 font-mono"
+                          />
+                        </div>
+                      )}
+                      {editCode === 'INC' && (
+                        <>
+                          <div>
+                            <label className="font-bold text-gray-700 block mb-1">SECP Password</label>
+                            <input
+                              type="text"
+                              value={editClientForm.secpPassword || ''}
+                              onChange={(e) =>
+                                setEditClientForm({ ...editClientForm, secpPassword: e.target.value })
+                              }
+                              className="w-full bg-[#FAFAF7] p-2.5 rounded-xl border border-gray-200 font-mono"
+                            />
+                          </div>
+                          <div>
+                            <label className="font-bold text-gray-700 block mb-1">SECP PIN</label>
+                            <input
+                              type="text"
+                              value={editClientForm.secpPin || ''}
+                              onChange={(e) =>
+                                setEditClientForm({ ...editClientForm, secpPin: e.target.value })
+                              }
+                              className="w-full bg-[#FAFAF7] p-2.5 rounded-xl border border-gray-200 font-mono"
+                            />
+                          </div>
+                        </>
+                      )}
+                      <div>
+                        <label className="font-bold text-gray-700 block mb-1">RTO/CTO</label>
+                        <input
+                          type="text"
+                          value={editClientForm.rtoCto || ''}
+                          onChange={(e) =>
+                            setEditClientForm({
+                              ...editClientForm,
+                              rtoCto: e.target.value,
+                              city: e.target.value,
+                            })
+                          }
+                          className="w-full bg-[#FAFAF7] p-2.5 rounded-xl border border-gray-200"
+                        />
+                      </div>
+                      <div>
+                        <label className="font-bold text-gray-700 block mb-1">Contact Person</label>
+                        <input
+                          type="text"
+                          value={editClientForm.contactPerson || ''}
+                          onChange={(e) =>
+                            setEditClientForm({ ...editClientForm, contactPerson: e.target.value })
+                          }
+                          className="w-full bg-[#FAFAF7] p-2.5 rounded-xl border border-gray-200"
+                        />
+                      </div>
                     </div>
-                    <div>
-                      <label className="font-bold text-gray-700 block mb-1">REFERRAL CONTACT</label>
-                      <input
-                        type="text"
-                        value={editClientForm.referralContact || ''}
-                        onChange={(e) =>
-                          setEditClientForm({ ...editClientForm, referralContact: e.target.value })
-                        }
-                        className="w-full bg-[#FAFAF7] p-2.5 rounded-xl border border-gray-200"
-                      />
-                    </div>
-                  </div>
+                  </>
+                );
+              })()}
 
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                    <div>
-                      <label className="font-bold text-gray-700 block mb-1">
-                        E-mail address <span className="text-red-500">*</span>
-                      </label>
-                      <input
-                        type="email"
-                        required
-                        value={editClientForm.email || ''}
-                        onChange={(e) => setEditClientForm({ ...editClientForm, email: e.target.value })}
-                        className="w-full bg-[#FAFAF7] p-2.5 rounded-xl border border-gray-200"
-                      />
-                    </div>
-                    <div>
-                      <label className="font-bold text-gray-700 block mb-1">Mobile No.</label>
-                      <input
-                        type="text"
-                        required
-                        value={editClientForm.phone || ''}
-                        onChange={(e) => setEditClientForm({ ...editClientForm, phone: e.target.value })}
-                        className="w-full bg-[#FAFAF7] p-2.5 rounded-xl border border-gray-200"
-                      />
-                    </div>
-                  </div>
-                </>
-              )}
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                <div>
+                  <label className="font-bold text-gray-700 block mb-1">
+                    E-mail address <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    type="email"
+                    required
+                    value={editClientForm.email || ''}
+                    onChange={(e) => setEditClientForm({ ...editClientForm, email: e.target.value })}
+                    className="w-full bg-[#FAFAF7] p-2.5 rounded-xl border border-gray-200"
+                  />
+                </div>
+                <div>
+                  <label className="font-bold text-gray-700 block mb-1">Mobile No.</label>
+                  <input
+                    type="text"
+                    required
+                    value={editClientForm.phone || ''}
+                    onChange={(e) => setEditClientForm({ ...editClientForm, phone: e.target.value })}
+                    className="w-full bg-[#FAFAF7] p-2.5 rounded-xl border border-gray-200"
+                  />
+                </div>
+                <div>
+                  <label className="font-bold text-gray-700 block mb-1">REFERRAL CONTACT</label>
+                  <input
+                    type="text"
+                    value={editClientForm.referralContact || ''}
+                    onChange={(e) =>
+                      setEditClientForm({ ...editClientForm, referralContact: e.target.value })
+                    }
+                    className="w-full bg-[#FAFAF7] p-2.5 rounded-xl border border-gray-200"
+                  />
+                </div>
+              </div>
 
-              <div className="flex justify-end gap-2 pt-3 border-t">
+              {/* Cover Page Details */}
+              <div className="bg-[#0A4B35]/5 p-3 rounded-2xl border border-[#0F6B4C]/20 grid grid-cols-1 sm:grid-cols-4 gap-2.5">
+                <div>
+                  <label className="font-bold text-gray-700 block mb-1">Volume No.</label>
+                  <input
+                    type="text"
+                    value={editClientForm.volumeNo || 'VOL-I'}
+                    onChange={(e) =>
+                      setEditClientForm({ ...editClientForm, volumeNo: e.target.value.toUpperCase() })
+                    }
+                    className="w-full bg-white p-2 rounded-xl border border-gray-200 font-mono font-bold"
+                  />
+                </div>
+                <div>
+                  <label className="font-bold text-gray-700 block mb-1">Charge / Compl.</label>
+                  <select
+                    value={editClientForm.chargeType || 'CHARGE'}
+                    onChange={(e) =>
+                      setEditClientForm({
+                        ...editClientForm,
+                        chargeType: e.target.value as 'CHARGE' | 'COMPLEMENTARY',
+                      })
+                    }
+                    className="w-full bg-white p-2 rounded-xl border border-gray-200 font-bold"
+                  >
+                    <option value="CHARGE">CHARGE</option>
+                    <option value="COMPLEMENTARY">COMPLEMENTARY</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="font-bold text-gray-700 block mb-1">WhatsApp</label>
+                  <input
+                    type="text"
+                    value={editClientForm.whatsapp || ''}
+                    onChange={(e) => setEditClientForm({ ...editClientForm, whatsapp: e.target.value })}
+                    className="w-full bg-white p-2 rounded-xl border border-gray-200"
+                  />
+                </div>
+                <div>
+                  <label className="font-bold text-gray-700 block mb-1">Contact Person (2)</label>
+                  <input
+                    type="text"
+                    value={editClientForm.contactPerson2 || ''}
+                    onChange={(e) =>
+                      setEditClientForm({ ...editClientForm, contactPerson2: e.target.value })
+                    }
+                    className="w-full bg-white p-2 rounded-xl border border-gray-200"
+                  />
+                </div>
+              </div>
+
+              <div className="flex flex-wrap justify-between items-center gap-2 pt-3 border-t">
                 <button
                   type="button"
-                  onClick={() => setEditingClient(null)}
-                  className="px-4 py-2 rounded-xl border text-gray-600 font-bold cursor-pointer"
+                  disabled={isGeneratingCoverPdf}
+                  onClick={() =>
+                    void handleDownloadCoverPage({
+                      ...editingClient,
+                      ...editClientForm,
+                    })
+                  }
+                  className="px-4 py-2 rounded-xl bg-amber-50 hover:bg-amber-100 border border-amber-300 text-[#1A1A1A] font-extrabold flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
                 >
-                  Cancel
+                  <Download className="w-3.5 h-3.5 text-[#0A4B35]" />
+                  <span>{isGeneratingCoverPdf ? 'Generating...' : 'Download A4 Cover PDF'}</span>
                 </button>
-                <button
-                  type="submit"
-                  className="px-5 py-2 rounded-xl bg-[#0A4B35] text-white font-extrabold shadow-sm cursor-pointer"
-                >
-                  Update Client
-                </button>
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setEditingClient(null)}
+                    className="px-4 py-2 rounded-xl border text-gray-600 font-bold cursor-pointer"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    className="px-5 py-2 rounded-xl bg-[#0A4B35] text-white font-extrabold shadow-sm cursor-pointer"
+                  >
+                    Update Client
+                  </button>
+                </div>
               </div>
             </form>
           </div>

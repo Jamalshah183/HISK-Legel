@@ -62,8 +62,10 @@ export type CaseCategory =
 
 export interface ClientVaultSecret {
   clientId: string;
-  secpPassword?: string;
-  secpPin?: string;
+  irisPassword?: string; // Income Tax IRIS PW
+  fbrPstPassword?: string; // Sales Tax FBR/PST PW
+  secpPassword?: string; // Incorporation SECP Password
+  secpPin?: string; // Incorporation SECP PIN
   updatedAt?: string;
 }
 
@@ -71,19 +73,30 @@ export interface Client {
   id: string;
   fileNumber?: string; // e.g., AI-IT-001, AI-ST-001, AI-INC-001, AI-CF-001
   fileCategoryCode?: FileCategoryCode; // 'IT' | 'ST' | 'INC' | 'CF'
-  name: string; // Name of Business (INC/IT/ST) or Name of Client (CF)
+  name: string; // Name of Business/Individual (IT/ST/INC) or Name of Client (CF)
   businessName?: string;
   cnic: string; // CNIC / Login ID
   ntn: string;
   clientType?: ClientType;
   category: ClientCategory;
-  entityStatus?: string; // Sheet column 'Status' e.g. COMPANY, AOP, NPO, INDIVIDUAL
-  activeClosed?: 'Active' | 'Closed'; // Sheet column 'Active/Closed'
-  regIncorpNo?: string; // Reg./Incorp. No.
-  rtoCto?: string; // RTO/CTO
-  contactPerson?: string; // Contact Person
+  entityStatus?: string; // Sheet column 'Status' e.g. FREELANCER, BUS IND, COMPANY, AOP, NPO
+  activeClosed?: 'Active' | 'Closed'; // Sheet column 'Active/Closed' or CF Contacts Status
+  authority?: string; // Sales Tax 'Authority (FBR/PRA/KPRA/SRB/BRA)'
+  regIncorpNo?: string; // INC 'Reg./Incorp. No.'
+  rtoCto?: string; // RTO/CTO / Station
+  contactPerson?: string; // Contact Person (1)
   referralContact?: string; // REFERRAL CONTACT
-  pendingBeforeCourt?: string; // Pending Before Court of Law (for CF)
+  pendingBeforeCourt?: string; // CF 'Pending Before Court of Law'
+  natureOfCase?: string; // Cover Page 'NATURE OF CASE' for CF (e.g. WRIT PETITION, APPEAL)
+  volumeNo?: string; // Cover Page 'Volume No.' e.g. VOL-I
+  coverSubjectYear?: string; // Cover Page 'Year if so required:'
+  propMdCeoName?: string; // Cover Page 'Name of Prop./MD/CEO OR Employer' or 'On behalf of'
+  whatsapp?: string; // Cover Page WhatsApp No.
+  landline?: string; // Cover Page Land Line No.
+  contactPerson2?: string; // Cover Page Contact Person (2)
+  whatsapp2?: string; // Cover Page Contact Person (2) WhatsApp
+  email2?: string; // Cover Page Contact Person (2) Email
+  chargeType?: 'CHARGE' | 'COMPLEMENTARY'; // Cover Page 'To be charged or Complementary:'
   phone: string; // Mobile No.
   email: string; // E-mail address
   city: string;

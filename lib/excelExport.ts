@@ -7,7 +7,7 @@ export interface FileCategoryMeta {
   label: string;
   shortLabel: string;
   clientType: ClientType;
-  sheetKind: 'INC' | 'CF';
+  sheetKind: 'IT' | 'ST' | 'INC' | 'CF';
   description: string;
 }
 
@@ -18,8 +18,8 @@ export const FILE_CATEGORY_CONFIG: Record<FileCategoryCode, FileCategoryMeta> = 
     label: 'Income Tax (AI-IT)',
     shortLabel: 'Income Tax',
     clientType: 'Tax Client',
-    sheetKind: 'INC',
-    description: 'Income Tax compliance, returns, and FBR filings (Exported in INC sheet)',
+    sheetKind: 'IT',
+    description: 'Income Tax compliance, returns, and IRIS filings (INCOME TAX CLIETS sheet)',
   },
   ST: {
     code: 'ST',
@@ -27,8 +27,8 @@ export const FILE_CATEGORY_CONFIG: Record<FileCategoryCode, FileCategoryMeta> = 
     label: 'Sales Tax (AI-ST)',
     shortLabel: 'Sales Tax',
     clientType: 'Tax Client',
-    sheetKind: 'INC',
-    description: 'Sales Tax registration, monthly returns, and STRN matters (Exported in INC sheet)',
+    sheetKind: 'ST',
+    description: 'Sales Tax registration, monthly returns, FBR/PRA/KPRA/SRB/BRA (SALES TAX CLIENTS sheet)',
   },
   INC: {
     code: 'INC',
@@ -37,7 +37,7 @@ export const FILE_CATEGORY_CONFIG: Record<FileCategoryCode, FileCategoryMeta> = 
     shortLabel: 'Incorporation',
     clientType: 'Other Category',
     sheetKind: 'INC',
-    description: 'AOP, NPO, and SECP Company registrations (Exported in INC sheet)',
+    description: 'AOP, NPO, and SECP Company registrations (AOP/NPO/COMPANY CLIENT FILES sheet)',
   },
   CF: {
     code: 'CF',
@@ -46,7 +46,7 @@ export const FILE_CATEGORY_CONFIG: Record<FileCategoryCode, FileCategoryMeta> = 
     shortLabel: 'Court File',
     clientType: 'Other Category',
     sheetKind: 'CF',
-    description: 'High Court & Civil/Criminal court litigation files (Exported in Court Cases sheet)',
+    description: 'High Court & Civil/Criminal court litigation files (COURT CASES FILES sheet)',
   },
 };
 
@@ -178,6 +178,294 @@ function applyBorderRange(
   }
 }
 
+function getUniqueSortedFileNo(
+  rawFileNo: string | undefined,
+  code: FileCategoryCode,
+  usedSet: Set<string>,
+  counterRef: { value: number }
+): string {
+  let fileNo = rawFileNo?.trim().toUpperCase() || '';
+  if (!fileNo) {
+    while (usedSet.has(`AI-${code}-${String(counterRef.value).padStart(3, '0')}`)) {
+      counterRef.value += 1;
+    }
+    fileNo = `AI-${code}-${String(counterRef.value).padStart(3, '0')}`;
+    usedSet.add(fileNo);
+    counterRef.value += 1;
+  }
+  return fileNo;
+}
+
+// 1. INCOME TAX CLIETS SHEET (12 columns exact match)
+export function buildIncomeTaxSheet(
+  workbook: ExcelJS.Workbook,
+  tabName: string,
+  clients: Client[],
+  secretsMap: Record<string, ClientVaultSecret>
+) {
+  const sheet = workbook.addWorksheet(tabName, {
+    views: [{ state: 'frozen', ySplit: 3 }],
+  });
+
+  sheet.columns = [
+    { key: 'fileNo', width: 13 },
+    { key: 'name', width: 38 },
+    { key: 'activeClosed', width: 12 },
+    { key: 'status', width: 16 },
+    { key: 'cnic', width: 18 },
+    { key: 'ntn', width: 15 },
+    { key: 'irisPw', width: 16 },
+    { key: 'rtoCto', width: 18 },
+    { key: 'contactPerson', width: 24 },
+    { key: 'email', width: 28 },
+    { key: 'mobileNo', width: 16 },
+    { key: 'referralContact', width: 26 },
+  ];
+
+  // Row 1: Title Banner
+  sheet.mergeCells('A1:L1');
+  const titleCell = sheet.getCell('A1');
+  titleCell.value = 'INCOME TAX CLIETS';
+  titleCell.font = { name: 'Arial', size: 16, bold: true, color: { argb: 'FF000000' } };
+  titleCell.alignment = { horizontal: 'center', vertical: 'middle' };
+  sheet.getRow(1).height = 30;
+
+  // Row 2 & Row 3: Exact headers matching IT screenshot
+  sheet.mergeCells('A2:A3');
+  sheet.getCell('A2').value = 'File No.';
+
+  sheet.mergeCells('B2:B3');
+  sheet.getCell('B2').value = 'Name of Business/Individual';
+
+  sheet.mergeCells('C2:C3');
+  sheet.getCell('C2').value = 'Active/\nClosed';
+
+  sheet.mergeCells('D2:D3');
+  sheet.getCell('D2').value = 'Status';
+
+  sheet.mergeCells('E2:E3');
+  sheet.getCell('E2').value = 'CNIC';
+
+  sheet.mergeCells('F2:F3');
+  sheet.getCell('F2').value = 'NTN';
+
+  sheet.mergeCells('G2:G3');
+  sheet.getCell('G2').value = 'IRIS PW';
+
+  sheet.mergeCells('H2:H3');
+  sheet.getCell('H2').value = 'RTO/CTO';
+
+  sheet.mergeCells('I2:I3');
+  sheet.getCell('I2').value = 'Contact Person';
+
+  sheet.mergeCells('J2:K2');
+  sheet.getCell('J2').value = 'Contacts';
+  sheet.getCell('J3').value = 'E-mail address';
+  sheet.getCell('K3').value = 'Mobile No.';
+
+  sheet.mergeCells('L2:L3');
+  sheet.getCell('L2').value = 'REFERRAL CONTACT';
+
+  sheet.getRow(2).height = 20;
+  sheet.getRow(3).height = 20;
+
+  for (let r = 2; r <= 3; r++) {
+    const row = sheet.getRow(r);
+    for (let c = 1; c <= 12; c++) {
+      const cell = row.getCell(c);
+      cell.font = { name: 'Arial', size: 10, bold: true, color: { argb: 'FF000000' } };
+      cell.alignment = { horizontal: 'center', vertical: 'middle', wrapText: true };
+      cell.border = THIN_BLACK_BORDER;
+    }
+  }
+
+  sheet.autoFilter = {
+    from: { row: 2, column: 1 },
+    to: { row: 2, column: 12 },
+  };
+
+  const itClients = sortByFileNumber(clients.filter((cl) => inferClientFileCode(cl) === 'IT'));
+  const usedSet = new Set(
+    itClients.map((c) => c.fileNumber?.trim().toUpperCase()).filter((v): v is string => Boolean(v))
+  );
+  const counterRef = { value: 1 };
+
+  const minRows = Math.max(itClients.length, 10);
+  for (let idx = 0; idx < minRows; idx++) {
+    const rowIndex = 4 + idx;
+    const row = sheet.getRow(rowIndex);
+    row.height = 19;
+
+    if (idx < itClients.length) {
+      const client = itClients[idx];
+      const secret = secretsMap[client.id];
+      const fileNo = getUniqueSortedFileNo(client.fileNumber, 'IT', usedSet, counterRef);
+      const activeClosedVal =
+        client.activeClosed || (client.status === 'Archived' ? 'Closed' : 'Active');
+
+      row.getCell(1).value = fileNo;
+      row.getCell(2).value = client.businessName || client.name || '';
+      row.getCell(3).value = activeClosedVal;
+      row.getCell(4).value = client.entityStatus || 'INDIVIDUAL';
+      row.getCell(5).value = client.cnic || '';
+      row.getCell(6).value = client.ntn || '';
+      row.getCell(7).value = secret?.irisPassword || '';
+      row.getCell(8).value = (client.rtoCto || client.city || '').toUpperCase();
+      row.getCell(9).value = client.contactPerson || '';
+      row.getCell(10).value = client.email || '';
+      row.getCell(11).value = client.phone || '';
+      row.getCell(12).value = client.referralContact || '';
+    }
+
+    for (let c = 1; c <= 12; c++) {
+      const cell = row.getCell(c);
+      cell.font = { name: 'Arial', size: 10, bold: true, color: { argb: 'FF000000' } };
+      cell.alignment = { horizontal: c === 2 ? 'left' : 'center', vertical: 'middle' };
+      cell.border = THIN_BLACK_BORDER;
+    }
+  }
+
+  applyBorderRange(sheet, 2, 3 + minRows, 12);
+  return sheet;
+}
+
+// 2. SALES TAX CLIENTS SHEET (13 columns exact match)
+export function buildSalesTaxSheet(
+  workbook: ExcelJS.Workbook,
+  tabName: string,
+  clients: Client[],
+  secretsMap: Record<string, ClientVaultSecret>
+) {
+  const sheet = workbook.addWorksheet(tabName, {
+    views: [{ state: 'frozen', ySplit: 3 }],
+  });
+
+  sheet.columns = [
+    { key: 'fileNo', width: 13 },
+    { key: 'name', width: 38 },
+    { key: 'activeClosed', width: 12 },
+    { key: 'status', width: 14 },
+    { key: 'authority', width: 26 },
+    { key: 'cnicLoginId', width: 18 },
+    { key: 'ntn', width: 15 },
+    { key: 'fbrPstPw', width: 16 },
+    { key: 'rtoCto', width: 18 },
+    { key: 'contactPerson', width: 24 },
+    { key: 'email', width: 28 },
+    { key: 'mobileNo', width: 16 },
+    { key: 'referralContact', width: 30 },
+  ];
+
+  sheet.mergeCells('A1:M1');
+  const titleCell = sheet.getCell('A1');
+  titleCell.value = 'SALES TAX CLIENTS';
+  titleCell.font = { name: 'Arial', size: 16, bold: true, color: { argb: 'FF000000' } };
+  titleCell.alignment = { horizontal: 'center', vertical: 'middle' };
+  sheet.getRow(1).height = 30;
+
+  sheet.mergeCells('A2:A3');
+  sheet.getCell('A2').value = 'File No.';
+
+  sheet.mergeCells('B2:B3');
+  sheet.getCell('B2').value = 'Name of Business/Individual';
+
+  sheet.mergeCells('C2:C3');
+  sheet.getCell('C2').value = 'Active/\nClosed';
+
+  sheet.mergeCells('D2:D3');
+  sheet.getCell('D2').value = 'Status';
+
+  sheet.mergeCells('E2:E3');
+  sheet.getCell('E2').value = 'Authority (FBR/PRA/KPRA/SRB/BRA)';
+
+  sheet.mergeCells('F2:F3');
+  sheet.getCell('F2').value = 'CNIC / Login ID';
+
+  sheet.mergeCells('G2:G3');
+  sheet.getCell('G2').value = 'NTN';
+
+  sheet.mergeCells('H2:H3');
+  sheet.getCell('H2').value = 'FBR/PST PW';
+
+  sheet.mergeCells('I2:I3');
+  sheet.getCell('I2').value = 'RTO/CTO';
+
+  sheet.mergeCells('J2:J3');
+  sheet.getCell('J2').value = 'Contact Person';
+
+  sheet.mergeCells('K2:L2');
+  sheet.getCell('K2').value = 'Contacts';
+  sheet.getCell('K3').value = 'E-mail address';
+  sheet.getCell('L3').value = 'Mobile No.';
+
+  sheet.mergeCells('M2:M3');
+  sheet.getCell('M2').value = 'REFERRAL CONTACT';
+
+  sheet.getRow(2).height = 20;
+  sheet.getRow(3).height = 20;
+
+  for (let r = 2; r <= 3; r++) {
+    const row = sheet.getRow(r);
+    for (let c = 1; c <= 13; c++) {
+      const cell = row.getCell(c);
+      cell.font = { name: 'Arial', size: 10, bold: true, color: { argb: 'FF000000' } };
+      cell.alignment = { horizontal: 'center', vertical: 'middle', wrapText: true };
+      cell.border = THIN_BLACK_BORDER;
+    }
+  }
+
+  sheet.autoFilter = {
+    from: { row: 2, column: 1 },
+    to: { row: 2, column: 13 },
+  };
+
+  const stClients = sortByFileNumber(clients.filter((cl) => inferClientFileCode(cl) === 'ST'));
+  const usedSet = new Set(
+    stClients.map((c) => c.fileNumber?.trim().toUpperCase()).filter((v): v is string => Boolean(v))
+  );
+  const counterRef = { value: 1 };
+
+  const minRows = Math.max(stClients.length, 10);
+  for (let idx = 0; idx < minRows; idx++) {
+    const rowIndex = 4 + idx;
+    const row = sheet.getRow(rowIndex);
+    row.height = 19;
+
+    if (idx < stClients.length) {
+      const client = stClients[idx];
+      const secret = secretsMap[client.id];
+      const fileNo = getUniqueSortedFileNo(client.fileNumber, 'ST', usedSet, counterRef);
+      const activeClosedVal =
+        client.activeClosed || (client.status === 'Archived' ? 'Closed' : 'Active');
+
+      row.getCell(1).value = fileNo;
+      row.getCell(2).value = client.businessName || client.name || '';
+      row.getCell(3).value = activeClosedVal;
+      row.getCell(4).value = client.entityStatus || 'BUS IND';
+      row.getCell(5).value = (client.authority || 'FBR').toUpperCase();
+      row.getCell(6).value = client.cnic || '';
+      row.getCell(7).value = client.ntn || '';
+      row.getCell(8).value = secret?.fbrPstPassword || '';
+      row.getCell(9).value = (client.rtoCto || client.city || '').toUpperCase();
+      row.getCell(10).value = client.contactPerson || '';
+      row.getCell(11).value = client.email || '';
+      row.getCell(12).value = client.phone || '';
+      row.getCell(13).value = client.referralContact || '';
+    }
+
+    for (let c = 1; c <= 13; c++) {
+      const cell = row.getCell(c);
+      cell.font = { name: 'Arial', size: 10, bold: true, color: { argb: 'FF000000' } };
+      cell.alignment = { horizontal: c === 2 ? 'left' : 'center', vertical: 'middle' };
+      cell.border = THIN_BLACK_BORDER;
+    }
+  }
+
+  applyBorderRange(sheet, 2, 3 + minRows, 13);
+  return sheet;
+}
+
+// 3. AOP/NPO/COMPANY CLIENT FILES SHEET (14 columns exact match)
 export function buildIncFormatSheet(
   workbook: ExcelJS.Workbook,
   tabName: string,
@@ -191,7 +479,6 @@ export function buildIncFormatSheet(
     views: [{ state: 'frozen', ySplit: 3 }],
   });
 
-  // Column widths closely matching the screenshot layout
   sheet.columns = [
     { key: 'fileNo', width: 13 },
     { key: 'businessName', width: 44 },
@@ -209,7 +496,6 @@ export function buildIncFormatSheet(
     { key: 'referralContact', width: 22 },
   ];
 
-  // Row 1: Title Banner
   sheet.mergeCells('A1:N1');
   const titleCell = sheet.getCell('A1');
   titleCell.value = titleBanner;
@@ -217,7 +503,6 @@ export function buildIncFormatSheet(
   titleCell.alignment = { horizontal: 'center', vertical: 'middle' };
   sheet.getRow(1).height = 30;
 
-  // Row 2 & Row 3: Exact headers matching screenshot
   sheet.mergeCells('A2:A3');
   sheet.getCell('A2').value = 'File No.';
 
@@ -272,13 +557,11 @@ export function buildIncFormatSheet(
     }
   }
 
-  // Excel AutoFilter dropdowns on header row 2
   sheet.autoFilter = {
     from: { row: 2, column: 1 },
     to: { row: 2, column: 14 },
   };
 
-  // Populate data rows starting at Row 4
   const sorted = sortByFileNumber(
     rowsData.map((r) => ({ ...r, fileNumber: r.client.fileNumber }))
   );
@@ -288,7 +571,7 @@ export function buildIncFormatSheet(
       .map((r) => r.client.fileNumber?.trim().toUpperCase())
       .filter((v): v is string => Boolean(v))
   );
-  const nextCounterByCode: Record<FileCategoryCode, number> = { IT: 1, ST: 1, INC: 1, CF: 1 };
+  const counterRef = { value: 1 };
 
   const minRows = Math.max(sorted.length, 10);
   for (let idx = 0; idx < minRows; idx++) {
@@ -299,15 +582,7 @@ export function buildIncFormatSheet(
     if (idx < sorted.length) {
       const { client, secret } = sorted[idx];
       const code = inferClientFileCode(client);
-      let fallbackFileNo = client.fileNumber?.trim().toUpperCase() || '';
-      if (!fallbackFileNo) {
-        while (usedIncFileNos.has(`AI-${code}-${String(nextCounterByCode[code]).padStart(3, '0')}`)) {
-          nextCounterByCode[code] += 1;
-        }
-        fallbackFileNo = `AI-${code}-${String(nextCounterByCode[code]).padStart(3, '0')}`;
-        usedIncFileNos.add(fallbackFileNo);
-        nextCounterByCode[code] += 1;
-      }
+      const fallbackFileNo = getUniqueSortedFileNo(client.fileNumber, code, usedIncFileNos, counterRef);
       const activeClosedVal =
         client.activeClosed || (client.status === 'Archived' ? 'Closed' : 'Active');
 
@@ -348,6 +623,7 @@ export function buildIncFormatSheet(
   return sheet;
 }
 
+// 4. COURT CASES FILES SHEET (7 columns exact match)
 export function buildCourtCasesSheet(
   workbook: ExcelJS.Workbook,
   tabName: string,
@@ -368,7 +644,6 @@ export function buildCourtCasesSheet(
     { key: 'referralContact', width: 28 },
   ];
 
-  // Row 1: Title Banner
   sheet.mergeCells('A1:G1');
   const titleCell = sheet.getCell('A1');
   titleCell.value = 'COURT CASES FILES';
@@ -376,7 +651,6 @@ export function buildCourtCasesSheet(
   titleCell.alignment = { horizontal: 'center', vertical: 'middle' };
   sheet.getRow(1).height = 30;
 
-  // Row 2 & Row 3: Exact headers matching Court Cases screenshot
   sheet.mergeCells('A2:A3');
   sheet.getCell('A2').value = 'File No.';
 
@@ -424,7 +698,7 @@ export function buildCourtCasesSheet(
       .map((c) => c.fileNumber?.trim().toUpperCase())
       .filter((v): v is string => Boolean(v))
   );
-  let nextCfCounter = 1;
+  const counterRef = { value: 1 };
 
   const minRows = Math.max(cfClients.length, 10);
   for (let idx = 0; idx < minRows; idx++) {
@@ -435,15 +709,7 @@ export function buildCourtCasesSheet(
     if (idx < cfClients.length) {
       const client = cfClients[idx];
       const linkedCase = cases.find((cs) => cs.clientId === client.id);
-      let fileNo = client.fileNumber?.trim().toUpperCase() || '';
-      if (!fileNo) {
-        while (usedCfFileNos.has(`AI-CF-${String(nextCfCounter).padStart(3, '0')}`)) {
-          nextCfCounter += 1;
-        }
-        fileNo = `AI-CF-${String(nextCfCounter).padStart(3, '0')}`;
-        usedCfFileNos.add(fileNo);
-        nextCfCounter += 1;
-      }
+      const fileNo = getUniqueSortedFileNo(client.fileNumber, 'CF', usedCfFileNos, counterRef);
       const courtName = client.pendingBeforeCourt || linkedCase?.forum || '';
       const activeStatus =
         client.activeClosed || (client.status === 'Archived' ? 'Closed' : 'Active');
@@ -501,16 +767,15 @@ export function buildMasterExcelWorkbook(
   workbook.creator = 'HISK LEGAL Portal';
   workbook.created = new Date();
 
-  const incClients = sortByFileNumber(
-    clients.filter((cl) => {
-      const code = inferClientFileCode(cl);
-      return code === 'IT' || code === 'ST' || code === 'INC';
-    })
-  );
+  buildIncomeTaxSheet(workbook, 'INCOME TAX CLIENTS (IT)', clients, secretsMap);
+  buildSalesTaxSheet(workbook, 'SALES TAX CLIENTS (ST)', clients, secretsMap);
 
+  const incClients = sortByFileNumber(
+    clients.filter((cl) => inferClientFileCode(cl) === 'INC')
+  );
   buildIncFormatSheet(
     workbook,
-    'AOP_NPO_COMPANY (IT-ST-INC)',
+    'AOP_NPO_COMPANY (INC)',
     'AOP/NPO/COMPANY CLIENT FILES',
     incClients.map((client) => ({ client, secret: secretsMap[client.id] }))
   );
@@ -527,14 +792,47 @@ export async function exportMasterExcelWorkbook(
 ) {
   const workbook = buildMasterExcelWorkbook(clients, cases, secretsMap);
   const dateTag = new Date().toISOString().split('T')[0];
-  await triggerExcelDownload(workbook, `HISK_LEGAL_Client_Files_${dateTag}.xlsx`);
+  await triggerExcelDownload(workbook, `HISK_LEGAL_Master_4_Sheets_${dateTag}.xlsx`);
+}
+
+export async function exportIncomeTaxSheetExcel(
+  clients: Client[],
+  secretsMap: Record<string, ClientVaultSecret>
+) {
+  const workbook = new ExcelJS.Workbook();
+  workbook.creator = 'HISK LEGAL Portal';
+  workbook.created = new Date();
+  buildIncomeTaxSheet(workbook, 'INCOME TAX CLIENTS', clients, secretsMap);
+  const dateTag = new Date().toISOString().split('T')[0];
+  await triggerExcelDownload(workbook, `HISK_LEGAL_Income_Tax_IT_${dateTag}.xlsx`);
+}
+
+export async function exportSalesTaxSheetExcel(
+  clients: Client[],
+  secretsMap: Record<string, ClientVaultSecret>
+) {
+  const workbook = new ExcelJS.Workbook();
+  workbook.creator = 'HISK LEGAL Portal';
+  workbook.created = new Date();
+  buildSalesTaxSheet(workbook, 'SALES TAX CLIENTS', clients, secretsMap);
+  const dateTag = new Date().toISOString().split('T')[0];
+  await triggerExcelDownload(workbook, `HISK_LEGAL_Sales_Tax_ST_${dateTag}.xlsx`);
 }
 
 export async function exportIncSheetExcel(
   clients: Client[],
   secretsMap: Record<string, ClientVaultSecret>,
-  filterCode: 'ALL_INC' | 'IT' | 'ST' | 'INC' = 'ALL_INC'
+  filterCode: 'ALL_INC' | 'IT' | 'ST' | 'INC' = 'INC'
 ) {
+  if (filterCode === 'IT') {
+    await exportIncomeTaxSheetExcel(clients, secretsMap);
+    return;
+  }
+  if (filterCode === 'ST') {
+    await exportSalesTaxSheetExcel(clients, secretsMap);
+    return;
+  }
+
   const workbook = new ExcelJS.Workbook();
   workbook.creator = 'HISK LEGAL Portal';
   workbook.created = new Date();
@@ -545,29 +843,19 @@ export async function exportIncSheetExcel(
       if (filterCode === 'ALL_INC') {
         return code === 'IT' || code === 'ST' || code === 'INC';
       }
-      return code === filterCode;
+      return code === 'INC';
     })
   );
 
-  const tabName =
-    filterCode === 'IT'
-      ? 'INCOME TAX (AI-IT)'
-      : filterCode === 'ST'
-      ? 'SALES TAX (AI-ST)'
-      : filterCode === 'INC'
-      ? 'AOP_NPO_COMPANY (AI-INC)'
-      : 'AOP_NPO_COMPANY CLIENT FILES';
-
   buildIncFormatSheet(
     workbook,
-    tabName,
+    'AOP_NPO_COMPANY CLIENT FILES',
     'AOP/NPO/COMPANY CLIENT FILES',
     matching.map((client) => ({ client, secret: secretsMap[client.id] }))
   );
 
   const dateTag = new Date().toISOString().split('T')[0];
-  const suffix = filterCode === 'ALL_INC' ? 'IT_ST_INC' : filterCode;
-  await triggerExcelDownload(workbook, `HISK_LEGAL_${suffix}_Clients_${dateTag}.xlsx`);
+  await triggerExcelDownload(workbook, `HISK_LEGAL_Incorporation_INC_${dateTag}.xlsx`);
 }
 
 export async function exportCourtCasesSheetExcel(

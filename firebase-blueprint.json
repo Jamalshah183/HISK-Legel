@@ -6,7 +6,7 @@
     },
     "clientVaultSecrets": {
       "title": "Client Portal Secrets",
-      "description": "Staff-only isolated client portal credentials such as SECP Password and SECP PIN keyed by clientId"
+      "description": "Staff-only isolated tax and corporate portal credentials (IRIS PW, FBR/PST PW, SECP Password, SECP PIN) keyed by clientId"
     },
     "cases": {
       "title": "Cases",
