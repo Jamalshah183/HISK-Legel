@@ -4179,8 +4179,8 @@ export const AdminPortal: React.FC = () => {
                       <Download className="w-3.5 h-3.5" />
                       <span>
                         {isGeneratingCoverPdf
-                          ? 'Generating A4 PDF...'
-                          : `Download A4 Cover Page (${lastRegisteredClient.fileNumber || 'PDF'})`}
+                          ? 'Generating Officio PDF...'
+                          : `Download Officio Cover Page (${lastRegisteredClient.fileNumber || 'PDF'})`}
                       </span>
                     </button>
                   )}
@@ -4643,7 +4643,7 @@ export const AdminPortal: React.FC = () => {
                                 disabled={isGeneratingCoverPdf}
                                 onClick={() => void handleDownloadCoverPage(cl)}
                                 className="px-3 py-1.5 rounded-xl bg-amber-50 hover:bg-amber-100 border border-amber-300 text-[#1A1A1A] text-xs font-extrabold flex items-center gap-1 cursor-pointer disabled:opacity-50"
-                                title="Download A4 Printable File Cover Page PDF"
+                                title="Download Officio (8.5 x 13 in) Printable File Cover Page PDF"
                               >
                                 <Download className="w-3.5 h-3.5 text-[#0A4B35]" />
                                 <span>Cover PDF</span>
@@ -7840,7 +7840,7 @@ export const AdminPortal: React.FC = () => {
         </div>
       )}
 
-      {/* MODAL 2: NEW CLIENT (4 SEPARATE SHEET-MATCHED FORMS + A4 COVER PAGE) */}
+      {/* MODAL 2: NEW CLIENT (4 SEPARATE SHEET-MATCHED FORMS + OFFICIO 8.5x13 COVER PAGE) */}
       {showAddClientModal && (
         <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
           <div className="bg-white rounded-3xl max-w-2xl w-full p-6 border border-[#0F6B4C]/20 shadow-2xl max-h-[92vh] overflow-y-auto">
@@ -8565,14 +8565,14 @@ export const AdminPortal: React.FC = () => {
                 </span>
               </div>
 
-              {/* --- A4 COVER PAGE SPECIFIC DETAILS --- */}
+              {/* --- OFFICIO (8.5 x 13) COVER PAGE SPECIFIC DETAILS --- */}
               <div className="bg-[#0A4B35]/5 p-3.5 rounded-2xl border border-[#0F6B4C]/20 space-y-2.5">
                 <div className="flex items-center justify-between">
                   <span className="font-extrabold text-[#0A4B35] text-xs">
-                    📄 A4 File Cover Page Options
+                    📄 Officio (8.5 × 13&quot;) File Cover Page Options
                   </span>
                   <span className="text-[10px] text-gray-600 font-semibold">
-                    Auto-fills 100% of the A4 Cover Page PDF
+                    Auto-fills 100% of the Officio (8.5×13) Cover Page PDF
                   </span>
                 </div>
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
@@ -8694,7 +8694,7 @@ export const AdminPortal: React.FC = () => {
                   className="px-5 py-2.5 rounded-xl bg-[#F5A623] hover:bg-[#E09415] text-[#1A1A1A] font-extrabold shadow-sm flex items-center gap-1.5 cursor-pointer"
                 >
                   <Download className="w-4 h-4" />
-                  <span>Save &amp; Download A4 Cover PDF</span>
+                  <span>Save &amp; Download Officio Cover PDF</span>
                 </button>
               </div>
             </form>
@@ -9168,7 +9168,7 @@ export const AdminPortal: React.FC = () => {
                     className="px-4 py-2 rounded-xl bg-amber-50 hover:bg-amber-100 border border-amber-300 text-[#1A1A1A] font-extrabold flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
                   >
                     <Download className="w-3.5 h-3.5 text-[#0A4B35]" />
-                    <span>{isGeneratingCoverPdf ? 'Generating...' : 'Download A4 Cover PDF'}</span>
+                    <span>{isGeneratingCoverPdf ? 'Generating...' : 'Download Officio Cover PDF'}</span>
                   </button>
                   {hasPermission('data_entry') && (
                     <button

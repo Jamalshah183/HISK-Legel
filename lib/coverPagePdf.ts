@@ -91,11 +91,13 @@ export async function generateClientCoverPagePdfDoc(client: Client): Promise<jsP
   const code = inferClientFileCode(client);
   const labels = getCoverLabels(client, code);
 
-  // Exact A4 portrait (210mm x 297mm)
+  // Exact Officio / Folio portrait: 8.5 in x 13 in (215.9mm x 330.2mm)
+  const pageWidth = 215.9;
+  const pageHeight = 330.2;
   const doc = new jsPDF({
     orientation: 'portrait',
     unit: 'mm',
-    format: 'a4',
+    format: [pageWidth, pageHeight],
   });
 
   const [hiskLogo, asifLogo] = await Promise.all([
@@ -103,29 +105,28 @@ export async function generateClientCoverPagePdfDoc(client: Client): Promise<jsP
     loadImageAsDataUrl('/images/logo-secondary-transparent.png'),
   ]);
 
-  const pageWidth = 210;
-  const marginX = 10;
-  const contentW = pageWidth - marginX * 2; // 190mm
+  const marginX = 10.5;
+  const contentW = pageWidth - marginX * 2; // 194.9mm
 
   doc.setTextColor(0, 0, 0);
   doc.setDrawColor(0, 0, 0);
 
   // --- BAND 1: TOP TWO BOXES (VOL-I & FILE NO.) ---
-  const topBoxY = 11;
-  const topBoxH = 22;
-  const volBoxW = 60;
-  const fileBoxW = 78;
-  const fileBoxX = pageWidth - marginX - fileBoxW; // 122mm
+  const topBoxY = 12;
+  const topBoxH = 24;
+  const volBoxW = 62;
+  const fileBoxW = 80;
+  const fileBoxX = pageWidth - marginX - fileBoxW;
 
   doc.setLineWidth(0.65);
   doc.rect(marginX, topBoxY, volBoxW, topBoxH);
   doc.rect(fileBoxX, topBoxY, fileBoxW, topBoxH);
 
   doc.setFont('helvetica', 'bold');
-  doc.setFontSize(28);
-  doc.text(labels.volumeNo, marginX + volBoxW / 2, topBoxY + topBoxH / 2 + 3.2, { align: 'center' });
+  doc.setFontSize(29);
+  doc.text(labels.volumeNo, marginX + volBoxW / 2, topBoxY + topBoxH / 2 + 3.4, { align: 'center' });
 
-  let fileFontSize = 27;
+  let fileFontSize = 28;
   doc.setFontSize(fileFontSize);
   while (doc.getTextWidth(labels.fileNo) > fileBoxW - 6 && fileFontSize > 16) {
     fileFontSize -= 1;
@@ -136,24 +137,24 @@ export async function generateClientCoverPagePdfDoc(client: Client): Promise<jsP
   });
 
   // --- BAND 2: MAIN CENTER COVER FRAME ---
-  const frameY = 37;
-  const frameH = 152; // ends at y = 189mm
+  const frameY = 40.5;
+  const frameH = 172; // ends at y = 212.5mm
   doc.setLineWidth(0.75);
   doc.rect(marginX, frameY, contentW, frameH);
 
   // 2A. Subject & Authority / Court Name Header (right-aligned inside frame)
-  const rightPadX = marginX + contentW - 4; // 196mm
+  const rightPadX = marginX + contentW - 4;
   doc.setFont('helvetica', 'bold');
-  let subjectSize = code === 'INC' ? 31 : 34;
+  let subjectSize = code === 'INC' ? 32 : 35;
   doc.setFontSize(subjectSize);
   while (doc.getTextWidth(labels.subjectTitle) > contentW - 12 && subjectSize > 20) {
     subjectSize -= 1;
     doc.setFontSize(subjectSize);
   }
-  doc.text(labels.subjectTitle, rightPadX, frameY + 16, { align: 'right' });
+  doc.text(labels.subjectTitle, rightPadX, frameY + 17, { align: 'right' });
 
   if (labels.subjectSubtitle) {
-    let subSize = code === 'CF' ? 21 : 24;
+    let subSize = code === 'CF' ? 22 : 25;
     doc.setFontSize(subSize);
     const subLines = doc.splitTextToSize(labels.subjectSubtitle, contentW - 14) as string[];
     while (subLines.length > 2 && subSize > 13) {
@@ -161,18 +162,18 @@ export async function generateClientCoverPagePdfDoc(client: Client): Promise<jsP
       doc.setFontSize(subSize);
     }
     const fittedSubLines = (doc.splitTextToSize(labels.subjectSubtitle, contentW - 14) as string[]).slice(0, 2);
-    doc.text(fittedSubLines, rightPadX, frameY + (fittedSubLines.length > 1 ? 24.5 : 29), {
+    doc.text(fittedSubLines, rightPadX, frameY + (fittedSubLines.length > 1 ? 26.5 : 31.5), {
       align: 'right',
     });
   }
 
   // Divider 1 (below Subject block)
-  const div1Y = 72;
+  const div1Y = 79;
   drawDottedLine(doc, marginX + 1, div1Y, marginX + contentW - 1, div1Y);
 
   // 2B. Hero Name of File (large centered bold) + Type / Nature & Station (right-aligned normal)
   doc.setFont('helvetica', 'bold');
-  let nameSize = 27;
+  let nameSize = 28;
   doc.setFontSize(nameSize);
   let nameLines = doc.splitTextToSize(labels.fileName, contentW - 14) as string[];
   while (nameLines.length > 2 && nameSize > 16) {
@@ -183,39 +184,39 @@ export async function generateClientCoverPagePdfDoc(client: Client): Promise<jsP
   if (nameLines.length > 3) {
     nameLines = nameLines.slice(0, 3);
   }
-  const nameStartY = nameLines.length === 1 ? 97 : nameLines.length === 2 ? 90 : 84;
-  const lineGap = nameSize * 0.42;
+  const nameStartY = nameLines.length === 1 ? 108 : nameLines.length === 2 ? 100 : 93;
+  const lineGap = nameSize * 0.43;
   nameLines.forEach((line, i) => {
     doc.text(line, pageWidth / 2, nameStartY + i * lineGap, { align: 'center' });
   });
 
-  // Sub-lines (Identity/Nature + Station) right-aligned matching screenshots
+  // Sub-lines (Identity/Nature + Station) right-aligned matching templates
   doc.setFont('helvetica', 'normal');
-  doc.setFontSize(19);
+  doc.setFontSize(19.5);
   if (labels.identityOrNature) {
-    let idSize = 19;
+    let idSize = 19.5;
     while (doc.getTextWidth(labels.identityOrNature) > contentW - 12 && idSize > 12) {
-      idSize -= 1;
+      idSize -= 0.5;
       doc.setFontSize(idSize);
     }
-    doc.text(labels.identityOrNature, rightPadX, 126, { align: 'right' });
+    doc.text(labels.identityOrNature, rightPadX, 141, { align: 'right' });
   }
   if (labels.station) {
-    let stSize = 19;
+    let stSize = 19.5;
     doc.setFontSize(stSize);
     while (doc.getTextWidth(labels.station) > contentW - 12 && stSize > 12) {
-      stSize -= 1;
+      stSize -= 0.5;
       doc.setFontSize(stSize);
     }
-    doc.text(labels.station, rightPadX, 141, { align: 'right' });
+    doc.text(labels.station, rightPadX, 157, { align: 'right' });
   }
 
   // Divider 2 (above CNIC / NTN strip)
-  const div2Y = 148;
+  const div2Y = 166;
   drawDottedLine(doc, marginX + 1, div2Y, marginX + contentW - 1, div2Y);
 
   // 2C. CNIC/PP NO & NTN Strip
-  const idRowY = 156.5;
+  const idRowY = 175.5;
   const cleanCnic = (client.cnic || '').trim();
   const cleanNtn = (client.ntn || '').trim();
 
@@ -230,13 +231,13 @@ export async function generateClientCoverPagePdfDoc(client: Client): Promise<jsP
 
   doc.setFont('helvetica', 'bold');
   doc.setFontSize(11.5);
-  doc.text('NTN:', 121, idRowY);
+  doc.text('NTN:', marginX + 114, idRowY);
   doc.setFont('helvetica', 'normal');
   doc.setFontSize(13.5);
-  doc.text(cleanNtn || '-', 135, idRowY);
+  doc.text(cleanNtn || '-', marginX + 128, idRowY);
 
   // Divider 3 (above Contacts grid)
-  const div3Y = 161;
+  const div3Y = 181;
   drawDottedLine(doc, marginX + 1, div3Y, marginX + contentW - 1, div3Y);
 
   // 2D. Two-Row Contacts Grid inside the bottom of the main frame
@@ -259,48 +260,51 @@ export async function generateClientCoverPagePdfDoc(client: Client): Promise<jsP
   const cp2Wa = (client.whatsapp2 || '-').trim();
   const cp2Email = (client.email2 || '-').trim();
 
+  const contactRightLabelX = marginX + 107;
+  const contactRightValX = marginX + 127;
+
   // Contact Row 1
   doc.setFont('helvetica', 'bold');
   doc.setFontSize(8.5);
-  doc.text('Contact Person:', marginX + 3, 166.2);
-  drawFittedContactVal(cp1, marginX + 34, 166.2, 76);
+  doc.text('Contact Person:', marginX + 3, 187);
+  drawFittedContactVal(cp1, marginX + 34, 187, 71);
   if (client.landline?.trim()) {
     doc.setFont('helvetica', 'normal');
     doc.setFontSize(7.5);
-    doc.text(`Landline: ${client.landline.trim()}`, marginX + 34, 171.2);
+    doc.text(`Landline: ${client.landline.trim()}`, marginX + 34, 192.5);
   }
 
   doc.setFont('helvetica', 'bold');
   doc.setFontSize(8.5);
-  doc.text('WhatsApp:', 114, 166.2);
-  drawFittedContactVal(cp1Wa, 134, 166.2, 63);
+  doc.text('WhatsApp:', contactRightLabelX, 187);
+  drawFittedContactVal(cp1Wa, contactRightValX, 187, 65);
   doc.setFontSize(8.5);
-  doc.text('Email:', 114, 171.8);
-  drawFittedContactVal(cp1Email, 134, 171.8, 63);
+  doc.text('Email:', contactRightLabelX, 193);
+  drawFittedContactVal(cp1Email, contactRightValX, 193, 65);
 
   // Divider 4 (between Contact 1 and Contact 2)
-  const div4Y = 175;
+  const div4Y = 196.5;
   drawDottedLine(doc, marginX + 1, div4Y, marginX + contentW - 1, div4Y);
 
   // Contact Row 2
   doc.setFont('helvetica', 'bold');
   doc.setFontSize(8.5);
-  doc.text('Contact Person (2):', marginX + 3, 180.2);
-  drawFittedContactVal(cp2, marginX + 34, 180.2, 76);
+  doc.text('Contact Person (2):', marginX + 3, 202.5);
+  drawFittedContactVal(cp2, marginX + 34, 202.5, 71);
 
   doc.setFontSize(8.5);
-  doc.text('WhatsApp:', 114, 180.2);
-  drawFittedContactVal(cp2Wa, 134, 180.2, 63);
+  doc.text('WhatsApp:', contactRightLabelX, 202.5);
+  drawFittedContactVal(cp2Wa, contactRightValX, 202.5, 65);
   doc.setFontSize(8.5);
-  doc.text('Email:', 114, 185.8);
-  drawFittedContactVal(cp2Email, 134, 185.8, 63);
+  doc.text('Email:', contactRightLabelX, 208.5);
+  drawFittedContactVal(cp2Email, contactRightValX, 208.5, 65);
 
   // --- BAND 3: SPINE CUTOUTS, CHARGE/REFERRAL, DUAL LOGOS & FIRM FOOTER ---
   // Top-left small VOL-I spine box
   const smallVolX = marginX;
-  const smallVolY = 194.5;
-  const smallVolW = 36;
-  const smallVolH = 15.5;
+  const smallVolY = 218.5;
+  const smallVolW = 37;
+  const smallVolH = 16.5;
   doc.setLineWidth(0.55);
   doc.rect(smallVolX, smallVolY, smallVolW, smallVolH);
   doc.setFont('helvetica', 'bold');
@@ -310,30 +314,30 @@ export async function generateClientCoverPagePdfDoc(client: Client): Promise<jsP
   });
 
   // Charge / Complementary & Referred By underlined rows
-  const metaLabelX = 112;
-  const metaValueX = 117;
-  const metaLineEndX = 172;
+  const metaLabelX = marginX + 105;
+  const metaValueX = marginX + 110;
+  const metaLineEndX = marginX + 168;
 
   doc.setFont('helvetica', 'bold');
   doc.setFontSize(9.5);
-  doc.text('To be charged or Complementary:', metaLabelX, 200, { align: 'right' });
-  doc.text(labels.chargeType, metaValueX, 200);
+  doc.text('To be charged or Complementary:', metaLabelX, 224.5, { align: 'right' });
+  doc.text(labels.chargeType, metaValueX, 224.5);
   doc.setLineWidth(0.35);
-  doc.line(metaValueX - 1, 201.3, metaLineEndX, 201.3);
+  doc.line(metaValueX - 1, 225.8, metaLineEndX, 225.8);
 
-  doc.text('Referred By:', metaLabelX, 210, { align: 'right' });
-  doc.text(labels.referredBy, metaValueX, 210);
-  doc.line(metaValueX - 1, 211.3, metaLineEndX, 211.3);
+  doc.text('Referred By:', metaLabelX, 235, { align: 'right' });
+  doc.text(labels.referredBy, metaValueX, 235);
+  doc.line(metaValueX - 1, 236.3, metaLineEndX, 236.3);
 
   // Bottom-left Vertical Rotated File No. Spine Box (90 deg counterclockwise)
   const spineX = marginX;
-  const spineY = 216;
-  const spineW = 36;
-  const spineH = 69; // ends at y = 285mm
+  const spineY = 241.5;
+  const spineW = 37;
+  const spineH = 76; // ends at y = 317.5mm (leaving 12.7mm bottom margin on 330.2mm Officio)
   doc.setLineWidth(0.6);
   doc.rect(spineX, spineY, spineW, spineH);
 
-  let spineFontSize = 26;
+  let spineFontSize = 27;
   doc.setFont('helvetica', 'bold');
   doc.setFontSize(spineFontSize);
   while (doc.getTextWidth(labels.fileNo) > spineH - 8 && spineFontSize > 14) {
@@ -346,50 +350,50 @@ export async function generateClientCoverPagePdfDoc(client: Client): Promise<jsP
   doc.text(labels.fileNo, spineCenterX, spineStartY, { angle: 90 });
 
   // Dual Firm Logos (Side by Side)
-  const logoAreaY = 220;
-  const logoMaxH = 36;
+  const logoAreaY = 246.5;
+  const logoMaxH = 38;
 
   if (hiskLogo) {
     let w = logoMaxH * hiskLogo.aspectRatio;
     let h = logoMaxH;
-    if (w > 56) {
-      w = 56;
+    if (w > 58) {
+      w = 58;
       h = w / hiskLogo.aspectRatio;
     }
     const yOffset = logoAreaY + (logoMaxH - h) / 2;
-    doc.addImage(hiskLogo.dataUrl, 'PNG', 68, yOffset, w, h);
+    doc.addImage(hiskLogo.dataUrl, 'PNG', 70, yOffset, w, h);
   } else {
     doc.setFont('helvetica', 'bold');
     doc.setFontSize(18);
-    doc.text('HISK LEGAL', 94, 240, { align: 'center' });
+    doc.text('HISK LEGAL', 96, 267, { align: 'center' });
   }
 
   if (asifLogo) {
     let w = logoMaxH * asifLogo.aspectRatio;
     let h = logoMaxH;
-    if (w > 54) {
-      w = 54;
+    if (w > 56) {
+      w = 56;
       h = w / asifLogo.aspectRatio;
     }
     const yOffset = logoAreaY + (logoMaxH - h) / 2;
-    doc.addImage(asifLogo.dataUrl, 'PNG', 132, yOffset, w, h);
+    doc.addImage(asifLogo.dataUrl, 'PNG', 135, yOffset, w, h);
   } else {
     doc.setFont('helvetica', 'bold');
     doc.setFontSize(14);
-    doc.text('Asif Farid & Co. LLP', 158, 240, { align: 'center' });
+    doc.text('Asif Farid & Co. LLP', 161, 267, { align: 'center' });
   }
 
   // Office Address & Contact Block centered below logos
-  const footerCenterX = 128;
+  const footerCenterX = 131.5;
   doc.setFont('helvetica', 'bold');
-  doc.setFontSize(9);
-  doc.text('No. 10, 2nd Floor, Awan Plaza, G-8 Markaz, Islamabad', footerCenterX, 265, {
+  doc.setFontSize(9.5);
+  doc.text('No. 10, 2nd Floor, Awan Plaza, G-8 Markaz, Islamabad', footerCenterX, 294.5, {
     align: 'center',
   });
-  doc.text('Cell: 0333-5216978 (Asif), 0314-5113670 (Irfan)', footerCenterX, 270.5, {
+  doc.text('Cell: 0333-5216978 (Asif), 0314-5113670 (Irfan)', footerCenterX, 300.5, {
     align: 'center',
   });
-  doc.text('Tel: 051 6124100; WhatsApp: 051 6214100', footerCenterX, 276, {
+  doc.text('Tel: 051 6124100; WhatsApp: 051 6214100', footerCenterX, 306.5, {
     align: 'center',
   });
 
@@ -408,5 +412,5 @@ export async function downloadClientCoverPagePdf(client: Client) {
     .replace(/[^A-Za-z0-9_-]+/g, '_')
     .replace(/^_+|_+$/g, '')
     .slice(0, 40);
-  doc.save(`${safeFileNo}_${safeName}_Cover_A4.pdf`);
+  doc.save(`${safeFileNo}_${safeName}_Cover_Officio.pdf`);
 }
